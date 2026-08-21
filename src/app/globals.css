@@ -7,6 +7,7 @@
   --text: #0e1116;
   --muted: #6b7280;
   --border: #e6e8ec;
+  --borda: var(--border); /* alias legado: telas ainda não migradas usam --borda */
   --accent: #3b5bdb;
   --accent-weak: #eaeefd;
   --positivo: #12915b;
