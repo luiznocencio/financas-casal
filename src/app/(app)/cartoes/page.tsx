@@ -1,20 +1,40 @@
 import { createServerSupabase } from "@/lib/supabase/server";
 import { limiteDisponivel } from "@/lib/financeiro/derivados";
+import { agruparFaturas } from "@/lib/financeiro/faturas";
 import { Money } from "@/components/ui/Money";
 import { Card } from "@/components/ui/Card";
+import { FaturaBotao } from "@/components/cartoes/FaturaBotao";
+
+const MESES = [
+  "jan", "fev", "mar", "abr", "mai", "jun",
+  "jul", "ago", "set", "out", "nov", "dez",
+];
 
 export default async function CartoesPage() {
   const supabase = await createServerSupabase();
-  const { data: cards } = await supabase.from("cards").select("*").order("nome");
-  const { data: txs } = await supabase
-    .from("transactions").select("card_id, valor_centavos, paga").not("card_id", "is", null);
+  const [cardsRes, txsRes, invoicesRes] = await Promise.all([
+    supabase.from("cards").select("*").order("nome"),
+    supabase.from("transactions")
+      .select("card_id, invoice_id, valor_centavos, paga").not("card_id", "is", null),
+    supabase.from("invoices").select("id, card_id, competencia_ano, competencia_mes, status"),
+  ]);
+  const erro = cardsRes.error ?? txsRes.error ?? invoicesRes.error;
+  if (erro) throw new Error(`Falha ao carregar os cartões: ${erro.message}`);
+  const cards = cardsRes.data ?? [];
+  const txs = txsRes.data ?? [];
+  const invoices = invoicesRes.data ?? [];
 
-  const linhas = (cards ?? []).map((card) => {
-    const emAberto = (txs ?? []).filter((t) => t.card_id === card.id && !t.paga);
+  const linhas = cards.map((card) => {
+    const txsCartao = txs.filter((t) => t.card_id === card.id);
+    const emAberto = txsCartao.filter((t) => !t.paga);
     const disponivel = limiteDisponivel(card.limite_centavos, emAberto);
     const usado = card.limite_centavos - disponivel;
     const pct = card.limite_centavos > 0 ? Math.min(100, (usado / card.limite_centavos) * 100) : 0;
-    return { card, usado, disponivel, pct };
+    const faturas = agruparFaturas(
+      invoices.filter((inv) => inv.card_id === card.id),
+      txsCartao,
+    ).filter((f) => f.totalCentavos > 0);
+    return { card, usado, disponivel, pct, faturas };
   });
 
   return (
@@ -22,7 +42,7 @@ export default async function CartoesPage() {
       <header className="flex flex-col gap-1">
         <h1 className="text-2xl font-semibold text-[var(--text)]">Cartões</h1>
         <p className="text-sm text-[var(--muted)]">
-          Limite usado e disponível em cada cartão, considerando as parcelas em aberto.
+          Limite usado e disponível, e as faturas por mês. Marque uma fatura como paga para liberar o limite.
         </p>
       </header>
 
@@ -34,7 +54,7 @@ export default async function CartoesPage() {
         </Card>
       ) : (
         <div className="flex flex-col gap-3">
-          {linhas.map(({ card, usado, disponivel, pct }) => (
+          {linhas.map(({ card, usado, disponivel, pct, faturas }) => (
             <Card key={card.id}>
               <div className="mb-3 flex items-center justify-between gap-3">
                 <div className="flex flex-col gap-0.5">
@@ -64,6 +84,28 @@ export default async function CartoesPage() {
                   Disponível: <Money centavos={disponivel} />
                 </span>
               </div>
+
+              {faturas.length > 0 && (
+                <div className="mt-4 flex flex-col gap-2 border-t border-[var(--borda)] pt-3">
+                  <span className="text-xs font-medium uppercase tracking-wide text-[var(--muted)]">
+                    Faturas
+                  </span>
+                  {faturas.map((f) => (
+                    <div key={f.id} className="flex items-center justify-between gap-3 text-sm">
+                      <span className="text-[var(--text)]">
+                        {MESES[f.mes - 1]}/{f.ano}
+                        {f.paga && (
+                          <span className="ml-2 text-xs text-[var(--positivo)]">paga</span>
+                        )}
+                      </span>
+                      <span className="flex items-center gap-3">
+                        <Money centavos={f.totalCentavos} />
+                        <FaturaBotao invoiceId={f.id} paga={f.paga} />
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </Card>
           ))}
         </div>
