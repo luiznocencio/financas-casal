@@ -15,7 +15,8 @@ export default async function Lancamentos({
   if (sp.pessoa) q = q.eq("pessoa", sp.pessoa);
   if (sp.card) q = q.eq("card_id", sp.card);
   if (sp.categoria) q = q.eq("categoria_id", sp.categoria);
-  const { data: txs } = await q;
+  const { data: txs, error } = await q;
+  if (error) throw new Error(`Falha ao carregar o extrato: ${error.message}`);
 
   const filtrosAtivos = [
     sp.pessoa ? { chave: "pessoa", rotulo: `Pessoa: ${sp.pessoa}` } : null,

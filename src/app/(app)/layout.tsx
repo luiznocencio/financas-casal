@@ -13,13 +13,18 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const membro = await getMembroAtual();
   if (!membro) redirect("/onboarding");
 
-  const [{ data: cartoes }, { data: contas }, { data: categorias }, { data: membros }] =
-    await Promise.all([
-      supabase.from("cards").select("*").order("nome"),
-      supabase.from("accounts").select("*").order("nome"),
-      supabase.from("categories").select("*").order("nome"),
-      supabase.from("members").select("nome"),
-    ]);
+  const [cardsRes, contasRes, catsRes, membrosRes] = await Promise.all([
+    supabase.from("cards").select("*").order("nome"),
+    supabase.from("accounts").select("*").order("nome"),
+    supabase.from("categories").select("*").order("nome"),
+    supabase.from("members").select("nome"),
+  ]);
+  const erroShell = cardsRes.error ?? contasRes.error ?? catsRes.error ?? membrosRes.error;
+  if (erroShell) throw new Error(`Falha ao carregar dados do app: ${erroShell.message}`);
+  const cartoes = cardsRes.data;
+  const contas = contasRes.data;
+  const categorias = catsRes.data;
+  const membros = membrosRes.data;
 
   return (
     <div style={{ maxWidth: 720, margin: "0 auto", padding: 16, paddingBottom: 96 }}>

@@ -14,12 +14,19 @@ export default async function Dashboard() {
   const agora = new Date();
   const ref = { ano: agora.getFullYear(), mes: agora.getMonth() + 1 };
 
-  const [{ data: contas }, { data: cards }, { data: txs }, { data: cats }] = await Promise.all([
+  const [contasRes, cardsRes, txsRes, catsRes] = await Promise.all([
     supabase.from("accounts").select("*"),
     supabase.from("cards").select("*"),
     supabase.from("transactions").select("*"),
     supabase.from("categories").select("id, nome"),
   ]);
+  // falha de leitura não pode virar "R$ 0" silencioso num app de dinheiro
+  const erro = contasRes.error ?? cardsRes.error ?? txsRes.error ?? catsRes.error;
+  if (erro) throw new Error(`Falha ao carregar o painel: ${erro.message}`);
+  const { data: contas } = contasRes;
+  const { data: cards } = cardsRes;
+  const { data: txs } = txsRes;
+  const { data: cats } = catsRes;
 
   const saldoTotal = (contas ?? []).reduce((s, c) => {
     const mov = (txs ?? []).filter((t) => t.account_id === c.id);
