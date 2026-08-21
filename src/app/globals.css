@@ -18,8 +18,9 @@
   --radius: 14px;
   --radius-sm: 10px;
   --shadow: 0 1px 2px rgba(16,17,22,.05), 0 6px 20px rgba(16,17,22,.05);
-  --font-sans: var(--font-sans, ui-sans-serif, system-ui, sans-serif);
-  --font-mono: var(--font-mono, ui-monospace, monospace);
+  /* --font-sans / --font-mono são injetadas pelo next/font no <html>.
+     NÃO redeclarar aqui (auto-referência vira ciclo e zera a variável).
+     Os fallbacks ficam na própria declaração font-family (body/.mono). */
 }
 @media (prefers-color-scheme: dark) {
   :root {
@@ -42,11 +43,11 @@
 body {
   background: var(--bg);
   color: var(--text);
-  font-family: var(--font-sans);
+  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
 .tabular { font-variant-numeric: tabular-nums; }
-.mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.mono { font-family: var(--font-mono), ui-monospace, "SFMono-Regular", monospace; font-variant-numeric: tabular-nums; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
 @media (prefers-reduced-motion: reduce) {
   * { animation-duration: .001ms !important; transition-duration: .001ms !important; }
