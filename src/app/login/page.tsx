@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
+import { Field } from "@/components/ui/Field";
 import { createBrowserSupabase } from "@/lib/supabase/client";
 
 function mensagemErro(msg: string): string {
@@ -65,55 +66,52 @@ export default function LoginPage() {
   }
 
   return (
-    <main style={{ maxWidth: 360, margin: "80px auto", padding: 16, display: "grid", gap: 16 }}>
-      <h1>Finanças do Casal</h1>
+    <main style={{ maxWidth: 380, margin: "80px auto", padding: 16, display: "grid", gap: 20 }}>
+      <h1 style={{ textAlign: "center", fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: "1.5rem" }}>
+        Finanças do Casal
+      </h1>
 
       <Card>
-        <form onSubmit={enviar} style={{ display: "grid", gap: 10 }}>
-          <label style={{ display: "grid", gap: 4 }}>
-            <span style={{ fontSize: 14, color: "var(--muted)" }}>E-mail</span>
-            <input
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="seu@email.com"
-              style={{ padding: 10, borderRadius: 8, border: "1px solid var(--borda)" }}
-            />
-          </label>
+        <form onSubmit={enviar} style={{ display: "grid", gap: 14 }}>
+          <Field
+            label="E-mail"
+            type="email"
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="seu@email.com"
+          />
 
-          <label style={{ display: "grid", gap: 4 }}>
-            <span style={{ fontSize: 14, color: "var(--muted)" }}>Senha</span>
-            <input
-              type="password"
-              required
-              value={senha}
-              onChange={(e) => setSenha(e.target.value)}
-              placeholder="••••••"
-              style={{ padding: 10, borderRadius: 8, border: "1px solid var(--borda)" }}
-            />
-          </label>
+          <Field
+            label="Senha"
+            type="password"
+            required
+            value={senha}
+            onChange={(e) => setSenha(e.target.value)}
+            placeholder="••••••"
+          />
 
-          {erro && <p style={{ color: "var(--negativo)", margin: 0 }}>{erro}</p>}
-          {aviso && <p style={{ margin: 0 }}>{aviso}</p>}
+          {erro && <p style={{ color: "var(--negativo)", margin: 0, fontSize: "0.875rem" }}>{erro}</p>}
+          {aviso && <p style={{ margin: 0, color: "var(--muted)", fontSize: "0.875rem" }}>{aviso}</p>}
 
-          <Button type="submit" variant="primary" disabled={carregando}>
+          <Button type="submit" variant="primary" tamanho="lg" disabled={carregando} style={{ width: "100%" }}>
             {carregando ? "..." : modo === "entrar" ? "Entrar" : "Criar conta"}
           </Button>
         </form>
       </Card>
 
-      <button
+      <Button
         type="button"
+        variant="quiet"
         onClick={() => {
           setModo(modo === "entrar" ? "criar" : "entrar");
           setErro(null);
           setAviso(null);
         }}
-        style={{ background: "none", border: "none", color: "var(--muted)", cursor: "pointer", textAlign: "center" }}
+        style={{ justifySelf: "center" }}
       >
         {modo === "entrar" ? "Não tem conta? Criar conta" : "Já tem conta? Entrar"}
-      </button>
+      </Button>
     </main>
   );
 }

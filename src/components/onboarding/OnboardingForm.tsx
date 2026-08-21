@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
+import { Field } from "@/components/ui/Field";
 
 export function OnboardingForm({ nomeSugerido }: { nomeSugerido: string }) {
   const router = useRouter();
@@ -58,31 +59,23 @@ export function OnboardingForm({ nomeSugerido }: { nomeSugerido: string }) {
       </div>
 
       <Card>
-        <div style={{ display: "grid", gap: 10 }}>
-          <label style={{ display: "grid", gap: 4 }}>
-            <span style={{ fontSize: 14, color: "var(--muted)" }}>Seu nome</span>
-            <input value={nome} onChange={(e) => setNome(e.target.value)}
-              style={{ padding: 10, borderRadius: 8, border: "1px solid var(--borda)" }} />
-          </label>
+        <div style={{ display: "grid", gap: 14 }}>
+          <Field label="Seu nome" value={nome} onChange={(e) => setNome(e.target.value)} />
 
           {modo === "criar" ? (
-            <label style={{ display: "grid", gap: 4 }}>
-              <span style={{ fontSize: 14, color: "var(--muted)" }}>Nome do lar</span>
-              <input value={nomeLar} onChange={(e) => setNomeLar(e.target.value)}
-                style={{ padding: 10, borderRadius: 8, border: "1px solid var(--borda)" }} />
-            </label>
+            <Field label="Nome do lar" value={nomeLar} onChange={(e) => setNomeLar(e.target.value)} />
           ) : (
-            <label style={{ display: "grid", gap: 4 }}>
-              <span style={{ fontSize: 14, color: "var(--muted)" }}>Código de convite</span>
-              <input value={inviteCode} onChange={(e) => setInviteCode(e.target.value)}
-                placeholder="ex.: 27065952"
-                style={{ padding: 10, borderRadius: 8, border: "1px solid var(--borda)" }} />
-            </label>
+            <Field
+              label="Código de convite"
+              value={inviteCode}
+              onChange={(e) => setInviteCode(e.target.value)}
+              placeholder="ex.: 27065952"
+            />
           )}
 
-          {erro && <p style={{ color: "var(--negativo)", margin: 0 }}>{erro}</p>}
+          {erro && <p style={{ color: "var(--negativo)", margin: 0, fontSize: "0.875rem" }}>{erro}</p>}
 
-          <Button variant="primary" onClick={enviar} disabled={carregando}>
+          <Button variant="primary" onClick={enviar} disabled={carregando} style={{ width: "100%" }}>
             {carregando ? "..." : modo === "criar" ? "Criar lar" : "Entrar no lar"}
           </Button>
         </div>
