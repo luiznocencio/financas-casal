@@ -15,9 +15,10 @@ export function QuickAdd({
   const [carregando, setCarregando] = useState(false);
   const [sugestao, setSugestao] = useState<SugestaoLancamento | null>(null);
   const [modoForm, setModoForm] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
 
   function fechar() {
-    setAberto(false); setTexto(""); setSugestao(null); setModoForm(false);
+    setAberto(false); setTexto(""); setSugestao(null); setModoForm(false); setErro(null);
   }
   function recarregar() { fechar(); router.refresh(); }
 
@@ -38,7 +39,8 @@ export function QuickAdd({
 
   async function confirmar() {
     if (!sugestao) return;
-    await fetch("/api/transactions", {
+    setErro(null);
+    const res = await fetch("/api/transactions", {
       method: "POST",
       body: JSON.stringify({
         tipo: sugestao.tipo, valor_centavos: sugestao.valor_centavos,
@@ -49,6 +51,10 @@ export function QuickAdd({
         origem_ia: true,
       }),
     });
+    if (!res.ok) {
+      setErro("Não foi possível salvar. Tente novamente.");
+      return;
+    }
     recarregar();
   }
 
@@ -92,6 +98,7 @@ export function QuickAdd({
                   {sugestao.card_id ? "Cartão" : "Conta"} · {sugestao.pessoa}
                   {sugestao.total_parcelas > 1 ? ` · ${sugestao.total_parcelas}x` : ""}
                 </p>
+                {erro && <p style={{ color: "var(--negativo)" }}>{erro}</p>}
                 <div style={{ display: "flex", gap: 8 }}>
                   <button onClick={confirmar} style={{ flex: 1, padding: 12, fontWeight: 700 }}>Confirmar</button>
                   <button onClick={() => setModoForm(true)}>Ajustar</button>

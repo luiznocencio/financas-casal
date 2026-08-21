@@ -15,8 +15,10 @@ export function FormularioRapido({
   const [categoriaId, setCategoriaId] = useState<string>("");
   const [pessoa, setPessoa] = useState(membros[0] ?? "conjunto");
   const [parcelas, setParcelas] = useState(1);
+  const [erro, setErro] = useState<string | null>(null);
 
   async function salvar() {
+    setErro(null);
     const [prefixo, id] = origem.split(":");
     const body = {
       tipo, valor_centavos: reaisParaCentavos(valor),
@@ -27,7 +29,11 @@ export function FormularioRapido({
       total_parcelas: prefixo === "card" ? parcelas : 1,
       descricao: null,
     };
-    await fetch("/api/transactions", { method: "POST", body: JSON.stringify(body) });
+    const res = await fetch("/api/transactions", { method: "POST", body: JSON.stringify(body) });
+    if (!res.ok) {
+      setErro("Não foi possível salvar. Tente novamente.");
+      return;
+    }
     onCriado();
   }
 
@@ -56,6 +62,7 @@ export function FormularioRapido({
         <input type="number" min={1} max={24} value={parcelas}
           onChange={(e) => setParcelas(Number(e.target.value))} placeholder="Parcelas" />
       )}
+      {erro && <p style={{ color: "var(--negativo)" }}>{erro}</p>}
       <button onClick={salvar} style={{ padding: 12, fontWeight: 700 }}>Salvar</button>
     </div>
   );

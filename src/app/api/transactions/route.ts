@@ -18,6 +18,11 @@ export async function POST(req: Request) {
     diaFechamento = card.dia_fechamento;
   }
 
+  if (l.account_id) {
+    const { data: conta } = await supabase.from("accounts").select("id").eq("id", l.account_id).maybeSingle();
+    if (!conta) return NextResponse.json({ error: "conta inexistente" }, { status: 400 });
+  }
+
   const linhas = planejarLinhas(l, diaFechamento);
 
   // garante as faturas (invoices) das competências e mapeia competência -> invoice_id
@@ -26,7 +31,7 @@ export async function POST(req: Request) {
     if (!linha.invoiceCompetencia || !l.card_id) continue;
     const chave = `${linha.invoiceCompetencia.ano}-${linha.invoiceCompetencia.mes}`;
     if (invoiceIdPorComp.has(chave)) continue;
-    const { data: inv } = await supabase
+    const { data: inv, error: invoiceError } = await supabase
       .from("invoices")
       .upsert(
         {
@@ -37,7 +42,10 @@ export async function POST(req: Request) {
         { onConflict: "card_id,competencia_ano,competencia_mes" },
       )
       .select("id").single();
-    if (inv) invoiceIdPorComp.set(chave, inv.id);
+    if (invoiceError || !inv) {
+      return NextResponse.json({ error: "falha ao gerar fatura" }, { status: 500 });
+    }
+    invoiceIdPorComp.set(chave, inv.id);
   }
 
   const registros = linhas.map((linha) => {
