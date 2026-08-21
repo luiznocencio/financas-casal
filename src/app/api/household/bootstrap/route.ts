@@ -17,11 +17,13 @@ export async function POST(req: Request) {
 
   let householdId: string;
   if (inviteCode) {
-    // juntar a um household existente
-    const { data: hh, error } = await supabase
-      .from("households").select("id").eq("invite_code", inviteCode).maybeSingle();
-    if (error || !hh) return NextResponse.json({ error: "código inválido" }, { status: 400 });
-    householdId = hh.id;
+    // juntar a um household existente. Não dá para SELECT direto: a policy
+    // household_select filtra por current_household_id(), que é NULL para quem
+    // ainda não é membro. A função security definer acha o lar pelo invite_code.
+    const { data: hhId, error } = await supabase
+      .rpc("household_id_por_invite", { code: inviteCode });
+    if (error || !hhId) return NextResponse.json({ error: "código inválido" }, { status: 400 });
+    householdId = hhId as string;
   } else {
     // criar novo household
     const { data: hh, error } = await supabase
