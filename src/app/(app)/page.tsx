@@ -3,6 +3,8 @@ import { saldoConta, limiteDisponivel } from "@/lib/financeiro/derivados";
 import { resumoDoMes } from "@/lib/financeiro/agregacoes";
 import { Money } from "@/components/ui/Money";
 import { Card } from "@/components/ui/Card";
+import { StatTile } from "@/components/ui/StatTile";
+import { SplitBar } from "@/components/ui/SplitBar";
 
 const MESES = [
   "janeiro", "fevereiro", "março", "abril", "maio", "junho",
@@ -14,19 +16,22 @@ export default async function Dashboard() {
   const agora = new Date();
   const ref = { ano: agora.getFullYear(), mes: agora.getMonth() + 1 };
 
-  const [contasRes, cardsRes, txsRes, catsRes] = await Promise.all([
+  const [contasRes, cardsRes, txsRes, catsRes, membrosRes] = await Promise.all([
     supabase.from("accounts").select("*"),
     supabase.from("cards").select("*"),
     supabase.from("transactions").select("*"),
     supabase.from("categories").select("id, nome"),
+    supabase.from("members").select("nome"),
   ]);
   // falha de leitura não pode virar "R$ 0" silencioso num app de dinheiro
-  const erro = contasRes.error ?? cardsRes.error ?? txsRes.error ?? catsRes.error;
+  const erro = contasRes.error ?? cardsRes.error ?? txsRes.error ?? catsRes.error ?? membrosRes.error;
   if (erro) throw new Error(`Falha ao carregar o painel: ${erro.message}`);
   const { data: contas } = contasRes;
   const { data: cards } = cardsRes;
   const { data: txs } = txsRes;
   const { data: cats } = catsRes;
+  const { data: membrosData } = membrosRes;
+  const membros = (membrosData ?? []).map((m) => m.nome);
 
   const saldoTotal = (contas ?? []).reduce((s, c) => {
     const mov = (txs ?? []).filter((t) => t.account_id === c.id);
@@ -42,87 +47,56 @@ export default async function Dashboard() {
   const nomeCat = (id: string) => (cats ?? []).find((c) => c.id === id)?.nome ?? "Outros";
   const porPessoa = Object.entries(resumo.porPessoa).sort((a, b) => b[1] - a[1]);
   const topCategorias = Object.entries(resumo.porCategoria).sort((a, b) => b[1] - a[1]).slice(0, 5);
-  const maiorPessoa = porPessoa.length ? porPessoa[0][1] : 0;
   const maiorCategoria = topCategorias.length ? topCategorias[0][1] : 0;
 
   const stats = [
-    { label: "Saldo em contas", valor: saldoTotal, sinal: true },
-    { label: "Faturas abertas", valor: comprometido, sinal: false },
-    { label: "Despesas do mês", valor: resumo.totalDespesas, sinal: false },
-    { label: "Receitas do mês", valor: resumo.totalReceitas, sinal: false },
+    { rotulo: "Saldo em contas", valor: saldoTotal, sinal: true },
+    { rotulo: "Faturas abertas", valor: comprometido, sinal: false },
+    { rotulo: "Despesas do mês", valor: resumo.totalDespesas, sinal: false },
+    { rotulo: "Receitas do mês", valor: resumo.totalReceitas, sinal: false },
   ];
 
   return (
     <main className="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-10 sm:px-6">
       <header className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold text-[var(--text)]">Início</h1>
-        <p className="text-sm text-[var(--muted)]">
-          Resumo de {MESES[ref.mes - 1]} de {ref.ano} — saldo, faturas e para onde foi o dinheiro.
-        </p>
+        <h1 className="text-2xl font-bold text-[var(--text)]">{MESES[ref.mes - 1]}</h1>
+        <p className="text-sm text-[var(--muted)]">Visão do casal</p>
       </header>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {stats.map((s) => (
-          <Card key={s.label}>
-            <div className="flex flex-col gap-1.5">
-              <span className="text-xs uppercase tracking-wide text-[var(--muted)]">{s.label}</span>
-              <span className="text-xl font-semibold">
-                <Money centavos={s.valor} sinal={s.sinal} />
-              </span>
-            </div>
-          </Card>
+          <StatTile key={s.rotulo} rotulo={s.rotulo} valorCentavos={s.valor} sinal={s.sinal} />
         ))}
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2">
-        <Card>
-          <h3 className="mb-3 font-medium text-[var(--text)]">Quem gastou</h3>
-          {porPessoa.length === 0 ? (
-            <p className="text-sm text-[var(--muted)]">Nenhuma despesa lançada neste mês ainda.</p>
-          ) : (
-            <div className="flex flex-col gap-3">
-              {porPessoa.map(([pessoa, valor]) => (
-                <div key={pessoa} className="flex flex-col gap-1">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-[var(--text)]">{pessoa}</span>
-                    <Money centavos={valor} />
-                  </div>
-                  <div className="h-1.5 overflow-hidden rounded-full bg-[var(--borda)]">
-                    <div
-                      className="h-full rounded-full bg-[var(--accent)]"
-                      style={{ width: `${maiorPessoa > 0 ? (valor / maiorPessoa) * 100 : 0}%` }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </Card>
+      <Card>
+        <h3 className="mb-3 font-medium text-[var(--text)]">Quem gastou este mês</h3>
+        <SplitBar itens={porPessoa.map(([nome, centavos]) => ({ nome, centavos }))} membros={membros} />
+      </Card>
 
-        <Card>
-          <h3 className="mb-3 font-medium text-[var(--text)]">Top categorias</h3>
-          {topCategorias.length === 0 ? (
-            <p className="text-sm text-[var(--muted)]">Nenhuma categoria com gasto neste mês ainda.</p>
-          ) : (
-            <div className="flex flex-col gap-3">
-              {topCategorias.map(([id, valor]) => (
-                <div key={id} className="flex flex-col gap-1">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-[var(--text)]">{nomeCat(id)}</span>
-                    <Money centavos={valor} />
-                  </div>
-                  <div className="h-1.5 overflow-hidden rounded-full bg-[var(--borda)]">
-                    <div
-                      className="h-full rounded-full bg-[var(--accent)]"
-                      style={{ width: `${maiorCategoria > 0 ? (valor / maiorCategoria) * 100 : 0}%` }}
-                    />
-                  </div>
+      <Card>
+        <h3 className="mb-3 font-medium text-[var(--text)]">Top categorias</h3>
+        {topCategorias.length === 0 ? (
+          <p className="text-sm text-[var(--muted)]">Nenhuma categoria com gasto neste mês ainda.</p>
+        ) : (
+          <div className="flex flex-col gap-3">
+            {topCategorias.map(([id, valor]) => (
+              <div key={id} className="flex flex-col gap-1">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-[var(--text)]">{nomeCat(id)}</span>
+                  <Money centavos={valor} />
                 </div>
-              ))}
-            </div>
-          )}
-        </Card>
-      </div>
+                <div className="h-1.5 overflow-hidden rounded-full bg-[var(--surface-2)]">
+                  <div
+                    className="h-full rounded-full bg-[var(--accent)]"
+                    style={{ width: `${maiorCategoria > 0 ? (valor / maiorCategoria) * 100 : 0}%` }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
     </main>
   );
 }
