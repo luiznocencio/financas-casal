@@ -1,4 +1,5 @@
 import { reaisParaCentavos } from "@/lib/financeiro/dinheiro";
+import { sugerirCategoria } from "./categorizar";
 
 export type ContextoLancamento = {
   cartoes: { id: string; nome: string }[];
@@ -63,11 +64,14 @@ function mapear(obj: Record<string, unknown>, ctx: ContextoLancamento): Sugestao
   const valorReais = typeof obj.valor_reais === "number" ? obj.valor_reais : 0;
   const pessoa = typeof obj.pessoa === "string" && ctx.membros.includes(obj.pessoa)
     ? obj.pessoa : (ctx.membros[0] ?? "conjunto");
+  const descricao = typeof obj.descricao === "string" ? obj.descricao : "";
+  const categoriaId = acharId(obj.categoria, ctx.categorias)
+    ?? sugerirCategoria(descricao, ctx.categorias);
   return {
     tipo: obj.tipo === "receita" ? "receita" : "despesa",
     valor_centavos: reaisParaCentavos(valorReais),
-    descricao: typeof obj.descricao === "string" ? obj.descricao : "",
-    categoria_id: acharId(obj.categoria, ctx.categorias),
+    descricao,
+    categoria_id: categoriaId,
     card_id: cardId,
     account_id: accountId,
     pessoa,
