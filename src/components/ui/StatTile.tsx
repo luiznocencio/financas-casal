@@ -1,0 +1,16 @@
+import { Money } from "./Money";
+
+export function StatTile({
+  rotulo, valorCentavos, sinal = false, hint,
+}: { rotulo: string; valorCentavos: number; sinal?: boolean; hint?: string }) {
+  return (
+    <div style={{
+      background: "var(--surface)", border: "1px solid var(--border)",
+      borderRadius: "var(--radius)", padding: "14px 16px", display: "grid", gap: 4,
+    }}>
+      <span style={{ fontSize: "0.78rem", color: "var(--muted)", letterSpacing: "0.01em" }}>{rotulo}</span>
+      <Money centavos={valorCentavos} sinal={sinal} tamanho="lg" />
+      {hint && <span style={{ fontSize: "0.75rem", color: "var(--muted)" }}>{hint}</span>}
+    </div>
+  );
+}
