@@ -1,9 +1,18 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { createServerSupabase } from "@/lib/supabase/server";
+import { getMembroAtual } from "@/lib/auth/household";
 import { QuickAdd } from "@/components/quick-add/QuickAdd";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createServerSupabase();
+
+  // guardas: sem login -> /login; logado sem lar -> /onboarding
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+  const membro = await getMembroAtual();
+  if (!membro) redirect("/onboarding");
+
   const [{ data: cartoes }, { data: contas }, { data: categorias }, { data: membros }] =
     await Promise.all([
       supabase.from("cards").select("*").order("nome"),

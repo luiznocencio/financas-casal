@@ -10,6 +10,10 @@ export async function POST(req: Request) {
   const l = (await req.json()) as NovoLancamento;
   const supabase = await createServerSupabase();
 
+  // limita parcelas no servidor (evita amplificação: N linhas + N upserts por request)
+  l.total_parcelas = Math.min(72, Math.max(1, Math.floor(Number(l.total_parcelas) || 1)));
+  if (!(l.valor_centavos > 0)) return NextResponse.json({ error: "valor inválido" }, { status: 400 });
+
   // dia de fechamento do cartão (se for cartão)
   let diaFechamento: number | null = null;
   if (l.card_id) {
