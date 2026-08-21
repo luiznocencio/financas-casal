@@ -61,7 +61,7 @@ export function QuickAdd({
   return (
     <>
       <button onClick={() => setAberto(true)} aria-label="Novo lançamento"
-        style={{ position: "fixed", right: 20, bottom: 20, width: 60, height: 60, borderRadius: 30,
+        style={{ position: "fixed", right: 20, bottom: 76, width: 60, height: 60, borderRadius: 30,
           background: "var(--accent)", color: "#fff", fontSize: 30, border: "none", cursor: "pointer" }}>
         +
       </button>

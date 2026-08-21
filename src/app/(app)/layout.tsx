@@ -1,8 +1,8 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { getMembroAtual } from "@/lib/auth/household";
 import { QuickAdd } from "@/components/quick-add/QuickAdd";
+import { TabBar } from "@/components/shell/TabBar";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createServerSupabase();
@@ -27,14 +27,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const membros = membrosRes.data;
 
   return (
-    <div style={{ maxWidth: 720, margin: "0 auto", padding: 16, paddingBottom: 96 }}>
-      <nav style={{ display: "flex", gap: 16, marginBottom: 16 }}>
-        <Link href="/">Início</Link>
-        <Link href="/cartoes">Cartões</Link>
-        <Link href="/contas">Contas</Link>
-        <Link href="/lancamentos">Extrato</Link>
-      </nav>
+    <div style={{ maxWidth: 720, margin: "0 auto", padding: 16, paddingBottom: 84 }}>
       {children}
+      <TabBar />
       <QuickAdd
         cartoes={cartoes ?? []} contas={contas ?? []}
         categorias={categorias ?? []} membros={(membros ?? []).map((m) => m.nome)}
