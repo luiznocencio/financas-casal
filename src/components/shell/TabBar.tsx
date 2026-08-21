@@ -7,6 +7,7 @@ const ITENS = [
   { href: "/cartoes", rotulo: "Cartões" },
   { href: "/contas", rotulo: "Contas" },
   { href: "/lancamentos", rotulo: "Extrato" },
+  { href: "/orcamento", rotulo: "Orçamento" },
 ];
 
 export function TabBar() {
