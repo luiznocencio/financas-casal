@@ -46,7 +46,7 @@ export default async function ContasPage() {
                     {ROTULO_TIPO[conta.tipo] ?? conta.tipo}
                   </span>
                 </div>
-                <Money centavos={saldo} sinal />
+                <Money centavos={saldo} sinal tamanho="lg" />
               </div>
             </Card>
           ))}

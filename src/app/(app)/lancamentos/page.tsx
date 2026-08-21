@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { Money } from "@/components/ui/Money";
 import { Card } from "@/components/ui/Card";
+import { PersonChip } from "@/components/ui/PersonChip";
 
 export default async function Lancamentos({
   searchParams,
@@ -15,8 +16,14 @@ export default async function Lancamentos({
   if (sp.pessoa) q = q.eq("pessoa", sp.pessoa);
   if (sp.card) q = q.eq("card_id", sp.card);
   if (sp.categoria) q = q.eq("categoria_id", sp.categoria);
-  const { data: txs, error } = await q;
-  if (error) throw new Error(`Falha ao carregar o extrato: ${error.message}`);
+  const [txsRes, membrosRes] = await Promise.all([
+    q,
+    supabase.from("members").select("nome"),
+  ]);
+  const { data: txs, error } = txsRes;
+  const erro = error ?? membrosRes.error;
+  if (erro) throw new Error(`Falha ao carregar o extrato: ${erro.message}`);
+  const membros = (membrosRes.data ?? []).map((m) => m.nome);
 
   const filtrosAtivos = [
     sp.pessoa ? { chave: "pessoa", rotulo: `Pessoa: ${sp.pessoa}` } : null,
@@ -38,7 +45,8 @@ export default async function Lancamentos({
           {filtrosAtivos.map((f) => (
             <span
               key={f.chave}
-              className="rounded-full border border-[var(--borda)] bg-[var(--surface)] px-3 py-1 text-xs text-[var(--muted)]"
+              className="rounded-full px-3 py-1 text-xs font-medium"
+              style={{ background: "var(--accent-weak)", color: "var(--accent)" }}
             >
               {f.rotulo}
             </span>
@@ -56,23 +64,28 @@ export default async function Lancamentos({
           </p>
         </Card>
       ) : (
-        <ul className="flex flex-col gap-0">
-          {(txs ?? []).map((t) => (
-            <li
-              key={t.id}
-              className="flex items-center justify-between gap-3 border-b border-[var(--borda)] py-3 last:border-b-0"
-            >
-              <div className="flex flex-col gap-0.5">
-                <span className="text-[var(--text)]">{t.descricao ?? "(sem descrição)"}</span>
-                <span className="text-xs text-[var(--muted)]">
-                  {t.data_compra} · {t.pessoa}
-                  {t.total_parcelas > 1 ? ` · ${t.parcela_n}/${t.total_parcelas}` : ""}
-                </span>
-              </div>
-              <Money centavos={t.tipo === "receita" ? t.valor_centavos : -t.valor_centavos} sinal />
-            </li>
-          ))}
-        </ul>
+        <Card>
+          <ul className="flex flex-col gap-0">
+            {(txs ?? []).map((t) => (
+              <li
+                key={t.id}
+                className="flex items-center justify-between gap-3 border-b border-[var(--border)] py-3 last:border-b-0"
+              >
+                <div className="flex flex-col gap-1">
+                  <span className="text-[var(--text)]">{t.descricao ?? "(sem descrição)"}</span>
+                  <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--muted)]">
+                    <span>{t.data_compra}</span>
+                    <PersonChip nome={t.pessoa} membros={membros} />
+                    {t.total_parcelas > 1 && (
+                      <span>{t.parcela_n}/{t.total_parcelas}</span>
+                    )}
+                  </div>
+                </div>
+                <Money centavos={t.tipo === "receita" ? t.valor_centavos : -t.valor_centavos} sinal />
+              </li>
+            ))}
+          </ul>
+        </Card>
       )}
     </main>
   );
