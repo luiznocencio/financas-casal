@@ -1,12 +1,18 @@
 export function Button({
-  children,
-  variant = "primary",
-  ...props
-}: React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: "primary" | "ghost" }) {
-  const base = { border: "1px solid var(--borda)", borderRadius: "10px", padding: "10px 14px", fontWeight: 600, cursor: "pointer" } as const;
-  const styles =
-    variant === "primary"
-      ? { ...base, background: "var(--accent)", color: "#fff", border: "none" }
-      : { ...base, background: "transparent", color: "var(--text)" };
-  return <button style={styles} {...props}>{children}</button>;
+  children, variant = "primary", tamanho = "md", ...props
+}: React.ButtonHTMLAttributes<HTMLButtonElement> & {
+  variant?: "primary" | "ghost" | "quiet"; tamanho?: "md" | "lg";
+}) {
+  const pad = tamanho === "lg" ? "12px 18px" : "9px 14px";
+  const base: React.CSSProperties = {
+    borderRadius: "var(--radius-sm)", padding: pad, fontWeight: 600,
+    fontSize: tamanho === "lg" ? "1rem" : "0.9rem", cursor: "pointer",
+    transition: "background .15s, border-color .15s, opacity .15s",
+  };
+  const styles: Record<string, React.CSSProperties> = {
+    primary: { ...base, background: "var(--accent)", color: "#fff", border: "1px solid transparent" },
+    ghost: { ...base, background: "transparent", color: "var(--text)", border: "1px solid var(--border)" },
+    quiet: { ...base, background: "transparent", color: "var(--muted)", border: "1px solid transparent" },
+  };
+  return <button style={styles[variant]} {...props}>{children}</button>;
 }
