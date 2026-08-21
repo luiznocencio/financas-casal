@@ -4,7 +4,8 @@ import { useRouter } from "next/navigation";
 import type { Card, Account, Category } from "@/lib/db/tipos";
 import type { SugestaoLancamento } from "@/lib/ai/lancamento";
 import { FormularioRapido } from "./FormularioRapido";
-import { centavosParaReais } from "@/lib/financeiro/dinheiro";
+import { Button } from "@/components/ui/Button";
+import { Money } from "@/components/ui/Money";
 
 export function QuickAdd({
   cartoes, contas, categorias, membros,
@@ -61,16 +62,23 @@ export function QuickAdd({
   return (
     <>
       <button onClick={() => setAberto(true)} aria-label="Novo lançamento"
-        style={{ position: "fixed", right: 20, bottom: 76, width: 60, height: 60, borderRadius: 30,
-          background: "var(--accent)", color: "#fff", fontSize: 30, border: "none", cursor: "pointer" }}>
+        style={{
+          position: "fixed", right: 20, bottom: 76, width: 60, height: 60, borderRadius: 30,
+          background: "var(--accent)", color: "#fff", fontSize: 30, lineHeight: "60px", textAlign: "center",
+          border: "none", cursor: "pointer", boxShadow: "var(--shadow)", zIndex: 40,
+        }}>
         +
       </button>
 
       {aberto && (
         <div onClick={fechar}
-          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.4)", display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.4)", display: "flex", alignItems: "flex-end", justifyContent: "center", zIndex: 50 }}>
           <div onClick={(e) => e.stopPropagation()}
-            style={{ background: "var(--surface)", borderRadius: "16px 16px 0 0", padding: 20, width: "100%", maxWidth: 720 }}>
+            style={{
+              background: "var(--surface)", borderRadius: "18px 18px 0 0", padding: "12px 20px 28px",
+              width: "100%", maxWidth: 720, display: "grid", gap: 4,
+            }}>
+            <div style={{ width: 40, height: 4, borderRadius: 2, background: "var(--border)", margin: "0 auto 12px" }} />
 
             {/* MODO PADRÃO: linguagem natural */}
             {!modoForm && !sugestao && (
@@ -78,30 +86,38 @@ export function QuickAdd({
                 <input autoFocus placeholder='Ex.: "mercado 250 no crédito do Nubank"'
                   value={texto} onChange={(e) => setTexto(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && interpretar()}
-                  style={{ padding: 14, fontSize: 18 }} />
-                <button onClick={interpretar} disabled={carregando || !texto}
-                  style={{ padding: 12, fontWeight: 700 }}>
+                  style={{
+                    padding: "14px 14px", fontSize: 18, fontFamily: "var(--font-sans)",
+                    borderRadius: "var(--radius-sm)", border: "1px solid var(--border)",
+                    background: "var(--surface)", color: "var(--text)",
+                  }} />
+                <Button variant="primary" tamanho="lg" onClick={interpretar} disabled={carregando || !texto} style={{ width: "100%" }}>
                   {carregando ? "Interpretando..." : "Lançar"}
-                </button>
-                <button onClick={() => setModoForm(true)} style={{ background: "none", border: "none", color: "var(--muted)" }}>
+                </Button>
+                <Button variant="quiet" onClick={() => setModoForm(true)} style={{ justifySelf: "center" }}>
                   Preencher manualmente
-                </button>
+                </Button>
               </div>
             )}
 
             {/* REVISÃO da sugestão da IA */}
             {sugestao && !modoForm && (
-              <div style={{ display: "grid", gap: 8 }}>
-                <h3>Confirme o lançamento</h3>
-                <p><b>{centavosParaReais(sugestao.valor_centavos)}</b> · {sugestao.tipo} · {sugestao.descricao}</p>
-                <p style={{ color: "var(--muted)" }}>
+              <div style={{ display: "grid", gap: 10 }}>
+                <h3 style={{ margin: 0 }}>Confirme o lançamento</h3>
+                <div style={{ display: "grid", gap: 2 }}>
+                  <Money centavos={sugestao.valor_centavos} tamanho="xl" />
+                  <span style={{ color: "var(--muted)", fontSize: "0.9rem" }}>
+                    {sugestao.tipo} · {sugestao.descricao}
+                  </span>
+                </div>
+                <p style={{ color: "var(--muted)", margin: 0, fontSize: "0.9rem" }}>
                   {sugestao.card_id ? "Cartão" : "Conta"} · {sugestao.pessoa}
                   {sugestao.total_parcelas > 1 ? ` · ${sugestao.total_parcelas}x` : ""}
                 </p>
-                {erro && <p style={{ color: "var(--negativo)" }}>{erro}</p>}
+                {erro && <p style={{ color: "var(--negativo)", margin: 0, fontSize: "0.9rem" }}>{erro}</p>}
                 <div style={{ display: "flex", gap: 8 }}>
-                  <button onClick={confirmar} style={{ flex: 1, padding: 12, fontWeight: 700 }}>Confirmar</button>
-                  <button onClick={() => setModoForm(true)}>Ajustar</button>
+                  <Button variant="primary" tamanho="lg" onClick={confirmar} style={{ flex: 1 }}>Confirmar</Button>
+                  <Button variant="ghost" tamanho="lg" onClick={() => setModoForm(true)}>Ajustar</Button>
                 </div>
               </div>
             )}

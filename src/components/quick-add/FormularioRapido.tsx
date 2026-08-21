@@ -2,6 +2,7 @@
 import { useState } from "react";
 import type { Card, Account, Category } from "@/lib/db/tipos";
 import { reaisParaCentavos } from "@/lib/financeiro/dinheiro";
+import { Button } from "@/components/ui/Button";
 
 export function FormularioRapido({
   cartoes, contas, categorias, membros, valorInicialReais = "", onCriado,
@@ -37,33 +38,57 @@ export function FormularioRapido({
     onCriado();
   }
 
+  const selectStyle: React.CSSProperties = {
+    padding: "11px 12px", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)",
+    background: "var(--surface)", color: "var(--text)", fontSize: "1rem",
+  };
+
+  function chipStyle(ativo: boolean): React.CSSProperties {
+    return {
+      flex: 1, padding: "10px 14px", borderRadius: "var(--radius-sm)", fontWeight: 600, fontSize: "0.9rem",
+      cursor: "pointer", border: `1px solid ${ativo ? "var(--accent)" : "var(--border)"}`,
+      background: ativo ? "var(--accent-weak)" : "transparent",
+      color: ativo ? "var(--accent)" : "var(--text)",
+    };
+  }
+
   return (
-    <div style={{ display: "grid", gap: 10 }}>
+    <div style={{ display: "grid", gap: 12 }}>
       <input inputMode="decimal" placeholder="Valor (R$)" value={valor}
         onChange={(e) => setValor(e.target.value)}
-        style={{ fontSize: 32, fontWeight: 700, padding: 12, textAlign: "center" }} />
+        className="mono"
+        style={{
+          fontSize: "2rem", fontWeight: 700, padding: 12, textAlign: "center",
+          fontVariantNumeric: "tabular-nums", borderRadius: "var(--radius-sm)",
+          border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)",
+        }} />
       <div style={{ display: "flex", gap: 8 }}>
-        <button onClick={() => setTipo("despesa")} aria-pressed={tipo === "despesa"}>Despesa</button>
-        <button onClick={() => setTipo("receita")} aria-pressed={tipo === "receita"}>Receita</button>
+        <button onClick={() => setTipo("despesa")} aria-pressed={tipo === "despesa"} style={chipStyle(tipo === "despesa")}>
+          Despesa
+        </button>
+        <button onClick={() => setTipo("receita")} aria-pressed={tipo === "receita"} style={chipStyle(tipo === "receita")}>
+          Receita
+        </button>
       </div>
-      <select value={origem} onChange={(e) => setOrigem(e.target.value)}>
+      <select value={origem} onChange={(e) => setOrigem(e.target.value)} style={selectStyle}>
         {cartoes.map((c) => <option key={c.id} value={`card:${c.id}`}>💳 {c.nome}</option>)}
         {contas.map((c) => <option key={c.id} value={`acc:${c.id}`}>🏦 {c.nome}</option>)}
       </select>
-      <select value={categoriaId} onChange={(e) => setCategoriaId(e.target.value)}>
+      <select value={categoriaId} onChange={(e) => setCategoriaId(e.target.value)} style={selectStyle}>
         <option value="">Sem categoria</option>
         {categorias.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
       </select>
-      <select value={pessoa} onChange={(e) => setPessoa(e.target.value)}>
+      <select value={pessoa} onChange={(e) => setPessoa(e.target.value)} style={selectStyle}>
         {membros.map((m) => <option key={m} value={m}>{m}</option>)}
         <option value="conjunto">Conjunto</option>
       </select>
       {origem.startsWith("card:") && (
         <input type="number" min={1} max={24} value={parcelas}
-          onChange={(e) => setParcelas(Number(e.target.value))} placeholder="Parcelas" />
+          onChange={(e) => setParcelas(Number(e.target.value))} placeholder="Parcelas"
+          style={selectStyle} />
       )}
-      {erro && <p style={{ color: "var(--negativo)" }}>{erro}</p>}
-      <button onClick={salvar} style={{ padding: 12, fontWeight: 700 }}>Salvar</button>
+      {erro && <p style={{ color: "var(--negativo)", margin: 0, fontSize: "0.9rem" }}>{erro}</p>}
+      <Button variant="primary" tamanho="lg" onClick={salvar} style={{ width: "100%" }}>Salvar</Button>
     </div>
   );
 }
