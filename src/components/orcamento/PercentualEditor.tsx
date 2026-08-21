@@ -9,6 +9,8 @@ export function PercentualEditor({ categoriaId, percentual }: { categoriaId: str
 
   async function salvar(novo: string) {
     const p = Math.min(100, Math.max(0, Number(novo) || 0));
+    setValor(String(p));          // reflete o valor já limitado (0–100)
+    if (p === percentual) return; // nada mudou → não salva à toa
     setSalvando(true);
     const res = await fetch("/api/orcamento/categoria", {
       method: "POST",

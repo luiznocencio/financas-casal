@@ -1,5 +1,6 @@
 import { createServerSupabase } from "@/lib/supabase/server";
 import { resumoOrcamento } from "@/lib/financeiro/orcamento";
+import { resumoDoMes } from "@/lib/financeiro/agregacoes";
 import { Money } from "@/components/ui/Money";
 import { Card } from "@/components/ui/Card";
 import { RendaEditor } from "@/components/orcamento/RendaEditor";
@@ -15,7 +16,7 @@ export default async function OrcamentoPage() {
     supabase.from("households").select("renda_mensal_centavos").maybeSingle(),
     supabase.from("categories").select("id, nome, cor").eq("tipo", "despesa").order("nome"),
     supabase.from("budgets").select("categoria_id, percentual"),
-    supabase.from("transactions").select("categoria_id, tipo, valor_centavos, data_compra"),
+    supabase.from("transactions").select("categoria_id, tipo, pessoa, valor_centavos, data_compra"),
   ]);
   const erro = hhRes.error ?? catsRes.error ?? budgetsRes.error ?? txsRes.error;
   if (erro) throw new Error(`Falha ao carregar o orçamento: ${erro.message}`);
@@ -24,14 +25,10 @@ export default async function OrcamentoPage() {
   const cats = catsRes.data ?? [];
   const budgets = budgetsRes.data ?? [];
 
-  // gasto por categoria (despesas do mês corrente)
-  const gastoPorCategoria: Record<string, number> = {};
-  for (const t of txsRes.data ?? []) {
-    if (t.tipo !== "despesa" || !t.categoria_id) continue;
-    const [a, m] = t.data_compra.split("-").map(Number);
-    if (a !== ano || m !== mes) continue;
-    gastoPorCategoria[t.categoria_id] = (gastoPorCategoria[t.categoria_id] ?? 0) + t.valor_centavos;
-  }
+  // reusa a agregação do mês (mesma regra do dashboard)
+  const rd = resumoDoMes(txsRes.data ?? [], { ano, mes });
+  const gastoPorCategoria = rd.porCategoria; // despesas do mês por categoria
+  const gastoTotalMes = rd.totalDespesas;    // total de despesas do mês (todas as categorias)
 
   const resumo = resumoOrcamento({ rendaCentavos: renda, budgets, gastoPorCategoria });
   const pctPorCat = new Map(budgets.map((b) => [b.categoria_id, b.percentual]));
@@ -50,7 +47,7 @@ export default async function OrcamentoPage() {
           <div><div className="text-xs text-[var(--muted)]">Alocado</div><div className="mono text-lg font-semibold">{resumo.totalPercentual}%</div></div>
           <div><div className="text-xs text-[var(--muted)]">Reserva</div><div className="text-lg"><Money centavos={resumo.reservaCentavos} sinal /></div></div>
           <div><div className="text-xs text-[var(--muted)]">Orçado</div><div className="text-lg"><Money centavos={resumo.totalOrcadoCentavos} /></div></div>
-          <div><div className="text-xs text-[var(--muted)]">Gasto</div><div className="text-lg"><Money centavos={resumo.totalGastoCentavos} /></div></div>
+          <div><div className="text-xs text-[var(--muted)]">Gasto no mês</div><div className="text-lg"><Money centavos={gastoTotalMes} /></div></div>
         </div>
       </Card>
 
