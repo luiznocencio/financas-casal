@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { getMembroAtual } from "@/lib/auth/household";
 import { planejarLinhas } from "@/lib/financeiro/planejar";
+import { mapearRegistros } from "@/lib/financeiro/registros";
 import type { NovoLancamento } from "@/lib/financeiro/tipos";
 
 export async function POST(req: Request) {
@@ -52,19 +53,10 @@ export async function POST(req: Request) {
     invoiceIdPorComp.set(chave, inv.id);
   }
 
-  const registros = linhas.map((linha) => {
-    const chave = linha.invoiceCompetencia
-      ? `${linha.invoiceCompetencia.ano}-${linha.invoiceCompetencia.mes}` : null;
-    return {
-      household_id: membro.household_id,
-      tipo: linha.tipo, valor_centavos: linha.valor_centavos,
-      data_compra: linha.data_compra, categoria_id: linha.categoria_id,
-      pessoa: linha.pessoa, account_id: linha.account_id, card_id: linha.card_id,
-      invoice_id: chave ? invoiceIdPorComp.get(chave) ?? null : null,
-      grupo_parcela: linha.grupo_parcela, parcela_n: linha.parcela_n,
-      total_parcelas: linha.total_parcelas, descricao: linha.descricao,
-      criado_por: membro.user_id, origem_ia: l.origem_ia ?? false,
-    };
+  const registros = mapearRegistros(linhas, invoiceIdPorComp, {
+    householdId: membro.household_id,
+    criadoPor: membro.user_id,
+    origemIa: l.origem_ia ?? false,
   });
 
   const { data, error } = await supabase.from("transactions").insert(registros).select("*");
