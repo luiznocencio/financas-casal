@@ -58,7 +58,7 @@ export default async function CartoesPage() {
             <Card key={card.id}>
               <div className="mb-3 flex items-center justify-between gap-3">
                 <div className="flex flex-col gap-0.5">
-                  <span className="font-medium text-[var(--text)]">{card.nome}</span>
+                  <span className="font-semibold text-[var(--text)]">{card.nome}</span>
                   {card.titular && (
                     <span className="text-xs text-[var(--muted)]">{card.titular}</span>
                   )}
@@ -67,7 +67,7 @@ export default async function CartoesPage() {
                   fecha dia {card.dia_fechamento} · vence dia {card.dia_vencimento}
                 </span>
               </div>
-              <div className="h-2 overflow-hidden rounded-full bg-[var(--borda)]">
+              <div className="h-2 overflow-hidden rounded-full bg-[var(--surface-2)]">
                 <div
                   className="h-full rounded-full transition-[width]"
                   style={{
@@ -76,17 +76,19 @@ export default async function CartoesPage() {
                   }}
                 />
               </div>
-              <div className="mt-2 flex justify-between text-sm">
-                <span className="text-[var(--muted)]">
-                  Usado: <Money centavos={usado} />
-                </span>
-                <span className="text-[var(--muted)]">
-                  Disponível: <Money centavos={disponivel} />
-                </span>
+              <div className="mt-3 grid grid-cols-2 gap-3">
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-xs text-[var(--muted)]">Usado</span>
+                  <Money centavos={usado} />
+                </div>
+                <div className="flex flex-col items-end gap-0.5">
+                  <span className="text-xs text-[var(--muted)]">Disponível</span>
+                  <Money centavos={disponivel} tamanho="lg" />
+                </div>
               </div>
 
               {faturas.length > 0 && (
-                <div className="mt-4 flex flex-col gap-2 border-t border-[var(--borda)] pt-3">
+                <div className="mt-4 flex flex-col gap-2 border-t border-[var(--border)] pt-3">
                   <span className="text-xs font-medium uppercase tracking-wide text-[var(--muted)]">
                     Faturas
                   </span>
