@@ -3,6 +3,8 @@ export type TipoTransacao = "despesa" | "receita" | "transferencia";
 
 export type Household = { id: string; nome: string; invite_code: string; renda_mensal_centavos: number };
 export type Budget = { id: string; household_id: string; categoria_id: string; percentual: number };
+export type Goal = { id: string; household_id: string; nome: string; valor_alvo_centavos: number; data_alvo: string | null };
+export type GoalContribution = { id: string; household_id: string; goal_id: string; valor_centavos: number; data: string; descricao: string | null };
 export type Member = { user_id: string; household_id: string; nome: string; papel: "membro" | "dono" };
 export type Account = { id: string; household_id: string; nome: string; tipo: "corrente" | "dinheiro" | "poupanca"; saldo_inicial_centavos: number };
 export type Card = { id: string; household_id: string; nome: string; bandeira: string | null; limite_centavos: number; dia_fechamento: number; dia_vencimento: number; titular: string | null };
