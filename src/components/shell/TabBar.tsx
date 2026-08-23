@@ -8,6 +8,7 @@ const ITENS = [
   { href: "/contas", rotulo: "Contas" },
   { href: "/lancamentos", rotulo: "Extrato" },
   { href: "/orcamento", rotulo: "Orçamento" },
+  { href: "/metas", rotulo: "Metas" },
 ];
 
 export function TabBar() {
@@ -25,7 +26,7 @@ export function TabBar() {
         return (
           <Link key={it.href} href={it.href}
             style={{
-              flex: 1, textAlign: "center", fontSize: "0.78rem", fontWeight: 600,
+              flex: 1, textAlign: "center", fontSize: "0.72rem", fontWeight: 600,
               color: ativo ? "var(--accent)" : "var(--muted)", padding: "6px 0",
             }}>
             {it.rotulo}
