@@ -63,7 +63,11 @@ export function Importador({
       body: JSON.stringify({ origem: { [prefixo === "card" ? "card_id" : "account_id"]: id }, linhas: selecionadas }),
     }).then((x) => x.json());
     setCarregando(false);
-    setResultado(`Importados ${r.criadas ?? 0} lançamentos${r.falhas?.length ? `, ${r.falhas.length} falharam` : ""}.`);
+    setResultado(
+      `Importados ${r.criadas ?? 0} lançamentos` +
+        (r.duplicadas ? `, ${r.duplicadas} já existiam (pulados)` : "") +
+        (r.falhas?.length ? `, ${r.falhas.length} falharam` : "") + ".",
+    );
     setLinhas(null); setTexto("");
     router.refresh();
   }
