@@ -5,10 +5,13 @@ import { useRouter } from "next/navigation";
 export function RemoverMeta({ goalId }: { goalId: string }) {
   const router = useRouter();
   const [confirmando, setConfirmando] = useState(false);
+  const [erro, setErro] = useState(false);
 
   async function remover() {
+    setErro(false);
     const res = await fetch(`/api/metas/${goalId}`, { method: "DELETE" });
-    if (res.ok) router.refresh();
+    if (res.ok) { router.refresh(); return; }
+    setErro(true);
   }
 
   if (!confirmando) {
@@ -21,7 +24,9 @@ export function RemoverMeta({ goalId }: { goalId: string }) {
   }
   return (
     <span style={{ display: "inline-flex", gap: 8, fontSize: "0.8rem" }}>
-      <button onClick={remover} style={{ background: "none", border: "none", color: "var(--negativo)", cursor: "pointer" }}>confirmar</button>
+      <button onClick={remover} style={{ background: "none", border: "none", color: erro ? "var(--negativo)" : "var(--negativo)", cursor: "pointer" }}>
+        {erro ? "erro, tente de novo" : "confirmar"}
+      </button>
       <button onClick={() => setConfirmando(false)} style={{ background: "none", border: "none", color: "var(--muted)", cursor: "pointer" }}>cancelar</button>
     </span>
   );
