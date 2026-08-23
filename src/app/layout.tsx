@@ -7,8 +7,12 @@ const mono = IBM_Plex_Mono({ subsets: ["latin"], weight: ["500", "600"], variabl
 
 export const metadata: Metadata = {
   title: "Finanças do Casal",
-  description: "Gerenciador financeiro do casal — contas, cartões e gastos.",
+  description: "Gerenciador financeiro do casal — contas, cartões, orçamento e metas.",
+  applicationName: "Finanças do Casal",
+  appleWebApp: { title: "Finanças do Casal", capable: true, statusBarStyle: "default" },
 };
+
+export const viewport = { themeColor: "#3b5bdb" };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
