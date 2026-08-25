@@ -59,7 +59,7 @@ export default async function OrcamentoPage() {
           const limite = item?.limiteCentavos ?? 0;
           const gasto = gastoPorCategoria[c.id] ?? 0;
           const usado = item?.pctUsado ?? 0;
-          const cor = usado > 100 ? "var(--negativo)" : usado > 85 ? "#f08c00" : "var(--accent)";
+          const cor = usado > 100 ? "var(--negativo)" : usado > 85 ? "var(--alerta)" : "var(--accent)";
           return (
             <Card key={c.id}>
               <div className="mb-2 flex items-center justify-between gap-3">

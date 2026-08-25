@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Check, ArrowCounterClockwise } from "@phosphor-icons/react";
 
 export function FaturaBotao({ invoiceId, paga }: { invoiceId: string; paga: boolean }) {
   const router = useRouter();
@@ -37,7 +38,15 @@ export function FaturaBotao({ invoiceId, paga }: { invoiceId: string; paga: bool
         color: erro ? "var(--negativo)" : paga ? "var(--muted)" : "var(--positivo)",
       }}
     >
-      {carregando ? "..." : erro ? "Tente de novo" : paga ? "Desfazer" : "Marcar paga"}
+      {carregando ? (
+        "..."
+      ) : erro ? (
+        "Tente de novo"
+      ) : paga ? (
+        <span className="flex items-center gap-1"><ArrowCounterClockwise size={13} /> Desfazer</span>
+      ) : (
+        <span className="flex items-center gap-1"><Check size={13} /> Marcar paga</span>
+      )}
     </button>
   );
 }

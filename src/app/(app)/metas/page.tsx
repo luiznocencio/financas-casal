@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/Card";
 import { NovaMetaForm } from "@/components/metas/NovaMetaForm";
 import { AporteForm } from "@/components/metas/AporteForm";
 import { RemoverMeta } from "@/components/metas/RemoverMeta";
+import { Confetti } from "@phosphor-icons/react/dist/ssr";
 
 export default async function MetasPage() {
   const supabase = await createServerSupabase();
@@ -58,7 +59,7 @@ export default async function MetasPage() {
                 </div>
                 <div className="mt-2 flex justify-between text-sm text-[var(--muted)]">
                   <span><Money centavos={m.guardadoCentavos} tamanho="sm" /> de <Money centavos={g.valor_alvo_centavos} tamanho="sm" /></span>
-                  <span>{m.concluida ? "🎉" : <>Faltam <Money centavos={m.restanteCentavos} tamanho="sm" /></>}</span>
+                  <span>{m.concluida ? <Confetti size={16} weight="fill" color="var(--positivo)" /> : <>Faltam <Money centavos={m.restanteCentavos} tamanho="sm" /></>}</span>
                 </div>
               </Card>
             );

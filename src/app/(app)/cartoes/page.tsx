@@ -4,6 +4,7 @@ import { agruparFaturas } from "@/lib/financeiro/faturas";
 import { Money } from "@/components/ui/Money";
 import { Card } from "@/components/ui/Card";
 import { FaturaBotao } from "@/components/cartoes/FaturaBotao";
+import { CreditCard as CreditCardIcon, Receipt } from "@phosphor-icons/react/dist/ssr";
 
 const MESES = [
   "jan", "fev", "mar", "abr", "mai", "jun",
@@ -58,7 +59,10 @@ export default async function CartoesPage() {
             <Card key={card.id}>
               <div className="mb-3 flex items-center justify-between gap-3">
                 <div className="flex flex-col gap-0.5">
-                  <span className="font-semibold text-[var(--text)]">{card.nome}</span>
+                  <span className="flex items-center gap-1.5 font-semibold text-[var(--text)]">
+                    <CreditCardIcon size={16} />
+                    {card.nome}
+                  </span>
                   {card.titular && (
                     <span className="text-xs text-[var(--muted)]">{card.titular}</span>
                   )}
@@ -72,7 +76,7 @@ export default async function CartoesPage() {
                   className="h-full rounded-full transition-[width]"
                   style={{
                     width: `${pct}%`,
-                    background: pct > 85 ? "var(--negativo)" : "var(--accent)",
+                    background: pct > 85 ? "var(--alerta)" : "var(--accent)",
                   }}
                 />
               </div>
@@ -89,8 +93,8 @@ export default async function CartoesPage() {
 
               {faturas.length > 0 && (
                 <div className="mt-4 flex flex-col gap-2 border-t border-[var(--border)] pt-3">
-                  <span className="text-xs font-medium uppercase tracking-wide text-[var(--muted)]">
-                    Faturas
+                  <span className="flex items-center gap-1.5 text-xs font-medium text-[var(--muted)]">
+                    <Receipt size={14} /> Faturas
                   </span>
                   {faturas.map((f) => (
                     <div key={f.id} className="flex items-center justify-between gap-3 text-sm">
