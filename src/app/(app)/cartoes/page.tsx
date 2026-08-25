@@ -4,6 +4,7 @@ import { agruparFaturas } from "@/lib/financeiro/faturas";
 import { Money } from "@/components/ui/Money";
 import { Card } from "@/components/ui/Card";
 import { FaturaBotao } from "@/components/cartoes/FaturaBotao";
+import { AddCartaoForm } from "@/components/cartoes/AddCartaoForm";
 import { CreditCard as CreditCardIcon, Receipt } from "@phosphor-icons/react/dist/ssr";
 
 const MESES = [
@@ -46,6 +47,8 @@ export default async function CartoesPage() {
           Limite usado e disponível, e as faturas por mês. Marque uma fatura como paga para liberar o limite.
         </p>
       </header>
+
+      <AddCartaoForm />
 
       {linhas.length === 0 ? (
         <Card>
