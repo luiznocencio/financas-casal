@@ -12,6 +12,7 @@
   --accent-weak: #eaeefd;
   --positivo: #12915b;
   --negativo: #d23b3b;
+  --alerta: #e08a1e;     /* aviso (>85% de uso) */
   --pessoa-a: #0e9aa7;   /* 1º membro */
   --pessoa-b: #e8833a;   /* 2º membro */
   --pessoa-conjunto: #8a94a6;
@@ -34,6 +35,7 @@
     --accent-weak: #1b2740;
     --positivo: #3ecf8e;
     --negativo: #ff6b6b;
+    --alerta: #f2a63d;
     --pessoa-a: #35c4cf;
     --pessoa-b: #f2a35f;
     --pessoa-conjunto: #9aa4b2;
