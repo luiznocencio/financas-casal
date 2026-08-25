@@ -28,7 +28,7 @@ export function TabBar() {
         return (
           <Link key={href} href={href}
             style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 3, color: cor, padding: "4px 0" }}>
-            <Icone size={20} weight={ativo ? "fill" : "regular"} />
+            <Icone size={20} weight={ativo ? "fill" : "regular"} aria-hidden />
             <span style={{ fontSize: "0.68rem", fontWeight: 600 }}>{rotulo}</span>
           </Link>
         );
