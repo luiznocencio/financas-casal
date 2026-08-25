@@ -7,13 +7,18 @@ export async function persistirLancamento(
   supabase: SupabaseClient,
   ctx: { householdId: string; criadoPor: string },
   l: NovoLancamento,
+  diaFechamentoConhecido?: number | null,
 ): Promise<{ error: string | null }> {
   // dia de fechamento do cartão (se for cartão)
   let diaFechamento: number | null = null;
   if (l.card_id) {
-    const { data: card } = await supabase.from("cards").select("dia_fechamento").eq("id", l.card_id).single();
-    if (!card) return { error: "cartão inexistente" };
-    diaFechamento = card.dia_fechamento;
+    if (diaFechamentoConhecido !== undefined) {
+      diaFechamento = diaFechamentoConhecido;
+    } else {
+      const { data: card } = await supabase.from("cards").select("dia_fechamento").eq("id", l.card_id).single();
+      if (!card) return { error: "cartão inexistente" };
+      diaFechamento = card.dia_fechamento;
+    }
   }
   if (l.account_id) {
     const { data: conta } = await supabase.from("accounts").select("id").eq("id", l.account_id).maybeSingle();

@@ -29,6 +29,14 @@ export async function POST(req: Request) {
     .from("transactions").select("data_compra, valor_centavos").eq(origemCol, origemId);
   const chaves = new Set((existentes ?? []).map((e) => `${e.data_compra}|${e.valor_centavos}`));
 
+  // dia de fechamento do cartão buscado uma vez para todo o lote (evita 1 SELECT por lançamento)
+  let diaFechamento: number | null | undefined = undefined;
+  if (origem.card_id) {
+    const { data: card } = await supabase.from("cards").select("dia_fechamento").eq("id", origem.card_id).maybeSingle();
+    if (!card) return NextResponse.json({ error: "cartão inexistente" }, { status: 400 });
+    diaFechamento = card.dia_fechamento;
+  }
+
   let criadas = 0;
   let duplicadas = 0;
   const falhas: string[] = [];
@@ -48,7 +56,7 @@ export async function POST(req: Request) {
       descricao: it.descricao, origem_ia: true,
     };
     const { error } = await persistirLancamento(
-      supabase, { householdId: membro.household_id, criadoPor: membro.user_id }, novo,
+      supabase, { householdId: membro.household_id, criadoPor: membro.user_id }, novo, diaFechamento,
     );
     if (error) falhas.push(it.descricao || "(sem descrição)");
     else { criadas++; chaves.add(chave); } // evita duplicar dentro do próprio lote
