@@ -5,6 +5,7 @@ import { Money } from "@/components/ui/Money";
 import { Card } from "@/components/ui/Card";
 import { RendaEditor } from "@/components/orcamento/RendaEditor";
 import { PercentualEditor } from "@/components/orcamento/PercentualEditor";
+import { AddCategoriaForm } from "@/components/orcamento/AddCategoriaForm";
 
 export default async function OrcamentoPage() {
   const supabase = await createServerSupabase();
@@ -44,11 +45,14 @@ export default async function OrcamentoPage() {
       {/* resumo do mês: alocado x reserva, orçado x gasto */}
       <Card>
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-          <div><div className="text-xs text-[var(--muted)]">Alocado</div><div className="mono text-lg font-semibold">{resumo.totalPercentual}%</div></div>
+          <div><div className="text-xs text-[var(--muted)]">Alocado</div><div className="mono text-lg font-semibold" style={resumo.totalPercentual > 100 ? { color: "var(--alerta)" } : undefined}>{resumo.totalPercentual}%</div></div>
           <div><div className="text-xs text-[var(--muted)]">Reserva</div><div className="text-lg"><Money centavos={resumo.reservaCentavos} sinal /></div></div>
           <div><div className="text-xs text-[var(--muted)]">Orçado</div><div className="text-lg"><Money centavos={resumo.totalOrcadoCentavos} /></div></div>
           <div><div className="text-xs text-[var(--muted)]">Gasto no mês</div><div className="text-lg"><Money centavos={gastoTotalMes} /></div></div>
         </div>
+        {resumo.totalPercentual > 100 && (
+          <p style={{ color: "var(--alerta)" }}>Você alocou {resumo.totalPercentual}% da renda — acima de 100%.</p>
+        )}
       </Card>
 
       {/* categorias */}
@@ -77,6 +81,8 @@ export default async function OrcamentoPage() {
           );
         })}
       </div>
+
+      <AddCategoriaForm />
     </main>
   );
 }
