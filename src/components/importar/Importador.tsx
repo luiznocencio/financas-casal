@@ -23,6 +23,7 @@ export function Importador({
   const [texto, setTexto] = useState("");
   const [linhas, setLinhas] = useState<Linha[] | null>(null);
   const [carregando, setCarregando] = useState(false);
+  const [lendoPdf, setLendoPdf] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [resultado, setResultado] = useState<string | null>(null);
 
@@ -31,7 +32,7 @@ export function Importador({
     if (!f) return;
     const ehPdf = f.type === "application/pdf" || f.name.toLowerCase().endsWith(".pdf");
     if (!ehPdf) { f.text().then(setTexto); return; }
-    setErro(null); setCarregando(true);
+    setErro(null); setLendoPdf(true);
     try {
       const fd = new FormData();
       fd.append("arquivo", f);
@@ -41,7 +42,7 @@ export function Importador({
     } catch {
       setErro("Falha ao ler o PDF.");
     } finally {
-      setCarregando(false);
+      setLendoPdf(false);
     }
   }
 
@@ -102,8 +103,11 @@ export function Importador({
             placeholder="Cole aqui o extrato/fatura (ou o conteúdo do CSV)..."
             className="rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--surface)] p-2 font-mono text-sm text-[var(--text)]" />
           <div className="flex items-center gap-3">
-            <input type="file" accept=".csv,.txt,.ofx,.pdf,text/plain,application/pdf" onChange={lerArquivo} className="text-sm text-[var(--muted)]" />
-            <Button variant="primary" onClick={analisar} disabled={carregando || !texto}>
+            <input type="file" accept=".csv,.txt,.ofx,.pdf,text/plain,application/pdf" onChange={lerArquivo} disabled={lendoPdf} className="text-sm text-[var(--muted)]" />
+            {lendoPdf && (
+              <span className="flex items-center gap-2 text-sm text-[var(--muted)]"><Spinner size={14} /> Lendo PDF...</span>
+            )}
+            <Button variant="primary" onClick={analisar} disabled={carregando || lendoPdf || !texto}>
               <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
                 {carregando && <Spinner size={14} />}
                 {carregando ? "Analisando..." : "Analisar"}
