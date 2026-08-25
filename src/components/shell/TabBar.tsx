@@ -1,14 +1,15 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { House, CreditCard, Wallet, Receipt, ChartPieSlice, Target } from "@phosphor-icons/react";
 
 const ITENS = [
-  { href: "/", rotulo: "Início" },
-  { href: "/cartoes", rotulo: "Cartões" },
-  { href: "/contas", rotulo: "Contas" },
-  { href: "/lancamentos", rotulo: "Extrato" },
-  { href: "/orcamento", rotulo: "Orçamento" },
-  { href: "/metas", rotulo: "Metas" },
+  { href: "/", rotulo: "Início", Icone: House },
+  { href: "/cartoes", rotulo: "Cartões", Icone: CreditCard },
+  { href: "/contas", rotulo: "Contas", Icone: Wallet },
+  { href: "/lancamentos", rotulo: "Extrato", Icone: Receipt },
+  { href: "/orcamento", rotulo: "Orçamento", Icone: ChartPieSlice },
+  { href: "/metas", rotulo: "Metas", Icone: Target },
 ];
 
 export function TabBar() {
@@ -18,18 +19,17 @@ export function TabBar() {
       style={{
         position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 40,
         background: "var(--surface)", borderTop: "1px solid var(--border)",
-        display: "flex", justifyContent: "space-around", padding: "8px 8px calc(8px + env(safe-area-inset-bottom))",
-      }}
-      className="tabbar">
-      {ITENS.map((it) => {
-        const ativo = it.href === "/" ? path === "/" : path.startsWith(it.href);
+        display: "flex", justifyContent: "space-around",
+        padding: "6px 4px calc(6px + env(safe-area-inset-bottom))",
+      }}>
+      {ITENS.map(({ href, rotulo, Icone }) => {
+        const ativo = href === "/" ? path === "/" : path.startsWith(href);
+        const cor = ativo ? "var(--accent)" : "var(--muted)";
         return (
-          <Link key={it.href} href={it.href}
-            style={{
-              flex: 1, textAlign: "center", fontSize: "0.72rem", fontWeight: 600,
-              color: ativo ? "var(--accent)" : "var(--muted)", padding: "6px 0",
-            }}>
-            {it.rotulo}
+          <Link key={href} href={href}
+            style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 3, color: cor, padding: "4px 0" }}>
+            <Icone size={20} weight={ativo ? "fill" : "regular"} />
+            <span style={{ fontSize: "0.68rem", fontWeight: 600 }}>{rotulo}</span>
           </Link>
         );
       })}

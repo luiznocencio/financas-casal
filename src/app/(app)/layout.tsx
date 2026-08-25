@@ -27,7 +27,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const membros = membrosRes.data;
 
   return (
-    <div style={{ maxWidth: 720, margin: "0 auto", padding: 16, paddingBottom: 84 }}>
+    <div style={{ maxWidth: 720, margin: "0 auto", padding: 16, paddingBottom: 92 }}>
       {children}
       <TabBar />
       <QuickAdd
