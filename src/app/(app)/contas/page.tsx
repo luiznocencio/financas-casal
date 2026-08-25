@@ -2,6 +2,7 @@ import { createServerSupabase } from "@/lib/supabase/server";
 import { saldoConta } from "@/lib/financeiro/derivados";
 import { Money } from "@/components/ui/Money";
 import { Card } from "@/components/ui/Card";
+import { AddContaForm } from "@/components/contas/AddContaForm";
 
 const ROTULO_TIPO: Record<string, string> = {
   corrente: "Conta corrente",
@@ -28,6 +29,8 @@ export default async function ContasPage() {
           Saldo atual de cada conta do casal, já considerando as movimentações lançadas.
         </p>
       </header>
+
+      <AddContaForm />
 
       {linhas.length === 0 ? (
         <Card>
