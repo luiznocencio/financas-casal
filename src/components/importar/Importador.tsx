@@ -26,10 +26,23 @@ export function Importador({
   const [erro, setErro] = useState<string | null>(null);
   const [resultado, setResultado] = useState<string | null>(null);
 
-  function lerArquivo(e: React.ChangeEvent<HTMLInputElement>) {
+  async function lerArquivo(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
     if (!f) return;
-    f.text().then(setTexto);
+    const ehPdf = f.type === "application/pdf" || f.name.toLowerCase().endsWith(".pdf");
+    if (!ehPdf) { f.text().then(setTexto); return; }
+    setErro(null); setCarregando(true);
+    try {
+      const fd = new FormData();
+      fd.append("arquivo", f);
+      const r = await fetch("/api/importar/pdf", { method: "POST", body: fd }).then((x) => x.json());
+      if (!r.ok) { setErro("Não consegui ler esse PDF. Tente colar o texto."); return; }
+      setTexto(r.texto);
+    } catch {
+      setErro("Falha ao ler o PDF.");
+    } finally {
+      setCarregando(false);
+    }
   }
 
   async function analisar() {
@@ -89,7 +102,7 @@ export function Importador({
             placeholder="Cole aqui o extrato/fatura (ou o conteúdo do CSV)..."
             className="rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--surface)] p-2 font-mono text-sm text-[var(--text)]" />
           <div className="flex items-center gap-3">
-            <input type="file" accept=".csv,.txt,.ofx,text/plain" onChange={lerArquivo} className="text-sm text-[var(--muted)]" />
+            <input type="file" accept=".csv,.txt,.ofx,.pdf,text/plain,application/pdf" onChange={lerArquivo} className="text-sm text-[var(--muted)]" />
             <Button variant="primary" onClick={analisar} disabled={carregando || !texto}>
               <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
                 {carregando && <Spinner size={14} />}
