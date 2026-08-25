@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { centavosParaReais } from "@/lib/financeiro/dinheiro";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { Spinner } from "@/components/ui/Spinner";
 
 type Linha = {
   data: string; descricao: string; valor_centavos: number;
@@ -80,8 +81,8 @@ export function Importador({
             <span className="text-[var(--muted)]">Origem dos lançamentos</span>
             <select value={origem} onChange={(e) => setOrigem(e.target.value)}
               className="rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--surface)] p-2 text-[var(--text)]">
-              {cartoes.map((c) => <option key={c.id} value={`card:${c.id}`}>💳 {c.nome}</option>)}
-              {contas.map((c) => <option key={c.id} value={`acc:${c.id}`}>🏦 {c.nome}</option>)}
+              {cartoes.map((c) => <option key={c.id} value={`card:${c.id}`}>Cartão · {c.nome}</option>)}
+              {contas.map((c) => <option key={c.id} value={`acc:${c.id}`}>Conta · {c.nome}</option>)}
             </select>
           </label>
           <textarea value={texto} onChange={(e) => setTexto(e.target.value)} rows={6}
@@ -90,7 +91,10 @@ export function Importador({
           <div className="flex items-center gap-3">
             <input type="file" accept=".csv,.txt,.ofx,text/plain" onChange={lerArquivo} className="text-sm text-[var(--muted)]" />
             <Button variant="primary" onClick={analisar} disabled={carregando || !texto}>
-              {carregando ? "Analisando..." : "Analisar"}
+              <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+                {carregando && <Spinner size={14} />}
+                {carregando ? "Analisando..." : "Analisar"}
+              </span>
             </Button>
           </div>
           {erro && <p className="text-sm text-[var(--negativo)]">{erro}</p>}

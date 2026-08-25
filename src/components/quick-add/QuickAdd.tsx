@@ -1,11 +1,13 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Sparkle } from "@phosphor-icons/react";
 import type { Card, Account, Category } from "@/lib/db/tipos";
 import type { SugestaoLancamento } from "@/lib/ai/lancamento";
 import { FormularioRapido } from "./FormularioRapido";
 import { Button } from "@/components/ui/Button";
 import { Money } from "@/components/ui/Money";
+import { Spinner } from "@/components/ui/Spinner";
 
 export function QuickAdd({
   cartoes, contas, categorias, membros,
@@ -92,7 +94,17 @@ export function QuickAdd({
                     background: "var(--surface)", color: "var(--text)",
                   }} />
                 <Button variant="primary" tamanho="lg" onClick={interpretar} disabled={carregando || !texto} style={{ width: "100%" }}>
-                  {carregando ? "Interpretando..." : "Lançar"}
+                  <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+                    {carregando ? (
+                      <>
+                        <Spinner size={14} /> Interpretando...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkle size={16} /> Lançar
+                      </>
+                    )}
+                  </span>
                 </Button>
                 <Button variant="quiet" onClick={() => setModoForm(true)} style={{ justifySelf: "center" }}>
                   Preencher manualmente
@@ -107,13 +119,13 @@ export function QuickAdd({
                 <div style={{ display: "grid", gap: 2 }}>
                   <Money centavos={sugestao.valor_centavos} tamanho="xl" />
                   <span style={{ color: "var(--muted)", fontSize: "0.9rem" }}>
-                    {sugestao.tipo} · {sugestao.descricao}
+                    {sugestao.descricao}
                   </span>
                 </div>
-                <p style={{ color: "var(--muted)", margin: 0, fontSize: "0.9rem" }}>
-                  {sugestao.card_id ? "Cartão" : "Conta"} · {sugestao.pessoa}
-                  {sugestao.total_parcelas > 1 ? ` · ${sugestao.total_parcelas}x` : ""}
-                </p>
+                <div style={{ display: "flex", gap: 10, color: "var(--muted)", fontSize: "0.9rem" }}>
+                  <span>{sugestao.card_id ? "Cartão" : "Conta"} · {sugestao.pessoa}</span>
+                  {sugestao.total_parcelas > 1 && <span>{sugestao.total_parcelas}x</span>}
+                </div>
                 {erro && <p style={{ color: "var(--negativo)", margin: 0, fontSize: "0.9rem" }}>{erro}</p>}
                 <div style={{ display: "flex", gap: 8 }}>
                   <Button variant="primary" tamanho="lg" onClick={confirmar} style={{ flex: 1 }}>Confirmar</Button>

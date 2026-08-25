@@ -73,8 +73,8 @@ export function FormularioRapido({
       {/* origem (+ parcelas quando cartão) */}
       <div style={{ display: "grid", gridTemplateColumns: ehCard ? "1fr 84px" : "1fr", gap: 8 }}>
         <select value={origem} onChange={(e) => setOrigem(e.target.value)} style={selectStyle}>
-          {cartoes.map((c) => <option key={c.id} value={`card:${c.id}`}>💳 {c.nome}</option>)}
-          {contas.map((c) => <option key={c.id} value={`acc:${c.id}`}>🏦 {c.nome}</option>)}
+          {cartoes.map((c) => <option key={c.id} value={`card:${c.id}`}>Cartão · {c.nome}</option>)}
+          {contas.map((c) => <option key={c.id} value={`acc:${c.id}`}>Conta · {c.nome}</option>)}
         </select>
         {ehCard && (
           <input type="number" min={1} max={24} value={parcelas} title="Parcelas"
