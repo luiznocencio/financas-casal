@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Field } from "@/components/ui/Field";
+import { Marca } from "@/components/ui/Marca";
 import { createBrowserSupabase } from "@/lib/supabase/client";
 
 function mensagemErro(msg: string): string {
@@ -66,10 +67,13 @@ export default function LoginPage() {
   }
 
   return (
-    <main style={{ maxWidth: 380, margin: "80px auto", padding: 16, display: "grid", gap: 20 }}>
-      <h1 style={{ textAlign: "center", fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: "1.5rem" }}>
-        Finanças do Casal
-      </h1>
+    <main style={{ maxWidth: 380, margin: "72px auto", padding: 16, display: "grid", gap: 24 }}>
+      <div style={{ display: "grid", justifyItems: "center", gap: 12 }}>
+        <Marca />
+        <h1 style={{ textAlign: "center", fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: "1.5rem", margin: 0 }}>
+          Finanças do Casal
+        </h1>
+      </div>
 
       <Card>
         <form onSubmit={enviar} style={{ display: "grid", gap: 14 }}>

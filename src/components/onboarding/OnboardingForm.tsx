@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Field } from "@/components/ui/Field";
+import { Marca } from "@/components/ui/Marca";
 
 export function OnboardingForm({ nomeSugerido }: { nomeSugerido: string }) {
   const router = useRouter();
@@ -42,7 +43,8 @@ export function OnboardingForm({ nomeSugerido }: { nomeSugerido: string }) {
 
   return (
     <main style={{ maxWidth: 440, margin: "48px auto", padding: 16, display: "grid", gap: 16 }}>
-      <div>
+      <div style={{ display: "grid", justifyItems: "center", gap: 12, textAlign: "center" }}>
+        <Marca size={36} />
         <h1 style={{ marginBottom: 4 }}>Bem-vindo(a)!</h1>
         <p style={{ color: "var(--muted)" }}>
           Vamos configurar o lar de vocês. Crie um novo, ou entre no lar do seu parceiro(a) com o código de convite.
