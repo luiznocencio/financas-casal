@@ -52,7 +52,7 @@ export function Importador({
       const r = await fetch("/api/importar/analisar", { method: "POST", body: JSON.stringify({ texto }) }).then((x) => x.json());
       if (!r.ok) { setErro("Não consegui ler os lançamentos desse texto. Confira e tente de novo."); return; }
       setLinhas((r.linhas as Omit<Linha, "incluir" | "categoria_id" | "pessoa">[]).map((l) => ({
-        ...l, incluir: true, categoria_id: null, pessoa: membros[0] ?? "conjunto",
+        ...l, incluir: true, categoria_id: (l as { categoria_id?: string | null }).categoria_id ?? null, pessoa: membros[0] ?? "conjunto",
       })));
     } catch {
       setErro("Falha ao analisar. Tente de novo.");
