@@ -1,8 +1,7 @@
 import Link from "next/link";
 import { createServerSupabase } from "@/lib/supabase/server";
-import { Money } from "@/components/ui/Money";
 import { Card } from "@/components/ui/Card";
-import { PersonChip } from "@/components/ui/PersonChip";
+import { LinhaEditavel } from "@/components/lancamentos/LinhaEditavel";
 
 export default async function Lancamentos({
   searchParams,
@@ -12,18 +11,24 @@ export default async function Lancamentos({
   const sp = await searchParams;
   const supabase = await createServerSupabase();
 
-  let q = supabase.from("transactions").select("*").order("data_compra", { ascending: false }).limit(200);
+  let q = supabase
+    .from("transactions")
+    .select("id, descricao, data_compra, pessoa, parcela_n, total_parcelas, tipo, valor_centavos, categoria_id")
+    .order("data_compra", { ascending: false })
+    .limit(200);
   if (sp.pessoa) q = q.eq("pessoa", sp.pessoa);
   if (sp.card) q = q.eq("card_id", sp.card);
   if (sp.categoria) q = q.eq("categoria_id", sp.categoria);
-  const [txsRes, membrosRes] = await Promise.all([
+  const [txsRes, membrosRes, categoriasRes] = await Promise.all([
     q,
     supabase.from("members").select("nome"),
+    supabase.from("categories").select("id, nome"),
   ]);
   const { data: txs, error } = txsRes;
-  const erro = error ?? membrosRes.error;
+  const erro = error ?? membrosRes.error ?? categoriasRes.error;
   if (erro) throw new Error(`Falha ao carregar o extrato: ${erro.message}`);
   const membros = (membrosRes.data ?? []).map((m) => m.nome);
+  const categorias = categoriasRes.data ?? [];
 
   const filtrosAtivos = [
     sp.pessoa ? { chave: "pessoa", rotulo: `Pessoa: ${sp.pessoa}` } : null,
@@ -70,22 +75,7 @@ export default async function Lancamentos({
         <Card>
           <ul className="flex flex-col gap-0">
             {(txs ?? []).map((t) => (
-              <li
-                key={t.id}
-                className="flex items-center justify-between gap-3 border-b border-[var(--border)] py-3 last:border-b-0"
-              >
-                <div className="flex flex-col gap-1">
-                  <span className="text-[var(--text)]">{t.descricao ?? "(sem descrição)"}</span>
-                  <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--muted)]">
-                    <span>{t.data_compra}</span>
-                    <PersonChip nome={t.pessoa} membros={membros} />
-                    {t.total_parcelas > 1 && (
-                      <span>{t.parcela_n}/{t.total_parcelas}</span>
-                    )}
-                  </div>
-                </div>
-                <Money centavos={t.tipo === "receita" ? t.valor_centavos : -t.valor_centavos} sinal />
-              </li>
+              <LinhaEditavel key={t.id} tx={t} categorias={categorias} membros={membros} />
             ))}
           </ul>
         </Card>
