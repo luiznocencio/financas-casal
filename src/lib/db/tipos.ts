@@ -5,6 +5,7 @@ export type Household = { id: string; nome: string; invite_code: string; renda_m
 export type Budget = { id: string; household_id: string; categoria_id: string; percentual: number };
 export type Goal = { id: string; household_id: string; nome: string; valor_alvo_centavos: number; data_alvo: string | null };
 export type GoalContribution = { id: string; household_id: string; goal_id: string; valor_centavos: number; data: string; descricao: string | null };
+export type CategoryRule = { id: string; household_id: string; chave: string; categoria_id: string; descricao_preferida: string | null };
 export type Member = { user_id: string; household_id: string; nome: string; papel: "membro" | "dono" };
 export type Account = { id: string; household_id: string; nome: string; tipo: "corrente" | "dinheiro" | "poupanca"; saldo_inicial_centavos: number };
 export type Card = { id: string; household_id: string; nome: string; bandeira: string | null; limite_centavos: number; dia_fechamento: number; dia_vencimento: number; titular: string | null };
