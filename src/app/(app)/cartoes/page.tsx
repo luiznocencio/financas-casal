@@ -71,7 +71,9 @@ export default async function CartoesPage() {
                     {card.nome}
                   </span>
                   {card.titular && (
-                    <span className="text-xs text-[var(--muted)]">{card.titular}</span>
+                    <span className="mt-0.5 inline-flex w-fit items-center rounded-full bg-[var(--accent-weak)] px-2 py-0.5 text-xs font-medium text-[var(--accent)]">
+                      {card.titular}
+                    </span>
                   )}
                 </div>
                 <div className="flex min-w-0 flex-col items-end gap-2">

@@ -1,0 +1,99 @@
+"use client";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { PencilSimple, Trash } from "@phosphor-icons/react";
+import { reaisParaCentavos } from "@/lib/financeiro/dinheiro";
+import { Field } from "@/components/ui/Field";
+import { Button } from "@/components/ui/Button";
+import type { Account } from "@/lib/db/tipos";
+
+export function EditarConta({ conta }: { conta: Account }) {
+  const router = useRouter();
+  const [editando, setEditando] = useState(false);
+  const [confirmandoExclusao, setConfirmandoExclusao] = useState(false);
+  const [nome, setNome] = useState(conta.nome);
+  const [tipo, setTipo] = useState(conta.tipo);
+  const [saldo, setSaldo] = useState((conta.saldo_inicial_centavos / 100).toString());
+  const [titular, setTitular] = useState(conta.titular ?? "");
+  const [erro, setErro] = useState<string | null>(null);
+  const [salvando, setSalvando] = useState(false);
+  const [excluindo, setExcluindo] = useState(false);
+
+  async function salvar() {
+    setErro(null);
+    if (!nome.trim()) { setErro("Dê um nome à conta."); return; }
+    setSalvando(true);
+    const res = await fetch(`/api/accounts/${conta.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        nome: nome.trim(), tipo,
+        saldo_inicial_centavos: reaisParaCentavos(saldo), titular: titular.trim() || null,
+      }),
+    });
+    setSalvando(false);
+    if (!res.ok) { setErro("Não foi possível salvar as alterações."); return; }
+    setEditando(false);
+    router.refresh();
+  }
+
+  async function excluir() {
+    setErro(null);
+    setExcluindo(true);
+    const res = await fetch(`/api/accounts/${conta.id}`, { method: "DELETE" });
+    setExcluindo(false);
+    if (!res.ok) { setErro("Não foi possível apagar a conta."); return; }
+    router.refresh();
+  }
+
+  if (editando) {
+    return (
+      <div style={{ display: "grid", gap: 12, border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: 16, background: "var(--surface)" }}>
+        <Field label="Nome" value={nome} onChange={(e) => setNome(e.target.value)} />
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+          <label style={{ display: "grid", gap: 6 }}>
+            <span style={{ fontSize: "0.8rem", color: "var(--muted)" }}>Tipo</span>
+            <select value={tipo} onChange={(e) => setTipo(e.target.value as Account["tipo"])}
+              style={{ padding: "11px 12px", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)" }}>
+              <option value="corrente">Corrente</option>
+              <option value="dinheiro">Dinheiro</option>
+              <option value="poupanca">Poupança</option>
+            </select>
+          </label>
+          <Field label="Saldo inicial (R$)" inputMode="decimal" value={saldo} onChange={(e) => setSaldo(e.target.value)} />
+        </div>
+        <Field label="Titular (opcional)" value={titular} onChange={(e) => setTitular(e.target.value)} />
+        {erro && <p style={{ color: "var(--negativo)", margin: 0, fontSize: "0.85rem" }}>{erro}</p>}
+        <div style={{ display: "flex", gap: 8 }}>
+          <Button variant="primary" onClick={salvar} disabled={salvando} style={{ flex: 1 }}>Salvar</Button>
+          <Button variant="quiet" onClick={() => { setEditando(false); setErro(null); }}>Cancelar</Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (confirmandoExclusao) {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
+        <span style={{ fontSize: "0.8rem", color: "var(--negativo)", textAlign: "right" }}>
+          Apagar a conta e TODOS os seus lançamentos? Não dá pra desfazer.
+        </span>
+        <div style={{ display: "flex", gap: 8 }}>
+          <Button variant="danger" onClick={excluir} disabled={excluindo}>Confirmar exclusão</Button>
+          <Button variant="quiet" onClick={() => setConfirmandoExclusao(false)}>Cancelar</Button>
+        </div>
+        {erro && <p style={{ color: "var(--negativo)", margin: 0, fontSize: "0.8rem" }}>{erro}</p>}
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ display: "flex", gap: 8 }}>
+      <Button variant="ghost" onClick={() => setEditando(true)}>
+        <span style={{ display: "flex", alignItems: "center", gap: 6 }}><PencilSimple size={14} /> Editar</span>
+      </Button>
+      <Button variant="danger" onClick={() => setConfirmandoExclusao(true)}>
+        <span style={{ display: "flex", alignItems: "center", gap: 6 }}><Trash size={14} /> Excluir</span>
+      </Button>
+    </div>
+  );
+}

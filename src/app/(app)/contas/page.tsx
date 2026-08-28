@@ -3,6 +3,7 @@ import { saldoConta } from "@/lib/financeiro/derivados";
 import { Money } from "@/components/ui/Money";
 import { Card } from "@/components/ui/Card";
 import { AddContaForm } from "@/components/contas/AddContaForm";
+import { EditarConta } from "@/components/contas/EditarConta";
 
 const ROTULO_TIPO: Record<string, string> = {
   corrente: "Conta corrente",
@@ -42,14 +43,22 @@ export default async function ContasPage() {
         <div className="grid gap-3 sm:grid-cols-2">
           {linhas.map(({ conta, saldo }) => (
             <Card key={conta.id} className="transition-colors hover:border-[var(--accent)]">
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex min-w-0 flex-col gap-1">
-                  <span className="break-words font-medium text-[var(--text)]">{conta.nome}</span>
-                  <span className="text-xs uppercase tracking-wide text-[var(--muted)]">
-                    {ROTULO_TIPO[conta.tipo] ?? conta.tipo}
-                  </span>
+              <div className="flex flex-col gap-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex min-w-0 flex-col gap-1">
+                    <span className="break-words font-medium text-[var(--text)]">{conta.nome}</span>
+                    <span className="text-xs uppercase tracking-wide text-[var(--muted)]">
+                      {ROTULO_TIPO[conta.tipo] ?? conta.tipo}
+                    </span>
+                    {conta.titular && (
+                      <span className="mt-0.5 inline-flex w-fit items-center rounded-full bg-[var(--accent-weak)] px-2 py-0.5 text-xs font-medium text-[var(--accent)]">
+                        {conta.titular}
+                      </span>
+                    )}
+                  </div>
+                  <Money centavos={saldo} sinal tamanho="lg" />
                 </div>
-                <Money centavos={saldo} sinal tamanho="lg" />
+                <EditarConta conta={conta} />
               </div>
             </Card>
           ))}

@@ -11,6 +11,7 @@ export function AddContaForm() {
   const [nome, setNome] = useState("");
   const [tipo, setTipo] = useState("corrente");
   const [saldo, setSaldo] = useState("");
+  const [titular, setTitular] = useState("");
   const [erro, setErro] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
 
@@ -20,11 +21,11 @@ export function AddContaForm() {
     setSalvando(true);
     const res = await fetch("/api/accounts", {
       method: "POST",
-      body: JSON.stringify({ nome: nome.trim(), tipo, saldo_inicial_centavos: reaisParaCentavos(saldo) }),
+      body: JSON.stringify({ nome: nome.trim(), tipo, saldo_inicial_centavos: reaisParaCentavos(saldo), titular: titular.trim() || null }),
     });
     setSalvando(false);
     if (!res.ok) { setErro("Não foi possível criar a conta."); return; }
-    setNome(""); setSaldo(""); setTipo("corrente"); setAberto(false); router.refresh();
+    setNome(""); setSaldo(""); setTipo("corrente"); setTitular(""); setAberto(false); router.refresh();
   }
 
   if (!aberto) return <Button variant="ghost" onClick={() => setAberto(true)}>+ Adicionar conta</Button>;
@@ -43,6 +44,7 @@ export function AddContaForm() {
         </label>
         <Field label="Saldo inicial (R$)" inputMode="decimal" value={saldo} onChange={(e) => setSaldo(e.target.value)} placeholder="0,00" />
       </div>
+      <Field label="Titular (opcional)" value={titular} onChange={(e) => setTitular(e.target.value)} placeholder="De quem é a conta" />
       {erro && <p style={{ color: "var(--negativo)", margin: 0, fontSize: "0.85rem" }}>{erro}</p>}
       <div style={{ display: "flex", gap: 8 }}>
         <Button variant="primary" onClick={salvar} disabled={salvando} style={{ flex: 1 }}>Criar conta</Button>

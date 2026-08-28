@@ -28,6 +28,7 @@ export async function POST(req: Request) {
       nome: body.nome,
       tipo: body.tipo ?? "corrente",
       saldo_inicial_centavos: body.saldo_inicial_centavos ?? 0,
+      titular: body.titular ?? null,
     })
     .select("*").single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
