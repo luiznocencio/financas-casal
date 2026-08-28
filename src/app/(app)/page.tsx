@@ -5,6 +5,7 @@ import { Money } from "@/components/ui/Money";
 import { Card } from "@/components/ui/Card";
 import { StatTile } from "@/components/ui/StatTile";
 import { SplitBar } from "@/components/ui/SplitBar";
+import { CategoriaTag } from "@/components/ui/CategoriaTag";
 
 const MESES = [
   "janeiro", "fevereiro", "março", "abril", "maio", "junho",
@@ -20,7 +21,7 @@ export default async function Dashboard() {
     supabase.from("accounts").select("*"),
     supabase.from("cards").select("*"),
     supabase.from("transactions").select("*"),
-    supabase.from("categories").select("id, nome"),
+    supabase.from("categories").select("id, nome, cor"),
     supabase.from("members").select("nome"),
   ]);
   // falha de leitura não pode virar "R$ 0" silencioso num app de dinheiro
@@ -44,7 +45,9 @@ export default async function Dashboard() {
   }, 0);
 
   const resumo = resumoDoMes(txs ?? [], ref);
-  const nomeCat = (id: string) => (cats ?? []).find((c) => c.id === id)?.nome ?? "Outros";
+  const catById = new Map((cats ?? []).map((c) => [c.id, c]));
+  const nomeCat = (id: string) => catById.get(id)?.nome ?? "Outros";
+  const corCat = (id: string) => catById.get(id)?.cor ?? "#6b7280";
   const porPessoa = Object.entries(resumo.porPessoa).sort((a, b) => b[1] - a[1]);
   const topCategorias = Object.entries(resumo.porCategoria).sort((a, b) => b[1] - a[1]).slice(0, 5);
   const maiorCategoria = topCategorias.length ? topCategorias[0][1] : 0;
@@ -84,13 +87,13 @@ export default async function Dashboard() {
               {topCategorias.map(([id, valor]) => (
                 <div key={id} className="flex flex-col gap-1.5">
                   <div className="flex items-center justify-between gap-2 text-sm">
-                    <span className="min-w-0 break-words text-[var(--text)]">{nomeCat(id)}</span>
+                    <CategoriaTag nome={nomeCat(id)} cor={corCat(id)} />
                     <Money centavos={valor} />
                   </div>
                   <div className="h-2 overflow-hidden rounded-full bg-[var(--surface-2)]">
                     <div
-                      className="h-full rounded-full bg-[var(--accent)]"
-                      style={{ width: `${maiorCategoria > 0 ? (valor / maiorCategoria) * 100 : 0}%` }}
+                      className="h-full rounded-full"
+                      style={{ width: `${maiorCategoria > 0 ? (valor / maiorCategoria) * 100 : 0}%`, background: corCat(id) }}
                     />
                   </div>
                 </div>

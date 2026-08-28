@@ -7,6 +7,7 @@ import { RendaCasal } from "@/components/orcamento/RendaCasal";
 import { PercentualEditor } from "@/components/orcamento/PercentualEditor";
 import { RemoverCategoria } from "@/components/orcamento/RemoverCategoria";
 import { AddCategoriaForm } from "@/components/orcamento/AddCategoriaForm";
+import { CategoriaPonto } from "@/components/ui/CategoriaTag";
 
 export default async function OrcamentoPage() {
   const supabase = await createServerSupabase();
@@ -66,11 +67,13 @@ export default async function OrcamentoPage() {
           const limite = item?.limiteCentavos ?? 0;
           const gasto = gastoPorCategoria[c.id] ?? 0;
           const usado = item?.pctUsado ?? 0;
-          const cor = usado > 100 ? "var(--negativo)" : usado > 85 ? "var(--alerta)" : "var(--accent)";
+          const cor = usado > 100 ? "var(--negativo)" : usado > 85 ? "var(--alerta)" : c.cor;
           return (
             <Card key={c.id}>
               <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
-                <span className="min-w-0 break-words font-medium text-[var(--text)]">{c.nome}</span>
+                <span className="flex min-w-0 items-center gap-2 break-words font-medium text-[var(--text)]">
+                  <CategoriaPonto cor={c.cor} />{c.nome}
+                </span>
                 <div className="flex items-center gap-2">
                   <PercentualEditor categoriaId={c.id} percentual={pct} />
                   <RemoverCategoria categoriaId={c.id} nome={c.nome} />

@@ -4,13 +4,14 @@ import { useRouter } from "next/navigation";
 import { Field } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
 
-const CORES = ["#2f9e44", "#e8590c", "#1971c2", "#6741d9", "#c2255c", "#f08c00", "#9c36b5", "#2b8a3e"];
+const CORES = ["#2f9e44", "#e8590c", "#1971c2", "#6741d9", "#c2255c", "#f08c00", "#9c36b5", "#2b8a3e", "#0c8599", "#e03131"];
 
 export function AddCategoriaForm() {
   const router = useRouter();
   const [aberto, setAberto] = useState(false);
   const [nome, setNome] = useState("");
   const [tipo, setTipo] = useState("despesa");
+  const [cor, setCor] = useState(CORES[0]);
   const [erro, setErro] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
 
@@ -18,14 +19,13 @@ export function AddCategoriaForm() {
     setErro(null);
     if (!nome.trim()) { setErro("Dê um nome à categoria."); return; }
     setSalvando(true);
-    const cor = CORES[Math.floor(Math.random() * CORES.length)];
     const res = await fetch("/api/categories", {
       method: "POST",
       body: JSON.stringify({ nome: nome.trim(), tipo, cor }),
     });
     setSalvando(false);
     if (!res.ok) { setErro("Não foi possível criar a categoria."); return; }
-    setNome(""); setTipo("despesa"); setAberto(false); router.refresh();
+    setNome(""); setTipo("despesa"); setCor(CORES[0]); setAberto(false); router.refresh();
   }
 
   if (!aberto) return <Button variant="ghost" onClick={() => setAberto(true)}>+ Nova categoria</Button>;
@@ -40,6 +40,19 @@ export function AddCategoriaForm() {
           <option value="receita">Receita</option>
         </select>
       </label>
+      <div style={{ display: "grid", gap: 6 }}>
+        <span style={{ fontSize: "0.8rem", color: "var(--muted)" }}>Cor</span>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+          {CORES.map((c) => (
+            <button key={c} type="button" onClick={() => setCor(c)} aria-label={`Cor ${c}`}
+              style={{
+                width: 26, height: 26, borderRadius: 999, background: c, cursor: "pointer",
+                border: cor === c ? "2px solid var(--text)" : "2px solid transparent",
+                outline: cor === c ? "2px solid var(--surface)" : "none", outlineOffset: -4,
+              }} />
+          ))}
+        </div>
+      </div>
       {erro && <p style={{ color: "var(--negativo)", margin: 0, fontSize: "0.85rem" }}>{erro}</p>}
       <div style={{ display: "flex", gap: 8 }}>
         <Button variant="primary" onClick={salvar} disabled={salvando} style={{ flex: 1 }}>Criar categoria</Button>

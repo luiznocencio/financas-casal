@@ -40,7 +40,7 @@ export default async function ContasPage() {
           </p>
         </Card>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-3 sm:grid-cols-2 sm:items-start">
           {linhas.map(({ conta, saldo }) => (
             <Card key={conta.id} className="transition-colors hover:border-[var(--accent)]">
               <div className="flex flex-col gap-3">

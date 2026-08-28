@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { PencilSimple, Trash } from "@phosphor-icons/react";
 import { Money } from "@/components/ui/Money";
 import { PersonChip } from "@/components/ui/PersonChip";
+import { CategoriaTag } from "@/components/ui/CategoriaTag";
 import { Button } from "@/components/ui/Button";
 
 type Tx = {
@@ -14,7 +15,7 @@ type Tx = {
 
 export function LinhaEditavel({
   tx, categorias, membros,
-}: { tx: Tx; categorias: { id: string; nome: string }[]; membros: string[] }) {
+}: { tx: Tx; categorias: { id: string; nome: string; cor: string }[]; membros: string[] }) {
   const router = useRouter();
   const [editando, setEditando] = useState(false);
   const [descricao, setDescricao] = useState(tx.descricao ?? "");
@@ -45,6 +46,7 @@ export function LinhaEditavel({
   }
 
   const valorSinal = tx.tipo === "receita" ? tx.valor_centavos : -tx.valor_centavos;
+  const cat = categorias.find((c) => c.id === tx.categoria_id);
 
   if (!editando) {
     return (
@@ -54,6 +56,7 @@ export function LinhaEditavel({
           <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--muted)]">
             <span>{tx.data_compra}</span>
             <PersonChip nome={tx.pessoa} membros={membros} />
+            {cat && <CategoriaTag nome={cat.nome} cor={cat.cor} tamanho="sm" />}
             {tx.total_parcelas > 1 && <span>{tx.parcela_n}/{tx.total_parcelas}</span>}
           </div>
           {aviso && <p className="text-xs text-[var(--negativo)]">{aviso}</p>}
