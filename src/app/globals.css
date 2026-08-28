@@ -47,6 +47,7 @@ body {
   color: var(--text);
   font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
+  line-height: 1.5; /* respiro: textos de várias linhas dentro das caixas */
 }
 .tabular { font-variant-numeric: tabular-nums; }
 .mono { font-family: var(--font-mono), ui-monospace, "SFMono-Regular", monospace; font-variant-numeric: tabular-nums; }

@@ -6,7 +6,7 @@ export function StatTile({
   return (
     <div style={{
       background: "var(--surface)", border: "1px solid var(--border)",
-      borderRadius: "var(--radius)", padding: "14px 16px", display: "grid", gap: 4,
+      borderRadius: "var(--radius)", padding: "16px 18px", display: "grid", gap: 6,
     }}>
       <span style={{ fontSize: "0.78rem", color: "var(--muted)", letterSpacing: "0.01em" }}>{rotulo}</span>
       <Money centavos={valorCentavos} sinal={sinal} tamanho="lg" />

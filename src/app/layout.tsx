@@ -12,7 +12,15 @@ export const metadata: Metadata = {
   appleWebApp: { title: "Finanças do Casal", capable: true, statusBarStyle: "default" },
 };
 
-export const viewport = { themeColor: "#3b5bdb" };
+export const viewport = {
+  themeColor: "#3b5bdb",
+  width: "device-width",
+  initialScale: 1,
+  // trava o auto-zoom do iOS ao focar campos e o zoom por duplo-toque
+  // (o iOS ainda permite pinça manual por acessibilidade)
+  maximumScale: 1,
+  userScalable: false,
+};
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (

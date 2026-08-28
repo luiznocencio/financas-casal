@@ -25,6 +25,9 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "não autorizado" }, { status: 401 });
   }
 
+  // ?forcar=1 → dispara um teste pra cada dispositivo, ignorando a data
+  const forcar = new URL(req.url).searchParams.get("forcar") === "1";
+
   // "amanhã" no fuso do casal (o cron roda em UTC)
   const hoje = partesNoFuso(new Date(), FUSO);
   const amanha = diaSeguinte(hoje.ano, hoje.mes, hoje.dia);
@@ -46,23 +49,36 @@ export async function GET(req: Request) {
     faturaFechaNaData(c.dia_fechamento, amanha.ano, amanha.mes, amanha.dia),
   );
 
-  // um envio por (cartão que fecha amanhã × dispositivo do household)
-  const tarefas = fechandoAmanha.flatMap((card) =>
-    subs
-      .filter((s) => s.household_id === card.household_id)
-      .map((s) => ({ s, card })),
-  );
-  const resultados = await Promise.all(
-    tarefas.map(({ s, card }) =>
-      enviarPush(
-        { endpoint: s.endpoint, p256dh: s.p256dh, auth: s.auth },
-        {
-          title: "Fatura fechando amanhã",
-          body: `A fatura do ${card.nome} fecha amanhã. Confira os gastos antes de fechar.`,
+  // teste: 1 notificação por dispositivo. real: 1 por (cartão que fecha amanhã × dispositivo).
+  type Tarefa = { s: (typeof subs)[number]; payload: Parameters<typeof enviarPush>[1] };
+  const tarefas: Tarefa[] = forcar
+    ? subs.map((s) => ({
+        s,
+        payload: {
+          title: "Teste de notificação ✅",
+          body: "Se você recebeu isso, os avisos de fatura estão funcionando.",
           url: "/cartoes",
-          tag: `fatura-${card.id}`,
+          tag: "teste",
         },
-      ).then((r) => ({ r, endpoint: s.endpoint })),
+      }))
+    : fechandoAmanha.flatMap((card) =>
+        subs
+          .filter((s) => s.household_id === card.household_id)
+          .map((s) => ({
+            s,
+            payload: {
+              title: "Fatura fechando amanhã",
+              body: `A fatura do ${card.nome} fecha amanhã. Confira os gastos antes de fechar.`,
+              url: "/cartoes",
+              tag: `fatura-${card.id}`,
+            },
+          })),
+      );
+
+  const resultados = await Promise.all(
+    tarefas.map(({ s, payload }) =>
+      enviarPush({ endpoint: s.endpoint, p256dh: s.p256dh, auth: s.auth }, payload)
+        .then((r) => ({ r, endpoint: s.endpoint })),
     ),
   );
   let enviadas = 0;
@@ -79,7 +95,9 @@ export async function GET(req: Request) {
 
   return NextResponse.json({
     ok: true,
+    forcar,
     amanha,
+    dispositivos: subs.length,
     cartoesFechando: fechandoAmanha.length,
     enviadas,
     removidas: expirados.length,
