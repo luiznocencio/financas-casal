@@ -7,9 +7,10 @@ export function StatTile({
     <div style={{
       background: "var(--surface)", border: "1px solid var(--border)",
       borderRadius: "var(--radius)", padding: "16px 18px", display: "grid", gap: 6,
+      minWidth: 0, overflow: "hidden", // não deixa o valor vazar do card
     }}>
       <span style={{ fontSize: "0.78rem", color: "var(--muted)", letterSpacing: "0.01em" }}>{rotulo}</span>
-      <Money centavos={valorCentavos} sinal={sinal} tamanho="lg" />
+      <Money centavos={valorCentavos} sinal={sinal} tamanho="tile" />
       {hint && <span style={{ fontSize: "0.75rem", color: "var(--muted)" }}>{hint}</span>}
     </div>
   );
