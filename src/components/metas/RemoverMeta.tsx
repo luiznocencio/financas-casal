@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/Button";
 
 export function RemoverMeta({ goalId }: { goalId: string }) {
   const router = useRouter();
@@ -16,18 +17,15 @@ export function RemoverMeta({ goalId }: { goalId: string }) {
 
   if (!confirmando) {
     return (
-      <button onClick={() => setConfirmando(true)}
-        style={{ background: "none", border: "none", color: "var(--muted)", cursor: "pointer", fontSize: "0.8rem" }}>
-        remover
-      </button>
+      <Button variant="ghost" onClick={() => setConfirmando(true)}>Remover</Button>
     );
   }
   return (
-    <span style={{ display: "inline-flex", gap: 8, fontSize: "0.8rem" }}>
-      <button onClick={remover} style={{ background: "none", border: "none", color: erro ? "var(--negativo)" : "var(--negativo)", cursor: "pointer" }}>
-        {erro ? "erro, tente de novo" : "confirmar"}
-      </button>
-      <button onClick={() => setConfirmando(false)} style={{ background: "none", border: "none", color: "var(--muted)", cursor: "pointer" }}>cancelar</button>
+    <span style={{ display: "inline-flex", gap: 8 }}>
+      <Button variant="danger" onClick={remover}>
+        {erro ? "Erro, tente de novo" : "Confirmar exclusão"}
+      </Button>
+      <Button variant="quiet" onClick={() => setConfirmando(false)}>Cancelar</Button>
     </span>
   );
 }

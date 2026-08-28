@@ -5,6 +5,7 @@ import { Money } from "@/components/ui/Money";
 import { Card } from "@/components/ui/Card";
 import { FaturaBotao } from "@/components/cartoes/FaturaBotao";
 import { AddCartaoForm } from "@/components/cartoes/AddCartaoForm";
+import { EditarCartao } from "@/components/cartoes/EditarCartao";
 import { CreditCard as CreditCardIcon, Receipt } from "@phosphor-icons/react/dist/ssr";
 
 const MESES = [
@@ -70,9 +71,12 @@ export default async function CartoesPage() {
                     <span className="text-xs text-[var(--muted)]">{card.titular}</span>
                   )}
                 </div>
-                <span className="text-xs text-[var(--muted)]">
-                  fecha dia {card.dia_fechamento} · vence dia {card.dia_vencimento}
-                </span>
+                <div className="flex flex-col items-end gap-2">
+                  <span className="text-xs text-[var(--muted)]">
+                    fecha dia {card.dia_fechamento} · vence dia {card.dia_vencimento}
+                  </span>
+                  <EditarCartao card={card} />
+                </div>
               </div>
               <div className="h-2 overflow-hidden rounded-full bg-[var(--surface-2)]">
                 <div

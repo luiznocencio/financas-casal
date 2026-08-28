@@ -22,10 +22,9 @@ export function RendaEditor({ rendaCentavos }: { rendaCentavos: number }) {
 
   if (!editando) {
     return (
-      <button onClick={() => setEditando(true)}
-        style={{ background: "none", border: "none", color: "var(--accent)", cursor: "pointer", fontSize: "0.85rem" }}>
+      <Button variant="ghost" onClick={() => setEditando(true)}>
         {rendaCentavos > 0 ? `Renda: ${centavosParaReais(rendaCentavos)} · editar` : "Definir renda mensal"}
-      </button>
+      </Button>
     );
   }
   return (

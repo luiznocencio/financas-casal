@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { PencilSimple } from "@phosphor-icons/react";
+import { PencilSimple, Trash } from "@phosphor-icons/react";
 import { Money } from "@/components/ui/Money";
 import { PersonChip } from "@/components/ui/PersonChip";
 import { Button } from "@/components/ui/Button";
@@ -21,6 +21,8 @@ export function LinhaEditavel({
   const [categoriaId, setCategoriaId] = useState(tx.categoria_id ?? "");
   const [salvando, setSalvando] = useState(false);
   const [aviso, setAviso] = useState<string | null>(null);
+  const [confirmandoExclusao, setConfirmandoExclusao] = useState(false);
+  const [excluindo, setExcluindo] = useState(false);
 
   async function salvar() {
     setSalvando(true);
@@ -34,22 +36,54 @@ export function LinhaEditavel({
     router.refresh();
   }
 
+  async function excluir() {
+    setExcluindo(true);
+    const res = await fetch(`/api/transactions/${tx.id}`, { method: "DELETE" }).catch(() => null);
+    setExcluindo(false);
+    if (!res?.ok) { setAviso("Não foi possível apagar o lançamento."); return; }
+    router.refresh();
+  }
+
   const valorSinal = tx.tipo === "receita" ? tx.valor_centavos : -tx.valor_centavos;
 
   if (!editando) {
     return (
       <li className="flex items-center justify-between gap-3 border-b border-[var(--border)] py-3 last:border-b-0">
         <div className="flex min-w-0 flex-col gap-1">
-          <button onClick={() => setEditando(true)} className="flex items-center gap-1.5 text-left text-[var(--text)]">
-            {tx.descricao ?? "(sem descrição)"} <PencilSimple size={13} className="text-[var(--muted)]" />
-          </button>
+          <span className="text-[var(--text)]">{tx.descricao ?? "(sem descrição)"}</span>
           <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--muted)]">
             <span>{tx.data_compra}</span>
             <PersonChip nome={tx.pessoa} membros={membros} />
             {tx.total_parcelas > 1 && <span>{tx.parcela_n}/{tx.total_parcelas}</span>}
           </div>
+          {aviso && <p className="text-xs text-[var(--negativo)]">{aviso}</p>}
         </div>
-        <Money centavos={valorSinal} sinal />
+        <div className="flex items-center gap-2">
+          <Money centavos={valorSinal} sinal />
+          {confirmandoExclusao ? (
+            <>
+              <Button variant="danger" tamanho="md" onClick={excluir} disabled={excluindo}
+                style={{ padding: "5px 10px", fontSize: "0.75rem" }}>
+                Confirmar
+              </Button>
+              <Button variant="quiet" tamanho="md" onClick={() => setConfirmandoExclusao(false)}
+                style={{ padding: "5px 10px", fontSize: "0.75rem" }}>
+                Cancelar
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button variant="ghost" tamanho="md" onClick={() => setEditando(true)}
+                style={{ padding: "5px 8px" }} aria-label="Editar lançamento">
+                <PencilSimple size={13} />
+              </Button>
+              <Button variant="danger" tamanho="md" onClick={() => setConfirmandoExclusao(true)}
+                style={{ padding: "5px 8px" }} aria-label="Apagar lançamento">
+                <Trash size={13} />
+              </Button>
+            </>
+          )}
+        </div>
       </li>
     );
   }
