@@ -57,7 +57,7 @@ export default async function Dashboard() {
   ];
 
   return (
-    <main className="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-10 sm:px-6">
+    <main className="mx-auto flex max-w-5xl flex-col gap-6 px-4 py-10 sm:px-6">
       <header className="flex flex-col gap-1">
         <h1 className="text-2xl font-bold text-[var(--text)]">{MESES[ref.mes - 1]}</h1>
         <p className="text-sm text-[var(--muted)]">Visão do casal</p>
@@ -69,34 +69,36 @@ export default async function Dashboard() {
         ))}
       </div>
 
-      <Card>
-        <h3 className="mb-4 font-medium text-[var(--text)]">Quem gastou este mês</h3>
-        <SplitBar itens={porPessoa.map(([nome, centavos]) => ({ nome, centavos }))} membros={membros} />
-      </Card>
+      <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
+        <Card>
+          <h3 className="mb-4 font-medium text-[var(--text)]">Quem gastou este mês</h3>
+          <SplitBar itens={porPessoa.map(([nome, centavos]) => ({ nome, centavos }))} membros={membros} />
+        </Card>
 
-      <Card>
-        <h3 className="mb-4 font-medium text-[var(--text)]">Top categorias</h3>
-        {topCategorias.length === 0 ? (
-          <p className="text-sm text-[var(--muted)]">Nenhuma categoria com gasto neste mês ainda.</p>
-        ) : (
-          <div className="flex flex-col gap-4">
-            {topCategorias.map(([id, valor]) => (
-              <div key={id} className="flex flex-col gap-1.5">
-                <div className="flex items-center justify-between gap-2 text-sm">
-                  <span className="min-w-0 break-words text-[var(--text)]">{nomeCat(id)}</span>
-                  <Money centavos={valor} />
+        <Card>
+          <h3 className="mb-4 font-medium text-[var(--text)]">Top categorias</h3>
+          {topCategorias.length === 0 ? (
+            <p className="text-sm text-[var(--muted)]">Nenhuma categoria com gasto neste mês ainda.</p>
+          ) : (
+            <div className="flex flex-col gap-4">
+              {topCategorias.map(([id, valor]) => (
+                <div key={id} className="flex flex-col gap-1.5">
+                  <div className="flex items-center justify-between gap-2 text-sm">
+                    <span className="min-w-0 break-words text-[var(--text)]">{nomeCat(id)}</span>
+                    <Money centavos={valor} />
+                  </div>
+                  <div className="h-2 overflow-hidden rounded-full bg-[var(--surface-2)]">
+                    <div
+                      className="h-full rounded-full bg-[var(--accent)]"
+                      style={{ width: `${maiorCategoria > 0 ? (valor / maiorCategoria) * 100 : 0}%` }}
+                    />
+                  </div>
                 </div>
-                <div className="h-2 overflow-hidden rounded-full bg-[var(--surface-2)]">
-                  <div
-                    className="h-full rounded-full bg-[var(--accent)]"
-                    style={{ width: `${maiorCategoria > 0 ? (valor / maiorCategoria) * 100 : 0}%` }}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </Card>
+              ))}
+            </div>
+          )}
+        </Card>
+      </div>
     </main>
   );
 }

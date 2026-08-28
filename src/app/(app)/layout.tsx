@@ -3,6 +3,7 @@ import { createServerSupabase } from "@/lib/supabase/server";
 import { getMembroAtual } from "@/lib/auth/household";
 import { QuickAdd } from "@/components/quick-add/QuickAdd";
 import { TabBar } from "@/components/shell/TabBar";
+import { Sidebar } from "@/components/shell/Sidebar";
 import { InstalarApp } from "@/components/pwa/InstalarApp";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -28,8 +29,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const membros = membrosRes.data;
 
   return (
-    <div style={{ maxWidth: 720, margin: "0 auto", padding: 16, paddingBottom: 92 }}>
-      {children}
+    <div className="lg:flex lg:items-start">
+      <Sidebar />
+      {/* conteúdo: coluna com respiro pra tab bar no mobile; largura livre no desktop */}
+      <div className="min-w-0 flex-1 pb-24 lg:pb-0">
+        {children}
+      </div>
       <TabBar />
       <InstalarApp />
       <QuickAdd

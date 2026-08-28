@@ -1,29 +1,21 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { House, CreditCard, Wallet, Receipt, ChartPieSlice, Target } from "@phosphor-icons/react";
+import { NAV_ITENS, ehAtivo } from "./nav";
 
-const ITENS = [
-  { href: "/", rotulo: "Início", Icone: House },
-  { href: "/cartoes", rotulo: "Cartões", Icone: CreditCard },
-  { href: "/contas", rotulo: "Contas", Icone: Wallet },
-  { href: "/lancamentos", rotulo: "Extrato", Icone: Receipt },
-  { href: "/orcamento", rotulo: "Orçamento", Icone: ChartPieSlice },
-  { href: "/metas", rotulo: "Metas", Icone: Target },
-];
-
+// Barra de navegação inferior — só no mobile (no desktop vale a Sidebar).
 export function TabBar() {
   const path = usePathname();
   return (
-    <nav aria-label="Navegação principal"
+    <nav aria-label="Navegação principal" className="lg:hidden"
       style={{
         position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 40,
         background: "var(--surface)", borderTop: "1px solid var(--border)",
         display: "flex", justifyContent: "space-around",
         padding: "6px 4px calc(6px + env(safe-area-inset-bottom))",
       }}>
-      {ITENS.map(({ href, rotulo, Icone }) => {
-        const ativo = href === "/" ? path === "/" : path.startsWith(href);
+      {NAV_ITENS.map(({ href, rotulo, Icone }) => {
+        const ativo = ehAtivo(href, path);
         const cor = ativo ? "var(--accent)" : "var(--muted)";
         return (
           <Link key={href} href={href}
