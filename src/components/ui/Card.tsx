@@ -7,7 +7,7 @@ export function Card({ children, className = "" }: { children: React.ReactNode; 
         border: "1px solid var(--border)",
         borderRadius: "var(--radius)",
         boxShadow: "var(--shadow)",
-        padding: "20px",
+        padding: "24px",
       }}
     >
       {children}
