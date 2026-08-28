@@ -17,4 +17,5 @@ export type Transaction = {
   account_id: string | null; card_id: string | null; invoice_id: string | null;
   grupo_parcela: string | null; parcela_n: number; total_parcelas: number;
   descricao: string | null; paga: boolean; origem_ia: boolean;
+  grupo_importacao: string | null;
 };
