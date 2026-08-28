@@ -44,9 +44,9 @@ export default async function MetasPage() {
             const cor = m.concluida ? "var(--positivo)" : "var(--accent)";
             return (
               <Card key={g.id}>
-                <div className="mb-2 flex items-center justify-between gap-3">
-                  <div className="flex flex-col gap-0.5">
-                    <span className="font-medium text-[var(--text)]">{g.nome}{m.concluida && <span className="ml-2 text-xs text-[var(--positivo)]">concluída</span>}</span>
+                <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex min-w-0 flex-col gap-0.5">
+                    <span className="break-words font-medium text-[var(--text)]">{g.nome}{m.concluida && <span className="ml-2 text-xs text-[var(--positivo)]">concluída</span>}</span>
                     {g.data_alvo && <span className="text-xs text-[var(--muted)]">até {new Date(g.data_alvo + "T12:00:00").toLocaleDateString("pt-BR")}</span>}
                   </div>
                   <div className="flex items-center gap-3">

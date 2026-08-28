@@ -43,8 +43,8 @@ export default async function ContasPage() {
           {linhas.map(({ conta, saldo }) => (
             <Card key={conta.id} className="transition-colors hover:border-[var(--accent)]">
               <div className="flex items-start justify-between gap-3">
-                <div className="flex flex-col gap-1">
-                  <span className="font-medium text-[var(--text)]">{conta.nome}</span>
+                <div className="flex min-w-0 flex-col gap-1">
+                  <span className="break-words font-medium text-[var(--text)]">{conta.nome}</span>
                   <span className="text-xs uppercase tracking-wide text-[var(--muted)]">
                     {ROTULO_TIPO[conta.tipo] ?? conta.tipo}
                   </span>

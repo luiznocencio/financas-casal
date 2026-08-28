@@ -61,9 +61,9 @@ export default async function CartoesPage() {
         <div className="flex flex-col gap-3">
           {linhas.map(({ card, usado, disponivel, pct, faturas }) => (
             <Card key={card.id}>
-              <div className="mb-3 flex items-center justify-between gap-3">
-                <div className="flex flex-col gap-0.5">
-                  <span className="flex items-center gap-1.5 font-semibold text-[var(--text)]">
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+                <div className="flex min-w-0 flex-col gap-0.5">
+                  <span className="flex items-center gap-1.5 break-words font-semibold text-[var(--text)]">
                     <CreditCardIcon size={16} />
                     {card.nome}
                   </span>
@@ -71,7 +71,7 @@ export default async function CartoesPage() {
                     <span className="text-xs text-[var(--muted)]">{card.titular}</span>
                   )}
                 </div>
-                <div className="flex flex-col items-end gap-2">
+                <div className="flex min-w-0 flex-col items-end gap-2">
                   <span className="text-xs text-[var(--muted)]">
                     fecha dia {card.dia_fechamento} · vence dia {card.dia_vencimento}
                   </span>

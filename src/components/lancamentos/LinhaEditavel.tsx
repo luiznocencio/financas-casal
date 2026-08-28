@@ -50,7 +50,7 @@ export function LinhaEditavel({
     return (
       <li className="flex items-center justify-between gap-3 border-b border-[var(--border)] py-3 last:border-b-0">
         <div className="flex min-w-0 flex-col gap-1">
-          <span className="text-[var(--text)]">{tx.descricao ?? "(sem descrição)"}</span>
+          <span className="break-words text-[var(--text)]">{tx.descricao ?? "(sem descrição)"}</span>
           <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--muted)]">
             <span>{tx.data_compra}</span>
             <PersonChip nome={tx.pessoa} membros={membros} />
@@ -63,22 +63,22 @@ export function LinhaEditavel({
           {confirmandoExclusao ? (
             <>
               <Button variant="danger" tamanho="md" onClick={excluir} disabled={excluindo}
-                style={{ padding: "5px 10px", fontSize: "0.75rem" }}>
+                style={{ padding: "9px 12px", fontSize: "0.75rem" }}>
                 Confirmar
               </Button>
               <Button variant="quiet" tamanho="md" onClick={() => setConfirmandoExclusao(false)}
-                style={{ padding: "5px 10px", fontSize: "0.75rem" }}>
+                style={{ padding: "9px 12px", fontSize: "0.75rem" }}>
                 Cancelar
               </Button>
             </>
           ) : (
             <>
               <Button variant="ghost" tamanho="md" onClick={() => setEditando(true)}
-                style={{ padding: "5px 8px" }} aria-label="Editar lançamento">
+                style={{ padding: "10px 10px" }} aria-label="Editar lançamento">
                 <PencilSimple size={13} />
               </Button>
               <Button variant="danger" tamanho="md" onClick={() => setConfirmandoExclusao(true)}
-                style={{ padding: "5px 8px" }} aria-label="Apagar lançamento">
+                style={{ padding: "10px 10px" }} aria-label="Apagar lançamento">
                 <Trash size={13} />
               </Button>
             </>

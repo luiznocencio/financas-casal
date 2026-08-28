@@ -66,8 +66,8 @@ export default async function OrcamentoPage() {
           const cor = usado > 100 ? "var(--negativo)" : usado > 85 ? "var(--alerta)" : "var(--accent)";
           return (
             <Card key={c.id}>
-              <div className="mb-2 flex items-center justify-between gap-3">
-                <span className="font-medium text-[var(--text)]">{c.nome}</span>
+              <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
+                <span className="min-w-0 break-words font-medium text-[var(--text)]">{c.nome}</span>
                 <PercentualEditor categoriaId={c.id} percentual={pct} />
               </div>
               <div className="h-2 overflow-hidden rounded-full bg-[var(--surface-2)]">

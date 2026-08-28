@@ -82,8 +82,8 @@ export default async function Dashboard() {
           <div className="flex flex-col gap-3">
             {topCategorias.map(([id, valor]) => (
               <div key={id} className="flex flex-col gap-1">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-[var(--text)]">{nomeCat(id)}</span>
+                <div className="flex items-center justify-between gap-2 text-sm">
+                  <span className="min-w-0 break-words text-[var(--text)]">{nomeCat(id)}</span>
                   <Money centavos={valor} />
                 </div>
                 <div className="h-1.5 overflow-hidden rounded-full bg-[var(--surface-2)]">

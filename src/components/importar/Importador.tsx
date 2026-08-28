@@ -129,18 +129,22 @@ export function Importador({
           </div>
           <div className="flex flex-col divide-y divide-[var(--border)]">
             {linhas.map((l, i) => (
-              <div key={i} className="flex flex-wrap items-center gap-2 py-2 text-sm">
-                <input type="checkbox" checked={l.incluir} onChange={(e) => atualizar(i, { incluir: e.target.checked })} />
-                <span className="w-20 text-[var(--muted)]">{l.data}</span>
-                <input value={l.descricao} onChange={(e) => atualizar(i, { descricao: e.target.value })}
-                  className="min-w-0 flex-1 rounded border border-[var(--border)] bg-[var(--surface)] px-2 py-1 text-[var(--text)]" />
-                <select value={l.categoria_id ?? ""} onChange={(e) => atualizar(i, { categoria_id: e.target.value || null })}
-                  className="rounded border border-[var(--border)] bg-[var(--surface)] px-1 py-1 text-[var(--text)]">
-                  <option value="">—</option>
-                  {categorias.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
-                </select>
-                <span className="mono w-24 text-right">{centavosParaReais(l.valor_centavos)}</span>
-                {l.duplicada && <span className="text-xs text-[var(--negativo)]">possível duplicado</span>}
+              <div key={i} className="flex flex-col gap-1 py-2 text-sm sm:flex-row sm:items-center sm:gap-2">
+                <div className="flex min-w-0 items-center gap-2">
+                  <input type="checkbox" checked={l.incluir} onChange={(e) => atualizar(i, { incluir: e.target.checked })} />
+                  <input value={l.descricao} onChange={(e) => atualizar(i, { descricao: e.target.value })}
+                    className="min-w-0 flex-1 rounded border border-[var(--border)] bg-[var(--surface)] px-2 py-1 text-[var(--text)]" />
+                </div>
+                <div className="flex flex-wrap items-center gap-2 pl-6 sm:flex-1 sm:pl-0">
+                  <span className="w-full text-xs text-[var(--muted)] sm:w-20 sm:text-sm">{l.data}</span>
+                  <select value={l.categoria_id ?? ""} onChange={(e) => atualizar(i, { categoria_id: e.target.value || null })}
+                    className="min-w-0 flex-1 rounded border border-[var(--border)] bg-[var(--surface)] px-1 py-1 text-[var(--text)] sm:flex-none">
+                    <option value="">—</option>
+                    {categorias.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
+                  </select>
+                  <span className="mono ml-auto text-right sm:ml-0 sm:w-24">{centavosParaReais(l.valor_centavos)}</span>
+                  {l.duplicada && <span className="w-full text-xs text-[var(--negativo)] sm:w-auto">possível duplicado</span>}
+                </div>
               </div>
             ))}
           </div>

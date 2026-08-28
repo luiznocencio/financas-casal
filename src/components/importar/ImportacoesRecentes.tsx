@@ -31,9 +31,9 @@ function LinhaImportacao({ lote }: { lote: LoteImportacao }) {
   const data = new Date(lote.dataMaisRecente).toLocaleDateString("pt-BR");
 
   return (
-    <div className="flex items-center justify-between gap-3 border-b border-[var(--border)] py-3 last:border-b-0">
-      <div className="flex flex-col gap-0.5">
-        <span className="text-sm text-[var(--text)]">
+    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border)] py-3 last:border-b-0">
+      <div className="flex min-w-0 flex-col gap-0.5">
+        <span className="break-words text-sm text-[var(--text)]">
           {lote.quantidade} lançamento{lote.quantidade === 1 ? "" : "s"} · <Money centavos={lote.totalCentavos} /> · {data}
         </span>
         {erro && <span className="text-xs text-[var(--negativo)]">{erro}</span>}
