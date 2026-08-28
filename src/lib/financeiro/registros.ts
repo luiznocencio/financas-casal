@@ -4,6 +4,7 @@ export type CtxRegistro = {
   householdId: string;
   criadoPor: string;
   origemIa: boolean;
+  grupoImportacao?: string | null;
 };
 
 /**
@@ -28,6 +29,7 @@ export function mapearRegistros(
       grupo_parcela: linha.grupo_parcela, parcela_n: linha.parcela_n,
       total_parcelas: linha.total_parcelas, descricao: linha.descricao,
       criado_por: ctx.criadoPor, origem_ia: ctx.origemIa,
+      grupo_importacao: ctx.grupoImportacao ?? null,
     };
   });
 }

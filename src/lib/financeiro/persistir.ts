@@ -5,7 +5,7 @@ import type { NovoLancamento } from "./tipos";
 
 export async function persistirLancamento(
   supabase: SupabaseClient,
-  ctx: { householdId: string; criadoPor: string },
+  ctx: { householdId: string; criadoPor: string; grupoImportacao?: string | null },
   l: NovoLancamento,
   diaFechamentoConhecido?: number | null,
 ): Promise<{ error: string | null }> {
@@ -49,6 +49,7 @@ export async function persistirLancamento(
 
   const registros = mapearRegistros(linhas, invoiceIdPorComp, {
     householdId: ctx.householdId, criadoPor: ctx.criadoPor, origemIa: l.origem_ia ?? false,
+    grupoImportacao: ctx.grupoImportacao ?? null,
   });
   const { error } = await supabase.from("transactions").insert(registros);
   return { error: error ? error.message : null };

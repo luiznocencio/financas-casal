@@ -37,6 +37,8 @@ export async function POST(req: Request) {
     diaFechamento = card.dia_fechamento;
   }
 
+  const grupoImportacao = crypto.randomUUID();
+
   let criadas = 0;
   let duplicadas = 0;
   const falhas: string[] = [];
@@ -56,7 +58,7 @@ export async function POST(req: Request) {
       descricao: it.descricao, origem_ia: true,
     };
     const { error } = await persistirLancamento(
-      supabase, { householdId: membro.household_id, criadoPor: membro.user_id }, novo, diaFechamento,
+      supabase, { householdId: membro.household_id, criadoPor: membro.user_id, grupoImportacao }, novo, diaFechamento,
     );
     if (error) falhas.push(it.descricao || "(sem descrição)");
     else { criadas++; chaves.add(chave); } // evita duplicar dentro do próprio lote
