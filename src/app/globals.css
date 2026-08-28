@@ -51,6 +51,16 @@ body {
 .tabular { font-variant-numeric: tabular-nums; }
 .mono { font-family: var(--font-mono), ui-monospace, "SFMono-Regular", monospace; font-variant-numeric: tabular-nums; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
+
+/* Toque (iPhone/iPad): o iOS dá zoom automático ao focar um campo com fonte < 16px.
+   Força 16px nos controles em dispositivos de toque (o !important vence as utilities
+   text-sm do Tailwind). Desktop fica intacto. Não desabilita o zoom manual/pinça. */
+@media (pointer: coarse) {
+  input, select, textarea { font-size: 16px !important; }
+}
+/* Toque em botões/links/campos: remove o zoom por duplo-toque e o atraso de 300ms,
+   mantendo rolagem e pinça. É o que causava "pulos"/zoom ao clicar em opções. */
+button, a, label, select, input, textarea, [role="button"] { touch-action: manipulation; }
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) {
   * { animation-duration: .001ms !important; transition-duration: .001ms !important; }
