@@ -1,0 +1,87 @@
+import { NextResponse } from "next/server";
+import { timingSafeEqual } from "node:crypto";
+import { createServiceSupabase } from "@/lib/supabase/service";
+import { enviarPush } from "@/lib/push/webpush";
+import { faturaFechaNaData, partesNoFuso, diaSeguinte } from "@/lib/financeiro/fechamento";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+const FUSO = "America/Sao_Paulo";
+
+// compara o bearer em tempo constante (evita vazar o segredo por timing)
+function autorizado(auth: string | null): boolean {
+  const secret = process.env.CRON_SECRET;
+  if (!secret || !auth) return false;
+  const a = Buffer.from(auth);
+  const b = Buffer.from(`Bearer ${secret}`);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+
+// Roda 1x/dia (Vercel Cron). Avisa quando a fatura de um cartão fecha AMANHÃ.
+export async function GET(req: Request) {
+  // só a Vercel Cron (ou quem tiver o segredo) pode disparar
+  if (!autorizado(req.headers.get("authorization"))) {
+    return NextResponse.json({ error: "não autorizado" }, { status: 401 });
+  }
+
+  // "amanhã" no fuso do casal (o cron roda em UTC)
+  const hoje = partesNoFuso(new Date(), FUSO);
+  const amanha = diaSeguinte(hoje.ano, hoje.mes, hoje.dia);
+
+  const supabase = createServiceSupabase();
+  const [cardsRes, subsRes] = await Promise.all([
+    supabase.from("cards").select("id, nome, dia_fechamento, household_id"),
+    supabase.from("push_subscriptions").select("household_id, endpoint, p256dh, auth"),
+  ]);
+  if (cardsRes.error || subsRes.error) {
+    return NextResponse.json(
+      { error: cardsRes.error?.message ?? subsRes.error?.message }, { status: 500 },
+    );
+  }
+
+  const cartoes = cardsRes.data ?? [];
+  const subs = subsRes.data ?? [];
+  const fechandoAmanha = cartoes.filter((c) =>
+    faturaFechaNaData(c.dia_fechamento, amanha.ano, amanha.mes, amanha.dia),
+  );
+
+  // um envio por (cartão que fecha amanhã × dispositivo do household)
+  const tarefas = fechandoAmanha.flatMap((card) =>
+    subs
+      .filter((s) => s.household_id === card.household_id)
+      .map((s) => ({ s, card })),
+  );
+  const resultados = await Promise.all(
+    tarefas.map(({ s, card }) =>
+      enviarPush(
+        { endpoint: s.endpoint, p256dh: s.p256dh, auth: s.auth },
+        {
+          title: "Fatura fechando amanhã",
+          body: `A fatura do ${card.nome} fecha amanhã. Confira os gastos antes de fechar.`,
+          url: "/cartoes",
+          tag: `fatura-${card.id}`,
+        },
+      ).then((r) => ({ r, endpoint: s.endpoint })),
+    ),
+  );
+  let enviadas = 0;
+  const expirados: string[] = [];
+  for (const { r, endpoint } of resultados) {
+    if (r.ok) enviadas++;
+    if (r.expirada) expirados.push(endpoint);
+  }
+
+  // limpa assinaturas que o Push Service reportou como mortas
+  if (expirados.length) {
+    await supabase.from("push_subscriptions").delete().in("endpoint", expirados);
+  }
+
+  return NextResponse.json({
+    ok: true,
+    amanha,
+    cartoesFechando: fechandoAmanha.length,
+    enviadas,
+    removidas: expirados.length,
+  });
+}
