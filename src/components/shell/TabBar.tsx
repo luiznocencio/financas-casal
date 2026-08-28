@@ -7,11 +7,10 @@ import { NAV_ITENS, ehAtivo } from "./nav";
 export function TabBar() {
   const path = usePathname();
   return (
-    <nav aria-label="Navegação principal" className="lg:hidden"
+    <nav aria-label="Navegação principal" className="flex justify-around lg:hidden"
       style={{
         position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 40,
         background: "var(--surface)", borderTop: "1px solid var(--border)",
-        display: "flex", justifyContent: "space-around",
         padding: "6px 4px calc(6px + env(safe-area-inset-bottom))",
       }}>
       {NAV_ITENS.map(({ href, rotulo, Icone }) => {
