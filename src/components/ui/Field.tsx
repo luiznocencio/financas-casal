@@ -5,6 +5,7 @@ export function Field({
     <label style={{ display: "grid", gap: 6 }}>
       <span style={{ fontSize: "0.8rem", color: "var(--muted)" }}>{label}</span>
       <input {...props} style={{
+        width: "100%", minWidth: 0, boxSizing: "border-box", // preenche a célula e encolhe (senão estoura em grid estreito)
         padding: "11px 12px", borderRadius: "var(--radius-sm)",
         border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)",
         fontSize: "1rem", ...(props.style ?? {}),

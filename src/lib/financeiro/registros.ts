@@ -5,6 +5,7 @@ export type CtxRegistro = {
   criadoPor: string;
   origemIa: boolean;
   grupoImportacao?: string | null;
+  recorrenteId?: string | null;
 };
 
 /**
@@ -30,6 +31,7 @@ export function mapearRegistros(
       total_parcelas: linha.total_parcelas, descricao: linha.descricao,
       criado_por: ctx.criadoPor, origem_ia: ctx.origemIa,
       grupo_importacao: ctx.grupoImportacao ?? null,
+      recorrente_id: ctx.recorrenteId ?? null,
     };
   });
 }

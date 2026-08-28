@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { limiteDisponivel } from "@/lib/financeiro/derivados";
 import { agruparFaturas } from "@/lib/financeiro/faturas";
+import { corDaPessoa } from "@/lib/ui/pessoas";
 import { Money } from "@/components/ui/Money";
 import { Card } from "@/components/ui/Card";
 import { FaturaBotao } from "@/components/cartoes/FaturaBotao";
@@ -17,15 +18,17 @@ const MESES = [
 
 export default async function CartoesPage() {
   const supabase = await createServerSupabase();
-  const [cardsRes, txsRes, invoicesRes] = await Promise.all([
+  const [cardsRes, txsRes, invoicesRes, membrosRes] = await Promise.all([
     supabase.from("cards").select("*").order("nome"),
     supabase.from("transactions")
       .select("card_id, invoice_id, valor_centavos, paga").not("card_id", "is", null),
     supabase.from("invoices").select("id, card_id, competencia_ano, competencia_mes, status"),
+    supabase.from("members").select("nome"),
   ]);
-  const erro = cardsRes.error ?? txsRes.error ?? invoicesRes.error;
+  const erro = cardsRes.error ?? txsRes.error ?? invoicesRes.error ?? membrosRes.error;
   if (erro) throw new Error(`Falha ao carregar os cartões: ${erro.message}`);
   const cards = cardsRes.data ?? [];
+  const membros = (membrosRes.data ?? []).map((m) => m.nome);
   const txs = txsRes.data ?? [];
   const invoices = invoicesRes.data ?? [];
 
@@ -39,7 +42,7 @@ export default async function CartoesPage() {
       invoices.filter((inv) => inv.card_id === card.id),
       txsCartao,
     ).filter((f) => f.totalCentavos > 0);
-    return { card, usado, disponivel, pct, faturas };
+    return { card, usado, pct, faturas };
   });
 
   return (
@@ -47,7 +50,7 @@ export default async function CartoesPage() {
       <header className="flex flex-col gap-1">
         <h1 className="text-2xl font-semibold text-[var(--text)]">Cartões</h1>
         <p className="text-sm text-[var(--muted)]">
-          Limite usado e disponível, e as faturas por mês. Marque uma fatura como paga para liberar o limite.
+          Quanto você já gastou em cada cartão e as faturas por mês. Marque uma fatura como paga quando quitá-la.
         </p>
       </header>
 
@@ -63,7 +66,7 @@ export default async function CartoesPage() {
         </Card>
       ) : (
         <div className="flex flex-col gap-3">
-          {linhas.map(({ card, usado, disponivel, pct, faturas }) => (
+          {linhas.map(({ card, usado, pct, faturas }) => (
             <Card key={card.id}>
               <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
                 <div className="flex min-w-0 flex-col gap-0.5">
@@ -72,7 +75,9 @@ export default async function CartoesPage() {
                     {card.nome}
                   </span>
                   {card.titular && (
-                    <span className="mt-0.5 inline-flex w-fit items-center rounded-full bg-[var(--accent-weak)] px-2 py-0.5 text-xs font-medium text-[var(--accent)]">
+                    <span className="mt-0.5 inline-flex w-fit items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium text-[var(--text)]"
+                      style={{ background: `color-mix(in srgb, ${corDaPessoa(card.titular, membros)} 16%, transparent)` }}>
+                      <span className="h-1.5 w-1.5 rounded-full" style={{ background: corDaPessoa(card.titular, membros) }} />
                       {card.titular}
                     </span>
                   )}
@@ -81,23 +86,12 @@ export default async function CartoesPage() {
                   fecha dia {card.dia_fechamento} · vence dia {card.dia_vencimento}
                 </span>
               </div>
-              <div className="h-2 overflow-hidden rounded-full bg-[var(--surface-2)]">
-                <div
-                  className="h-full rounded-full transition-[width]"
-                  style={{
-                    width: `${pct}%`,
-                    background: pct > 85 ? "var(--alerta)" : "var(--accent)",
-                  }}
-                />
-              </div>
-              <div className="mt-3 grid grid-cols-2 gap-3">
-                <div className="flex flex-col gap-0.5">
-                  <span className="text-xs text-[var(--muted)]">Usado</span>
-                  <Money centavos={usado} />
-                </div>
-                <div className="flex flex-col items-end gap-0.5">
-                  <span className="text-xs text-[var(--muted)]">Disponível</span>
-                  <Money centavos={disponivel} tamanho="lg" />
+              <div className="flex flex-col gap-1">
+                <span className="text-xs text-[var(--muted)]">Gasto neste cartão</span>
+                <Money centavos={usado} tamanho="lg" />
+                <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-[var(--surface-2)]">
+                  <div className="h-full rounded-full transition-[width]"
+                    style={{ width: `${pct}%`, background: pct > 85 ? "var(--alerta)" : "var(--accent)" }} />
                 </div>
               </div>
 

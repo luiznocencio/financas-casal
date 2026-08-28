@@ -10,11 +10,20 @@ export function FormularioRapido({
   cartoes: Card[]; contas: Account[]; categorias: Category[]; membros: string[];
   valorInicialReais?: string; onCriado: () => void;
 }) {
+  const membrosSet = new Set(membros);
+  // dono da origem (cartão/conta), se for um membro do lar — pra já sugerir a pessoa
+  function titularDaOrigem(origemVal: string): string | null {
+    const [prefixo, id] = origemVal.split(":");
+    const item = (prefixo === "card" ? cartoes : contas).find((x) => x.id === id);
+    return item?.titular && membrosSet.has(item.titular) ? item.titular : null;
+  }
+
+  const origemInicial = cartoes[0] ? `card:${cartoes[0].id}` : contas[0] ? `acc:${contas[0].id}` : "";
   const [valor, setValor] = useState(valorInicialReais);
   const [tipo, setTipo] = useState<"despesa" | "receita">("despesa");
-  const [origem, setOrigem] = useState<string>(cartoes[0] ? `card:${cartoes[0].id}` : contas[0] ? `acc:${contas[0].id}` : "");
+  const [origem, setOrigem] = useState<string>(origemInicial);
   const [categoriaId, setCategoriaId] = useState<string>("");
-  const [pessoa, setPessoa] = useState(membros[0] ?? "conjunto");
+  const [pessoa, setPessoa] = useState(titularDaOrigem(origemInicial) ?? membros[0] ?? "conjunto");
   const [parcelas, setParcelas] = useState(1);
   const [erro, setErro] = useState<string | null>(null);
 
@@ -72,9 +81,11 @@ export function FormularioRapido({
 
       {/* origem (+ parcelas quando cartão) */}
       <div style={{ display: "grid", gridTemplateColumns: ehCard ? "1fr 84px" : "1fr", gap: 8 }}>
-        <select value={origem} onChange={(e) => setOrigem(e.target.value)} style={selectStyle}>
-          {cartoes.map((c) => <option key={c.id} value={`card:${c.id}`}>Cartão · {c.nome}</option>)}
-          {contas.map((c) => <option key={c.id} value={`acc:${c.id}`}>Conta · {c.nome}</option>)}
+        <select value={origem}
+          onChange={(e) => { const v = e.target.value; setOrigem(v); const dono = titularDaOrigem(v); if (dono) setPessoa(dono); }}
+          style={selectStyle}>
+          {cartoes.map((c) => <option key={c.id} value={`card:${c.id}`}>Cartão · {c.nome}{c.titular ? ` (${c.titular})` : ""}</option>)}
+          {contas.map((c) => <option key={c.id} value={`acc:${c.id}`}>Conta · {c.nome}{c.titular ? ` (${c.titular})` : ""}</option>)}
         </select>
         {ehCard && (
           <input type="number" min={1} max={24} value={parcelas} title="Parcelas"

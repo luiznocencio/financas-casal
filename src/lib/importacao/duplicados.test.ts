@@ -44,6 +44,19 @@ describe("marcarDuplicados", () => {
     expect(r[0].duplicada).toBe(false);
   });
 
+  it("recorrente casa com a fatura no mesmo mês (janela larga)", () => {
+    // fixo lançado dia 01, fatura mostra dia 20 (19 dias) → fora da janela normal, mas recorrente casa
+    const r = marcarDuplicados([mk("2026-03-20", 5990)],
+      [{ data_compra: "2026-03-01", valor_centavos: 5990, recorrente: true }]);
+    expect(r[0].duplicada).toBe(true);
+  });
+
+  it("não-recorrente com 19 dias de diferença NÃO casa", () => {
+    const r = marcarDuplicados([mk("2026-03-20", 5990)],
+      [{ data_compra: "2026-03-01", valor_centavos: 5990 }]);
+    expect(r[0].duplicada).toBe(false);
+  });
+
   it("receita não casa com despesa de mesmo valor", () => {
     const linhaReceita = { ...mk("2026-03-05", 15000), tipo: "receita" as const };
     const r = marcarDuplicados([linhaReceita],

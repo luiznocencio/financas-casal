@@ -35,11 +35,14 @@ export async function POST(req: Request) {
     // marca o que já existe na mesma origem (não duplicar fatura x lançamento manual)
     const origemCol = origem.card_id ? "card_id" : origem.account_id ? "account_id" : null;
     const origemId = origem.card_id ?? origem.account_id ?? null;
-    let existentes: { data_compra: string; valor_centavos: number; tipo: string }[] = [];
+    let existentes: { data_compra: string; valor_centavos: number; tipo: string; recorrente: boolean }[] = [];
     if (origemCol && origemId) {
       const { data } = await supabase
-        .from("transactions").select("data_compra, valor_centavos, tipo").eq(origemCol, origemId);
-      existentes = data ?? [];
+        .from("transactions").select("data_compra, valor_centavos, tipo, recorrente_id").eq(origemCol, origemId);
+      existentes = (data ?? []).map((t) => ({
+        data_compra: t.data_compra, valor_centavos: t.valor_centavos, tipo: t.tipo,
+        recorrente: t.recorrente_id != null, // fixo já lançado casa com a fatura no mês (não duplica)
+      }));
     }
     const comDup = marcarDuplicados(comRegra, existentes);
 

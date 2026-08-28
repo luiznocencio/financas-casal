@@ -47,7 +47,7 @@ export function EditarConta({ conta }: { conta: Account }) {
 
   if (editando) {
     return (
-      <div style={{ display: "grid", gap: 12, border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: 16, background: "var(--surface)" }}>
+      <div style={{ display: "grid", gap: 12 }}>
         <Field label="Nome" value={nome} onChange={(e) => setNome(e.target.value)} />
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
           <label style={{ display: "grid", gap: 6 }}>

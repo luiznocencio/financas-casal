@@ -17,7 +17,7 @@ function dias(iso: string): number {
  */
 export function marcarDuplicados(
   linhas: LinhaImportada[],
-  existentes: { data_compra: string; valor_centavos: number; tipo?: string }[],
+  existentes: { data_compra: string; valor_centavos: number; tipo?: string; recorrente?: boolean }[],
   janelaDias = 4,
 ): (LinhaImportada & { duplicada: boolean })[] {
   const pool = existentes.map((e) => ({ ...e, usado: false }));
@@ -29,8 +29,10 @@ export function marcarDuplicados(
       const e = pool[i];
       if (e.usado || e.valor_centavos !== l.valor_centavos) continue;
       if (e.tipo !== undefined && e.tipo !== l.tipo) continue; // receita não casa com despesa
+      // gasto fixo (recorrente) lançado no dia X casa com a fatura no mesmo mês → janela larga
+      const janela = e.recorrente ? 27 : janelaDias;
       const dist = Math.abs(dias(e.data_compra) - alvo) / DIA_MS;
-      if (dist <= janelaDias && dist < melhorDist) { melhorDist = dist; melhorIdx = i; }
+      if (dist <= janela && dist < melhorDist) { melhorDist = dist; melhorIdx = i; }
     }
     if (melhorIdx >= 0) { pool[melhorIdx].usado = true; return { ...l, duplicada: true }; }
     return { ...l, duplicada: false };

@@ -6,6 +6,11 @@ export type Budget = { id: string; household_id: string; categoria_id: string; p
 export type Goal = { id: string; household_id: string; nome: string; valor_alvo_centavos: number; data_alvo: string | null };
 export type GoalContribution = { id: string; household_id: string; goal_id: string; valor_centavos: number; data: string; descricao: string | null };
 export type CategoryRule = { id: string; household_id: string; chave: string; categoria_id: string; descricao_preferida: string | null };
+export type Recorrente = {
+  id: string; household_id: string; descricao: string; valor_centavos: number;
+  categoria_id: string | null; pessoa: string; dia: number;
+  account_id: string | null; card_id: string | null; ativo: boolean;
+};
 export type Member = { user_id: string; household_id: string; nome: string; papel: "membro" | "dono" };
 export type Account = { id: string; household_id: string; nome: string; tipo: "corrente" | "dinheiro" | "poupanca"; saldo_inicial_centavos: number; titular: string | null };
 export type Card = { id: string; household_id: string; nome: string; bandeira: string | null; limite_centavos: number; dia_fechamento: number; dia_vencimento: number; titular: string | null };
@@ -18,4 +23,5 @@ export type Transaction = {
   grupo_parcela: string | null; parcela_n: number; total_parcelas: number;
   descricao: string | null; paga: boolean; origem_ia: boolean;
   grupo_importacao: string | null;
+  recorrente_id: string | null;
 };
