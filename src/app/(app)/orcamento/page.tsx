@@ -3,8 +3,9 @@ import { resumoOrcamento } from "@/lib/financeiro/orcamento";
 import { resumoDoMes } from "@/lib/financeiro/agregacoes";
 import { Money } from "@/components/ui/Money";
 import { Card } from "@/components/ui/Card";
-import { RendaEditor } from "@/components/orcamento/RendaEditor";
+import { RendaCasal } from "@/components/orcamento/RendaCasal";
 import { PercentualEditor } from "@/components/orcamento/PercentualEditor";
+import { RemoverCategoria } from "@/components/orcamento/RemoverCategoria";
 import { AddCategoriaForm } from "@/components/orcamento/AddCategoriaForm";
 
 export default async function OrcamentoPage() {
@@ -13,16 +14,17 @@ export default async function OrcamentoPage() {
   const ano = agora.getFullYear();
   const mes = agora.getMonth() + 1;
 
-  const [hhRes, catsRes, budgetsRes, txsRes] = await Promise.all([
-    supabase.from("households").select("renda_mensal_centavos").maybeSingle(),
+  const [membrosRes, catsRes, budgetsRes, txsRes] = await Promise.all([
+    supabase.from("members").select("user_id, nome, renda_mensal_centavos").order("papel"),
     supabase.from("categories").select("id, nome, cor").eq("tipo", "despesa").order("nome"),
     supabase.from("budgets").select("categoria_id, percentual"),
     supabase.from("transactions").select("categoria_id, tipo, pessoa, valor_centavos, data_compra"),
   ]);
-  const erro = hhRes.error ?? catsRes.error ?? budgetsRes.error ?? txsRes.error;
+  const erro = membrosRes.error ?? catsRes.error ?? budgetsRes.error ?? txsRes.error;
   if (erro) throw new Error(`Falha ao carregar o orçamento: ${erro.message}`);
 
-  const renda = hhRes.data?.renda_mensal_centavos ?? 0;
+  const membros = membrosRes.data ?? [];
+  const renda = membros.reduce((s, m) => s + (m.renda_mensal_centavos ?? 0), 0);
   const cats = catsRes.data ?? [];
   const budgets = budgetsRes.data ?? [];
 
@@ -39,8 +41,9 @@ export default async function OrcamentoPage() {
     <main className="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-10 sm:px-6">
       <header className="flex flex-col gap-1">
         <h1 className="text-2xl font-bold text-[var(--text)]">Orçamento</h1>
-        <RendaEditor rendaCentavos={renda} />
       </header>
+
+      <RendaCasal membros={membros} />
 
       {/* resumo do mês: alocado x reserva, orçado x gasto */}
       <Card>
@@ -68,7 +71,10 @@ export default async function OrcamentoPage() {
             <Card key={c.id}>
               <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
                 <span className="min-w-0 break-words font-medium text-[var(--text)]">{c.nome}</span>
-                <PercentualEditor categoriaId={c.id} percentual={pct} />
+                <div className="flex items-center gap-2">
+                  <PercentualEditor categoriaId={c.id} percentual={pct} />
+                  <RemoverCategoria categoriaId={c.id} nome={c.nome} />
+                </div>
               </div>
               <div className="h-2 overflow-hidden rounded-full bg-[var(--surface-2)]">
                 <div className="h-full rounded-full" style={{ width: `${Math.min(100, usado)}%`, background: cor }} />

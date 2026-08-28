@@ -49,11 +49,18 @@ export function Importador({
   async function analisar() {
     setErro(null); setCarregando(true); setLinhas(null);
     try {
-      const r = await fetch("/api/importar/analisar", { method: "POST", body: JSON.stringify({ texto }) }).then((x) => x.json());
+      const [prefixo, id] = origem.split(":");
+      const origemBody = id ? { [prefixo === "card" ? "card_id" : "account_id"]: id } : {};
+      const r = await fetch("/api/importar/analisar", {
+        method: "POST",
+        body: JSON.stringify({ texto, origem: origemBody }),
+      }).then((x) => x.json());
       if (!r.ok) { setErro("Não consegui ler os lançamentos desse texto. Confira e tente de novo."); return; }
-      setLinhas((r.linhas as Omit<Linha, "incluir" | "categoria_id" | "pessoa">[]).map((l) => ({
-        ...l, incluir: true, categoria_id: (l as { categoria_id?: string | null }).categoria_id ?? null, pessoa: membros[0] ?? "conjunto",
-      })));
+      setLinhas((r.linhas as Omit<Linha, "incluir" | "categoria_id" | "pessoa">[]).map((l) => {
+        const dup = (l as { duplicada?: boolean }).duplicada ?? false;
+        // já existe na origem → desmarcado por padrão (só adiciona os novos)
+        return { ...l, incluir: !dup, categoria_id: (l as { categoria_id?: string | null }).categoria_id ?? null, pessoa: membros[0] ?? "conjunto" };
+      }));
     } catch {
       setErro("Falha ao analisar. Tente de novo.");
     } finally {
@@ -121,8 +128,15 @@ export function Importador({
 
       {linhas && (
         <Card>
-          <div className="mb-2 flex items-center justify-between">
-            <span className="font-medium text-[var(--text)]">{linhas.length} lançamentos encontrados</span>
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <div className="flex min-w-0 flex-col">
+              <span className="font-medium text-[var(--text)]">{linhas.length} lançamentos encontrados</span>
+              {linhas.some((l) => l.duplicada) && (
+                <span className="text-xs text-[var(--muted)]">
+                  {linhas.filter((l) => l.duplicada).length} já constam e vieram desmarcados
+                </span>
+              )}
+            </div>
             <Button variant="primary" onClick={confirmar} disabled={carregando}>
               Importar {linhas.filter((l) => l.incluir).length}
             </Button>
@@ -143,7 +157,7 @@ export function Importador({
                     {categorias.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
                   </select>
                   <span className="mono ml-auto text-right sm:ml-0 sm:w-24">{centavosParaReais(l.valor_centavos)}</span>
-                  {l.duplicada && <span className="w-full text-xs text-[var(--negativo)] sm:w-auto">possível duplicado</span>}
+                  {l.duplicada && <span className="w-full text-xs text-[var(--alerta)] sm:w-auto">já lançado</span>}
                 </div>
               </div>
             ))}
