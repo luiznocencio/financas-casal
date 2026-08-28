@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { NAV_ITENS, ehAtivo } from "./nav";
+import { SairButton } from "./SairButton";
 import { Marca } from "@/components/ui/Marca";
 
 // Navegação lateral do desktop (no mobile some; lá vale a TabBar de baixo).
@@ -31,6 +32,7 @@ export function Sidebar() {
           </Link>
         );
       })}
+      <SairButton />
     </aside>
   );
 }

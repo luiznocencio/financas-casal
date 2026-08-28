@@ -6,7 +6,7 @@ import { LinhaEditavel } from "@/components/lancamentos/LinhaEditavel";
 export default async function Lancamentos({
   searchParams,
 }: {
-  searchParams: Promise<{ pessoa?: string; card?: string; categoria?: string }>;
+  searchParams: Promise<{ pessoa?: string; card?: string; categoria?: string; invoice?: string }>;
 }) {
   const sp = await searchParams;
   const supabase = await createServerSupabase();
@@ -19,6 +19,7 @@ export default async function Lancamentos({
   if (sp.pessoa) q = q.eq("pessoa", sp.pessoa);
   if (sp.card) q = q.eq("card_id", sp.card);
   if (sp.categoria) q = q.eq("categoria_id", sp.categoria);
+  if (sp.invoice) q = q.eq("invoice_id", sp.invoice);
   const [txsRes, membrosRes, categoriasRes] = await Promise.all([
     q,
     supabase.from("members").select("nome"),
@@ -30,10 +31,12 @@ export default async function Lancamentos({
   const membros = (membrosRes.data ?? []).map((m) => m.nome);
   const categorias = categoriasRes.data ?? [];
 
+  const nomeCategoria = categorias.find((c) => c.id === sp.categoria)?.nome;
   const filtrosAtivos = [
     sp.pessoa ? { chave: "pessoa", rotulo: `Pessoa: ${sp.pessoa}` } : null,
     sp.card ? { chave: "card", rotulo: "Cartão selecionado" } : null,
-    sp.categoria ? { chave: "categoria", rotulo: "Categoria selecionada" } : null,
+    sp.categoria ? { chave: "categoria", rotulo: `Categoria: ${nomeCategoria ?? "selecionada"}` } : null,
+    sp.invoice ? { chave: "invoice", rotulo: "Fatura selecionada" } : null,
   ].filter((f): f is { chave: string; rotulo: string } => f !== null);
 
   return (

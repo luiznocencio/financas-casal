@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { saldoConta, limiteDisponivel } from "@/lib/financeiro/derivados";
 import { resumoDoMes } from "@/lib/financeiro/agregacoes";
@@ -6,6 +7,7 @@ import { Card } from "@/components/ui/Card";
 import { StatTile } from "@/components/ui/StatTile";
 import { SplitBar } from "@/components/ui/SplitBar";
 import { CategoriaTag } from "@/components/ui/CategoriaTag";
+import { SairButton } from "@/components/shell/SairButton";
 
 const MESES = [
   "janeiro", "fevereiro", "março", "abril", "maio", "junho",
@@ -61,9 +63,12 @@ export default async function Dashboard() {
 
   return (
     <main className="mx-auto flex max-w-5xl flex-col gap-6 px-4 py-10 sm:px-6">
-      <header className="flex flex-col gap-1">
-        <h1 className="text-2xl font-bold text-[var(--text)]">{MESES[ref.mes - 1]}</h1>
-        <p className="text-sm text-[var(--muted)]">Visão do casal</p>
+      <header className="flex items-start justify-between gap-3">
+        <div className="flex flex-col gap-1">
+          <h1 className="text-2xl font-bold text-[var(--text)]">{MESES[ref.mes - 1]}</h1>
+          <p className="text-sm text-[var(--muted)]">Visão do casal</p>
+        </div>
+        <div className="lg:hidden"><SairButton variant="inline" /></div>
       </header>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -85,7 +90,8 @@ export default async function Dashboard() {
           ) : (
             <div className="flex flex-col gap-4">
               {topCategorias.map(([id, valor]) => (
-                <div key={id} className="flex flex-col gap-1.5">
+                <Link key={id} href={`/lancamentos?categoria=${id}`}
+                  className="-mx-2 flex flex-col gap-1.5 rounded-[var(--radius-sm)] px-2 py-1 transition-colors hover:bg-[var(--surface-2)]">
                   <div className="flex items-center justify-between gap-2 text-sm">
                     <CategoriaTag nome={nomeCat(id)} cor={corCat(id)} />
                     <Money centavos={valor} />
@@ -96,7 +102,7 @@ export default async function Dashboard() {
                       style={{ width: `${maiorCategoria > 0 ? (valor / maiorCategoria) * 100 : 0}%`, background: corCat(id) }}
                     />
                   </div>
-                </div>
+                </Link>
               ))}
             </div>
           )}

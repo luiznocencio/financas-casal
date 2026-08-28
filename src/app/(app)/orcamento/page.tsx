@@ -3,9 +3,10 @@ import { resumoOrcamento } from "@/lib/financeiro/orcamento";
 import { resumoDoMes } from "@/lib/financeiro/agregacoes";
 import { Money } from "@/components/ui/Money";
 import { Card } from "@/components/ui/Card";
+import Link from "next/link";
 import { RendaCasal } from "@/components/orcamento/RendaCasal";
 import { PercentualEditor } from "@/components/orcamento/PercentualEditor";
-import { RemoverCategoria } from "@/components/orcamento/RemoverCategoria";
+import { EditarCategoria } from "@/components/orcamento/EditarCategoria";
 import { AddCategoriaForm } from "@/components/orcamento/AddCategoriaForm";
 import { CategoriaPonto } from "@/components/ui/CategoriaTag";
 
@@ -71,13 +72,11 @@ export default async function OrcamentoPage() {
           return (
             <Card key={c.id}>
               <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
-                <span className="flex min-w-0 items-center gap-2 break-words font-medium text-[var(--text)]">
+                <Link href={`/lancamentos?categoria=${c.id}`}
+                  className="flex min-w-0 items-center gap-2 break-words font-medium text-[var(--text)] hover:text-[var(--accent)]">
                   <CategoriaPonto cor={c.cor} />{c.nome}
-                </span>
-                <div className="flex items-center gap-2">
-                  <PercentualEditor categoriaId={c.id} percentual={pct} />
-                  <RemoverCategoria categoriaId={c.id} nome={c.nome} />
-                </div>
+                </Link>
+                <PercentualEditor categoriaId={c.id} percentual={pct} />
               </div>
               <div className="h-2 overflow-hidden rounded-full bg-[var(--surface-2)]">
                 <div className="h-full rounded-full" style={{ width: `${Math.min(100, usado)}%`, background: cor }} />
@@ -85,6 +84,9 @@ export default async function OrcamentoPage() {
               <div className="mt-2 flex justify-between text-sm text-[var(--muted)]">
                 <span>Gasto <Money centavos={gasto} tamanho="sm" /> de <Money centavos={limite} tamanho="sm" /></span>
                 <span>{limite > 0 ? <>Resta <Money centavos={limite - gasto} tamanho="sm" sinal /></> : "sem limite"}</span>
+              </div>
+              <div className="mt-3">
+                <EditarCategoria categoriaId={c.id} nome={c.nome} cor={c.cor} />
               </div>
             </Card>
           );

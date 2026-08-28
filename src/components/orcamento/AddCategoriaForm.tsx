@@ -3,8 +3,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Field } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
-
-const CORES = ["#2f9e44", "#e8590c", "#1971c2", "#6741d9", "#c2255c", "#f08c00", "#9c36b5", "#2b8a3e", "#0c8599", "#e03131"];
+import { CORES_CATEGORIA as CORES } from "@/lib/ui/cores";
 
 export function AddCategoriaForm() {
   const router = useRouter();

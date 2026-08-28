@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { limiteDisponivel } from "@/lib/financeiro/derivados";
 import { agruparFaturas } from "@/lib/financeiro/faturas";
@@ -76,12 +77,9 @@ export default async function CartoesPage() {
                     </span>
                   )}
                 </div>
-                <div className="flex min-w-0 flex-col items-end gap-2">
-                  <span className="text-xs text-[var(--muted)]">
-                    fecha dia {card.dia_fechamento} · vence dia {card.dia_vencimento}
-                  </span>
-                  <EditarCartao card={card} />
-                </div>
+                <span className="shrink-0 text-xs text-[var(--muted)]">
+                  fecha dia {card.dia_fechamento} · vence dia {card.dia_vencimento}
+                </span>
               </div>
               <div className="h-2 overflow-hidden rounded-full bg-[var(--surface-2)]">
                 <div
@@ -110,12 +108,13 @@ export default async function CartoesPage() {
                   </span>
                   {faturas.map((f) => (
                     <div key={f.id} className="flex items-center justify-between gap-3 text-sm">
-                      <span className="text-[var(--text)]">
+                      <Link href={`/lancamentos?invoice=${f.id}`}
+                        className="text-[var(--text)] hover:text-[var(--accent)] hover:underline">
                         {MESES[f.mes - 1]}/{f.ano}
                         {f.paga && (
                           <span className="ml-2 text-xs text-[var(--positivo)]">paga</span>
                         )}
-                      </span>
+                      </Link>
                       <span className="flex items-center gap-3">
                         <Money centavos={f.totalCentavos} />
                         <FaturaBotao invoiceId={f.id} paga={f.paga} />
@@ -124,6 +123,10 @@ export default async function CartoesPage() {
                   ))}
                 </div>
               )}
+
+              <div className="mt-4">
+                <EditarCartao card={card} />
+              </div>
             </Card>
           ))}
         </div>
