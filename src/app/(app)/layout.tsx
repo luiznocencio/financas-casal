@@ -3,6 +3,7 @@ import { createServerSupabase } from "@/lib/supabase/server";
 import { getMembroAtual } from "@/lib/auth/household";
 import { QuickAdd } from "@/components/quick-add/QuickAdd";
 import { TabBar } from "@/components/shell/TabBar";
+import { InstalarApp } from "@/components/pwa/InstalarApp";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createServerSupabase();
@@ -30,6 +31,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <div style={{ maxWidth: 720, margin: "0 auto", padding: 16, paddingBottom: 92 }}>
       {children}
       <TabBar />
+      <InstalarApp />
       <QuickAdd
         cartoes={cartoes ?? []} contas={contas ?? []}
         categorias={categorias ?? []} membros={(membros ?? []).map((m) => m.nome)}
