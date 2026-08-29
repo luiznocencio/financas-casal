@@ -5,9 +5,10 @@ import { PencilSimple, Trash } from "@phosphor-icons/react";
 import { reaisParaCentavos } from "@/lib/financeiro/dinheiro";
 import { Field } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
+import { TitularSelect } from "@/components/ui/TitularSelect";
 import type { Card } from "@/lib/db/tipos";
 
-export function EditarCartao({ card }: { card: Card }) {
+export function EditarCartao({ card, membros }: { card: Card; membros: string[] }) {
   const router = useRouter();
   const [editando, setEditando] = useState(false);
   const [confirmandoExclusao, setConfirmandoExclusao] = useState(false);
@@ -56,7 +57,7 @@ export function EditarCartao({ card }: { card: Card }) {
         <Field label="Nome" value={nome} onChange={(e) => setNome(e.target.value)} />
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
           <Field label="Limite (R$)" inputMode="decimal" value={limite} onChange={(e) => setLimite(e.target.value)} />
-          <Field label="Titular (opcional)" value={titular} onChange={(e) => setTitular(e.target.value)} />
+          <TitularSelect value={titular} onChange={setTitular} membros={membros} />
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
           <Field label="Dia de fechamento" type="number" value={fechamento} onChange={(e) => setFechamento(e.target.value)} />

@@ -56,7 +56,7 @@ export default async function CartoesPage() {
 
       <AtivarNotificacoes />
 
-      <AddCartaoForm />
+      <AddCartaoForm membros={membros} />
 
       {linhas.length === 0 ? (
         <Card>
@@ -119,7 +119,7 @@ export default async function CartoesPage() {
               )}
 
               <div className="mt-4">
-                <EditarCartao card={card} />
+                <EditarCartao card={card} membros={membros} />
               </div>
             </Card>
           ))}

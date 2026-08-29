@@ -5,9 +5,10 @@ import { PencilSimple, Trash } from "@phosphor-icons/react";
 import { reaisParaCentavos } from "@/lib/financeiro/dinheiro";
 import { Field } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
+import { TitularSelect } from "@/components/ui/TitularSelect";
 import type { Account } from "@/lib/db/tipos";
 
-export function EditarConta({ conta }: { conta: Account }) {
+export function EditarConta({ conta, membros }: { conta: Account; membros: string[] }) {
   const router = useRouter();
   const [editando, setEditando] = useState(false);
   const [confirmandoExclusao, setConfirmandoExclusao] = useState(false);
@@ -61,7 +62,7 @@ export function EditarConta({ conta }: { conta: Account }) {
           </label>
           <Field label="Saldo inicial (R$)" inputMode="decimal" value={saldo} onChange={(e) => setSaldo(e.target.value)} />
         </div>
-        <Field label="Titular (opcional)" value={titular} onChange={(e) => setTitular(e.target.value)} />
+        <TitularSelect value={titular} onChange={setTitular} membros={membros} />
         {erro && <p style={{ color: "var(--negativo)", margin: 0, fontSize: "0.85rem" }}>{erro}</p>}
         <div style={{ display: "flex", gap: 8 }}>
           <Button variant="primary" onClick={salvar} disabled={salvando} style={{ flex: 1 }}>Salvar</Button>

@@ -5,8 +5,8 @@ import { ImportacoesRecentes, type LoteImportacao } from "@/components/importar/
 export default async function ImportarPage() {
   const supabase = await createServerSupabase();
   const [{ data: cartoes }, { data: contas }, { data: categorias }, { data: membros }, { data: importadas }] = await Promise.all([
-    supabase.from("cards").select("id, nome").order("nome"),
-    supabase.from("accounts").select("id, nome").order("nome"),
+    supabase.from("cards").select("id, nome, titular").order("nome"),
+    supabase.from("accounts").select("id, nome, titular").order("nome"),
     supabase.from("categories").select("id, nome"),
     supabase.from("members").select("nome"),
     supabase.from("transactions")

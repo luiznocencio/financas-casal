@@ -15,7 +15,8 @@ type Linha = {
 export function Importador({
   cartoes, contas, categorias, membros,
 }: {
-  cartoes: { id: string; nome: string }[]; contas: { id: string; nome: string }[];
+  cartoes: { id: string; nome: string; titular?: string | null }[];
+  contas: { id: string; nome: string; titular?: string | null }[];
   categorias: { id: string; nome: string }[]; membros: string[];
 }) {
   const router = useRouter();
@@ -109,8 +110,8 @@ export function Importador({
             <span className="text-[var(--muted)]">Origem dos lançamentos</span>
             <select value={origem} onChange={(e) => setOrigem(e.target.value)}
               className="rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--surface)] p-2 text-[var(--text)]">
-              {cartoes.map((c) => <option key={c.id} value={`card:${c.id}`}>Cartão · {c.nome}</option>)}
-              {contas.map((c) => <option key={c.id} value={`acc:${c.id}`}>Conta · {c.nome}</option>)}
+              {cartoes.map((c) => <option key={c.id} value={`card:${c.id}`}>Cartão · {c.nome}{c.titular ? ` (${c.titular})` : ""}</option>)}
+              {contas.map((c) => <option key={c.id} value={`acc:${c.id}`}>Conta · {c.nome}{c.titular ? ` (${c.titular})` : ""}</option>)}
             </select>
           </label>
           {origem.startsWith("card:") && (

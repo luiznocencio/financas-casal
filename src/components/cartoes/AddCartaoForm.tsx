@@ -4,8 +4,9 @@ import { useRouter } from "next/navigation";
 import { reaisParaCentavos } from "@/lib/financeiro/dinheiro";
 import { Field } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
+import { TitularSelect } from "@/components/ui/TitularSelect";
 
-export function AddCartaoForm() {
+export function AddCartaoForm({ membros }: { membros: string[] }) {
   const router = useRouter();
   const [aberto, setAberto] = useState(false);
   const [nome, setNome] = useState("");
@@ -41,7 +42,7 @@ export function AddCartaoForm() {
       <Field label="Nome" value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Ex.: Nubank" />
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
         <Field label="Limite (R$)" inputMode="decimal" value={limite} onChange={(e) => setLimite(e.target.value)} placeholder="5.000" />
-        <Field label="Titular (opcional)" value={titular} onChange={(e) => setTitular(e.target.value)} />
+        <TitularSelect value={titular} onChange={setTitular} membros={membros} />
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
         <Field label="Dia de fechamento" type="number" value={fechamento} onChange={(e) => setFechamento(e.target.value)} placeholder="10" />

@@ -4,8 +4,9 @@ import { useRouter } from "next/navigation";
 import { reaisParaCentavos } from "@/lib/financeiro/dinheiro";
 import { Field } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
+import { TitularSelect } from "@/components/ui/TitularSelect";
 
-export function AddContaForm() {
+export function AddContaForm({ membros }: { membros: string[] }) {
   const router = useRouter();
   const [aberto, setAberto] = useState(false);
   const [nome, setNome] = useState("");
@@ -44,7 +45,7 @@ export function AddContaForm() {
         </label>
         <Field label="Saldo inicial (R$)" inputMode="decimal" value={saldo} onChange={(e) => setSaldo(e.target.value)} placeholder="0,00" />
       </div>
-      <Field label="Titular (opcional)" value={titular} onChange={(e) => setTitular(e.target.value)} placeholder="De quem é a conta" />
+      <TitularSelect value={titular} onChange={setTitular} membros={membros} />
       {erro && <p style={{ color: "var(--negativo)", margin: 0, fontSize: "0.85rem" }}>{erro}</p>}
       <div style={{ display: "flex", gap: 8 }}>
         <Button variant="primary" onClick={salvar} disabled={salvando} style={{ flex: 1 }}>Criar conta</Button>

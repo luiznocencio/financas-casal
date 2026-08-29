@@ -16,6 +16,8 @@ export default async function ContasPage() {
   const { data: contas } = await supabase.from("accounts").select("*").order("nome");
   const { data: txs } = await supabase
     .from("transactions").select("account_id, tipo, valor_centavos").not("account_id", "is", null);
+  const { data: membrosData } = await supabase.from("members").select("nome");
+  const membros = (membrosData ?? []).map((m) => m.nome);
 
   const linhas = (contas ?? []).map((c) => {
     const movimentos = (txs ?? []).filter((t) => t.account_id === c.id);
@@ -31,7 +33,7 @@ export default async function ContasPage() {
         </p>
       </header>
 
-      <AddContaForm />
+      <AddContaForm membros={membros} />
 
       {linhas.length === 0 ? (
         <Card>
@@ -58,7 +60,7 @@ export default async function ContasPage() {
                   </div>
                   <Money centavos={saldo} sinal tamanho="lg" />
                 </div>
-                <EditarConta conta={conta} />
+                <EditarConta conta={conta} membros={membros} />
               </div>
             </Card>
           ))}
