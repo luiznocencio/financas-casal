@@ -13,7 +13,7 @@ export default async function Lancamentos({
 
   let q = supabase
     .from("transactions")
-    .select("id, descricao, data_compra, pessoa, parcela_n, total_parcelas, tipo, valor_centavos, categoria_id, card_id, account_id, recorrente_id")
+    .select("id, descricao, data_compra, pessoa, parcela_n, total_parcelas, tipo, valor_centavos, categoria_id, card_id, account_id, recorrente_id, observacao")
     .order("data_compra", { ascending: false })
     .limit(200);
   if (sp.pessoa) q = q.eq("pessoa", sp.pessoa);

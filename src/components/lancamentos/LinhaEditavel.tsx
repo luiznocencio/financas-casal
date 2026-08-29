@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { PencilSimple, Trash } from "@phosphor-icons/react";
+import { PencilSimple, Trash, NotePencil } from "@phosphor-icons/react";
 import { Money } from "@/components/ui/Money";
 import { PersonChip } from "@/components/ui/PersonChip";
 import { CategoriaTag } from "@/components/ui/CategoriaTag";
@@ -11,7 +11,7 @@ type Tx = {
   id: string; descricao: string | null; data_compra: string; pessoa: string;
   parcela_n: number; total_parcelas: number; tipo: string; valor_centavos: number;
   categoria_id: string | null; card_id: string | null; account_id: string | null;
-  recorrente_id: string | null;
+  recorrente_id: string | null; observacao: string | null;
 };
 
 export function LinhaEditavel({
@@ -21,6 +21,7 @@ export function LinhaEditavel({
   const [editando, setEditando] = useState(false);
   const [descricao, setDescricao] = useState(tx.descricao ?? "");
   const [categoriaId, setCategoriaId] = useState(tx.categoria_id ?? "");
+  const [observacao, setObservacao] = useState(tx.observacao ?? "");
   const [salvando, setSalvando] = useState(false);
   const [aviso, setAviso] = useState<string | null>(null);
   const [confirmandoExclusao, setConfirmandoExclusao] = useState(false);
@@ -30,7 +31,7 @@ export function LinhaEditavel({
     setSalvando(true);
     const res = await fetch(`/api/transactions/${tx.id}`, {
       method: "PATCH",
-      body: JSON.stringify({ descricao: descricao || null, categoria_id: categoriaId || null }),
+      body: JSON.stringify({ descricao: descricao || null, categoria_id: categoriaId || null, observacao: observacao || null }),
     }).then((x) => x.json()).catch(() => null);
     setSalvando(false);
     if (!res?.ok) { setAviso("Não foi possível salvar."); return; }
@@ -74,6 +75,11 @@ export function LinhaEditavel({
             )}
             {tx.total_parcelas > 1 && <span>{tx.parcela_n}/{tx.total_parcelas}</span>}
           </div>
+          {tx.observacao && (
+            <span className="flex items-start gap-1 break-words text-xs italic text-[var(--muted)]">
+              <NotePencil size={13} className="mt-0.5 shrink-0" aria-hidden /> {tx.observacao}
+            </span>
+          )}
           {aviso && <p className="text-xs text-[var(--negativo)]">{aviso}</p>}
         </div>
         <div className="flex items-center gap-2">
@@ -107,8 +113,10 @@ export function LinhaEditavel({
   }
   return (
     <li className="flex flex-col gap-2 border-b border-[var(--border)] py-3 last:border-b-0">
-      <input value={descricao} onChange={(e) => setDescricao(e.target.value)}
+      <input value={descricao} onChange={(e) => setDescricao(e.target.value)} placeholder="Nome"
         className="rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--surface)] px-2 py-1.5 text-[var(--text)]" />
+      <input value={observacao} onChange={(e) => setObservacao(e.target.value)} placeholder="Observação (o que foi essa compra?)"
+        className="rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--surface)] px-2 py-1.5 text-sm text-[var(--text)]" />
       <div className="flex items-center gap-2">
         <select value={categoriaId} onChange={(e) => setCategoriaId(e.target.value)}
           className="flex-1 rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--surface)] px-2 py-1.5 text-[var(--text)]">

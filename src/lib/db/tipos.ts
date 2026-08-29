@@ -24,4 +24,5 @@ export type Transaction = {
   descricao: string | null; paga: boolean; origem_ia: boolean;
   grupo_importacao: string | null;
   recorrente_id: string | null;
+  observacao: string | null;
 };

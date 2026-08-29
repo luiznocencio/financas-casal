@@ -49,6 +49,13 @@ export function Importador({
     }
   }
 
+  // dono da origem selecionada (cartão/conta) — vira a pessoa padrão das linhas
+  function donoDaOrigem(): string {
+    const [prefixo, id] = origem.split(":");
+    const item = (prefixo === "card" ? cartoes : contas).find((x) => x.id === id);
+    return item?.titular && membros.includes(item.titular) ? item.titular : (membros[0] ?? "conjunto");
+  }
+
   async function analisar() {
     setErro(null); setCarregando(true); setLinhas(null);
     try {
@@ -60,10 +67,11 @@ export function Importador({
         body: JSON.stringify({ texto, origem: origemBody, ...(prefixo === "card" ? { competencia: { ano, mes } } : {}) }),
       }).then((x) => x.json());
       if (!r.ok) { setErro("Não consegui ler os lançamentos desse texto. Confira e tente de novo."); return; }
+      const dono = donoDaOrigem(); // fatura do cartão de alguém → atribui a essa pessoa
       setLinhas((r.linhas as Omit<Linha, "incluir" | "categoria_id" | "pessoa">[]).map((l) => {
         const dup = (l as { duplicada?: boolean }).duplicada ?? false;
         // já existe na origem → desmarcado por padrão (só adiciona os novos)
-        return { ...l, incluir: !dup, categoria_id: (l as { categoria_id?: string | null }).categoria_id ?? null, pessoa: membros[0] ?? "conjunto" };
+        return { ...l, incluir: !dup, categoria_id: (l as { categoria_id?: string | null }).categoria_id ?? null, pessoa: dono };
       }));
     } catch {
       setErro("Falha ao analisar. Tente de novo.");

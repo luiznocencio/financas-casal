@@ -16,8 +16,12 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   const { data: atual } = await supabase.from("transactions").select("descricao").eq("id", id).maybeSingle();
   if (!atual) return NextResponse.json({ error: "lançamento inexistente" }, { status: 400 });
 
-  // atualiza o próprio lançamento
-  const { error: errUp } = await supabase.from("transactions").update({ descricao, categoria_id }).eq("id", id);
+  // atualiza o próprio lançamento (observação é específica desta compra — não vira regra)
+  const patchTx: Record<string, unknown> = { descricao, categoria_id };
+  if ("observacao" in body) {
+    patchTx.observacao = typeof body.observacao === "string" && body.observacao.trim() ? body.observacao.trim() : null;
+  }
+  const { error: errUp } = await supabase.from("transactions").update(patchTx).eq("id", id);
   if (errUp) return NextResponse.json({ error: errUp.message }, { status: 500 });
 
   // aprende a regra e aplica retroativamente
