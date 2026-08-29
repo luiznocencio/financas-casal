@@ -13,28 +13,31 @@ export default async function Lancamentos({
 
   let q = supabase
     .from("transactions")
-    .select("id, descricao, data_compra, pessoa, parcela_n, total_parcelas, tipo, valor_centavos, categoria_id")
+    .select("id, descricao, data_compra, pessoa, parcela_n, total_parcelas, tipo, valor_centavos, categoria_id, card_id, account_id, recorrente_id")
     .order("data_compra", { ascending: false })
     .limit(200);
   if (sp.pessoa) q = q.eq("pessoa", sp.pessoa);
   if (sp.card) q = q.eq("card_id", sp.card);
   if (sp.categoria) q = q.eq("categoria_id", sp.categoria);
   if (sp.invoice) q = q.eq("invoice_id", sp.invoice);
-  const [txsRes, membrosRes, categoriasRes] = await Promise.all([
+  const [txsRes, membrosRes, categoriasRes, cardsRes] = await Promise.all([
     q,
     supabase.from("members").select("nome"),
     supabase.from("categories").select("id, nome, cor"),
+    supabase.from("cards").select("id, nome"),
   ]);
   const { data: txs, error } = txsRes;
-  const erro = error ?? membrosRes.error ?? categoriasRes.error;
+  const erro = error ?? membrosRes.error ?? categoriasRes.error ?? cardsRes.error;
   if (erro) throw new Error(`Falha ao carregar o extrato: ${erro.message}`);
   const membros = (membrosRes.data ?? []).map((m) => m.nome);
   const categorias = categoriasRes.data ?? [];
+  const cartoes = cardsRes.data ?? [];
 
   const nomeCategoria = categorias.find((c) => c.id === sp.categoria)?.nome;
+  const nomeCartao = cartoes.find((c) => c.id === sp.card)?.nome;
   const filtrosAtivos = [
     sp.pessoa ? { chave: "pessoa", rotulo: `Pessoa: ${sp.pessoa}` } : null,
-    sp.card ? { chave: "card", rotulo: "Cartão selecionado" } : null,
+    sp.card ? { chave: "card", rotulo: `Cartão: ${nomeCartao ?? "selecionado"}` } : null,
     sp.categoria ? { chave: "categoria", rotulo: `Categoria: ${nomeCategoria ?? "selecionada"}` } : null,
     sp.invoice ? { chave: "invoice", rotulo: "Fatura selecionada" } : null,
   ].filter((f): f is { chave: string; rotulo: string } => f !== null);
@@ -78,7 +81,7 @@ export default async function Lancamentos({
         <Card>
           <ul className="flex flex-col gap-0">
             {(txs ?? []).map((t) => (
-              <LinhaEditavel key={t.id} tx={t} categorias={categorias} membros={membros} />
+              <LinhaEditavel key={t.id} tx={t} categorias={categorias} membros={membros} cartoes={cartoes} />
             ))}
           </ul>
         </Card>

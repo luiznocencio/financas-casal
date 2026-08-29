@@ -10,12 +10,13 @@ import { Button } from "@/components/ui/Button";
 type Tx = {
   id: string; descricao: string | null; data_compra: string; pessoa: string;
   parcela_n: number; total_parcelas: number; tipo: string; valor_centavos: number;
-  categoria_id: string | null;
+  categoria_id: string | null; card_id: string | null; account_id: string | null;
+  recorrente_id: string | null;
 };
 
 export function LinhaEditavel({
-  tx, categorias, membros,
-}: { tx: Tx; categorias: { id: string; nome: string; cor: string }[]; membros: string[] }) {
+  tx, categorias, membros, cartoes,
+}: { tx: Tx; categorias: { id: string; nome: string; cor: string }[]; membros: string[]; cartoes: { id: string; nome: string }[] }) {
   const router = useRouter();
   const [editando, setEditando] = useState(false);
   const [descricao, setDescricao] = useState(tx.descricao ?? "");
@@ -47,6 +48,9 @@ export function LinhaEditavel({
 
   const valorSinal = tx.tipo === "receita" ? tx.valor_centavos : -tx.valor_centavos;
   const cat = categorias.find((c) => c.id === tx.categoria_id);
+  const cartaoNome = tx.card_id ? cartoes.find((c) => c.id === tx.card_id)?.nome ?? "Cartão" : null;
+  // origem: cartão (mostra o nome) ou conta (mostra "Pix")
+  const origemLabel = cartaoNome ?? (tx.account_id ? "Pix" : null);
 
   if (!editando) {
     return (
@@ -57,6 +61,17 @@ export function LinhaEditavel({
             <span>{tx.data_compra}</span>
             <PersonChip nome={tx.pessoa} membros={membros} />
             {cat && <CategoriaTag nome={cat.nome} cor={cat.cor} tamanho="sm" />}
+            {origemLabel && (
+              <span className="rounded-full bg-[var(--surface-2)] px-2 py-0.5 text-[0.7rem] font-medium text-[var(--text)]">
+                {origemLabel}
+              </span>
+            )}
+            {tx.recorrente_id && (
+              <span className="rounded-full px-2 py-0.5 text-[0.7rem] font-medium"
+                style={{ background: "var(--accent-weak)", color: "var(--accent)" }}>
+                Fixo
+              </span>
+            )}
             {tx.total_parcelas > 1 && <span>{tx.parcela_n}/{tx.total_parcelas}</span>}
           </div>
           {aviso && <p className="text-xs text-[var(--negativo)]">{aviso}</p>}

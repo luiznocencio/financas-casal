@@ -70,10 +70,11 @@ export default async function CartoesPage() {
             <Card key={card.id}>
               <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
                 <div className="flex min-w-0 flex-col gap-0.5">
-                  <span className="flex items-center gap-1.5 break-words font-semibold text-[var(--text)]">
+                  <Link href={`/lancamentos?card=${card.id}`}
+                    className="flex items-center gap-1.5 break-words font-semibold text-[var(--text)] hover:text-[var(--accent)]">
                     <CreditCardIcon size={16} />
                     {card.nome}
-                  </span>
+                  </Link>
                   {card.titular && (
                     <span className="mt-0.5 inline-flex w-fit items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium text-[var(--text)]"
                       style={{ background: `color-mix(in srgb, ${corDaPessoa(card.titular, membros)} 16%, transparent)` }}>

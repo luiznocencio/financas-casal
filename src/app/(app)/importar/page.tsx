@@ -10,9 +10,15 @@ export default async function ImportarPage() {
     supabase.from("categories").select("id, nome"),
     supabase.from("members").select("nome"),
     supabase.from("transactions")
-      .select("grupo_importacao, valor_centavos, created_at")
+      .select("grupo_importacao, valor_centavos, created_at, card_id, account_id")
       .not("grupo_importacao", "is", null),
   ]);
+
+  const nomeCartao = new Map((cartoes ?? []).map((c) => [c.id, c.nome]));
+  const nomeConta = new Map((contas ?? []).map((c) => [c.id, c.nome]));
+  const origemDe = (t: { card_id: string | null; account_id: string | null }) =>
+    t.card_id ? `Cartão · ${nomeCartao.get(t.card_id) ?? "?"}`
+      : t.account_id ? `Conta · ${nomeConta.get(t.account_id) ?? "?"}` : null;
 
   const porGrupo = new Map<string, LoteImportacao>();
   for (const t of importadas ?? []) {
@@ -21,6 +27,7 @@ export default async function ImportarPage() {
     if (!atual) {
       porGrupo.set(grupo, {
         grupo, quantidade: 1, totalCentavos: t.valor_centavos, dataMaisRecente: t.created_at,
+        origemNome: origemDe(t),
       });
     } else {
       atual.quantidade += 1;
@@ -39,7 +46,7 @@ export default async function ImportarPage() {
         cartoes={cartoes ?? []} contas={contas ?? []}
         categorias={categorias ?? []} membros={(membros ?? []).map((m) => m.nome)}
       />
-      <ImportacoesRecentes lotes={lotes} />
+      <ImportacoesRecentes lotes={lotes} cartoes={cartoes ?? []} />
     </main>
   );
 }

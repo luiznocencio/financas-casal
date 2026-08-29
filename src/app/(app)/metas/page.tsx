@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/Card";
 import { NovaMetaForm } from "@/components/metas/NovaMetaForm";
 import { AporteForm } from "@/components/metas/AporteForm";
 import { RemoverMeta } from "@/components/metas/RemoverMeta";
+import { EditarMeta } from "@/components/metas/EditarMeta";
 import { Confetti } from "@phosphor-icons/react/dist/ssr";
 
 export default async function MetasPage() {
@@ -63,8 +64,9 @@ export default async function MetasPage() {
                     <span><Money centavos={m.guardadoCentavos} tamanho="sm" /> de <Money centavos={g.valor_alvo_centavos} tamanho="sm" /></span>
                     <span>{m.concluida ? <Confetti size={16} weight="fill" color="var(--positivo)" /> : <>Faltam <Money centavos={m.restanteCentavos} tamanho="sm" /></>}</span>
                   </div>
-                  <div className="mt-auto flex items-center gap-3 pt-1">
+                  <div className="mt-auto flex flex-wrap items-center gap-3 pt-1">
                     <AporteForm goalId={g.id} />
+                    <EditarMeta goalId={g.id} nome={g.nome} />
                     <RemoverMeta goalId={g.id} />
                   </div>
                 </div>
