@@ -57,6 +57,26 @@ describe("marcarDuplicados", () => {
     expect(r[0].duplicada).toBe(false);
   });
 
+  it("recorrente casa por descrição igual mesmo fora da janela", () => {
+    // fixo lançado 01/08, fatura mostra 28/08 (27 dias, mas mesma descrição normalizada)
+    const r = marcarDuplicados([mk("2026-08-28", 9990, "Totalpass")],
+      [{ data_compra: "2026-08-01", valor_centavos: 9990, recorrente: true, descricao: "TotalPass" }]);
+    expect(r[0].duplicada).toBe(true);
+  });
+
+  it("recorrente com descrição diferente e data distante NÃO casa", () => {
+    const r = marcarDuplicados([mk("2026-09-15", 9990, "Academia")],
+      [{ data_compra: "2026-08-01", valor_centavos: 9990, recorrente: true, descricao: "TotalPass" }]);
+    expect(r[0].duplicada).toBe(false);
+  });
+
+  it("recorrente com descrição igual mas MÊS diferente NÃO casa (não suprime o mês seguinte)", () => {
+    // mesmo fixo, cobrança do mês seguinte: 01/08 (fixo) x 05/09 (fatura) → não é duplicado
+    const r = marcarDuplicados([mk("2026-09-05", 9990, "Totalpass")],
+      [{ data_compra: "2026-08-01", valor_centavos: 9990, recorrente: true, descricao: "TotalPass" }]);
+    expect(r[0].duplicada).toBe(false);
+  });
+
   it("receita não casa com despesa de mesmo valor", () => {
     const linhaReceita = { ...mk("2026-03-05", 15000), tipo: "receita" as const };
     const r = marcarDuplicados([linhaReceita],

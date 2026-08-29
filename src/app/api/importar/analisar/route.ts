@@ -32,18 +32,30 @@ export async function POST(req: Request) {
       };
     });
 
-    // marca o que já existe na mesma origem (não duplicar fatura x lançamento manual)
+    // marca o que já existe (não duplicar fatura x lançamento manual). Combina
+    // (a) transações da mesma origem e (b) gastos fixos já materializados em
+    // QUALQUER origem da casa (fixo lançado noutro cartão também é duplicado),
+    // deduplicando por id da transação.
     const origemCol = origem.card_id ? "card_id" : origem.account_id ? "account_id" : null;
     const origemId = origem.card_id ?? origem.account_id ?? null;
-    let existentes: { data_compra: string; valor_centavos: number; tipo: string; recorrente: boolean }[] = [];
+    const porId = new Map<string, { data_compra: string; valor_centavos: number; tipo: string; descricao: string; recorrente: boolean }>();
+    const addTx = (t: { id: string; data_compra: string; valor_centavos: number; tipo: string; descricao: string; recorrente_id: string | null }) => {
+      porId.set(t.id, {
+        data_compra: t.data_compra, valor_centavos: t.valor_centavos, tipo: t.tipo,
+        descricao: t.descricao, recorrente: t.recorrente_id != null,
+      });
+    };
     if (origemCol && origemId) {
       const { data } = await supabase
-        .from("transactions").select("data_compra, valor_centavos, tipo, recorrente_id").eq(origemCol, origemId);
-      existentes = (data ?? []).map((t) => ({
-        data_compra: t.data_compra, valor_centavos: t.valor_centavos, tipo: t.tipo,
-        recorrente: t.recorrente_id != null, // fixo já lançado casa com a fatura no mês (não duplica)
-      }));
+        .from("transactions").select("id, data_compra, valor_centavos, tipo, descricao, recorrente_id").eq(origemCol, origemId);
+      for (const t of data ?? []) addTx(t);
     }
+    // gastos fixos já materializados na casa toda (RLS já limita ao household)
+    const { data: recorrentes } = await supabase
+      .from("transactions").select("id, data_compra, valor_centavos, tipo, descricao, recorrente_id").not("recorrente_id", "is", null);
+    for (const t of recorrentes ?? []) addTx(t);
+
+    const existentes = [...porId.values()];
     const comDup = marcarDuplicados(comRegra, existentes);
 
     return NextResponse.json({ ok: true, linhas: comDup });

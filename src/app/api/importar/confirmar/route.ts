@@ -3,6 +3,12 @@ import { createServerSupabase } from "@/lib/supabase/server";
 import { getMembroAtual } from "@/lib/auth/household";
 import { persistirLancamento } from "@/lib/financeiro/persistir";
 import type { NovoLancamento } from "@/lib/financeiro/tipos";
+import { normalizeDescricao } from "@/lib/financeiro/descricao";
+
+const DIA_MS = 86_400_000;
+function diasMs(iso: string): number {
+  return new Date(iso + "T12:00:00").getTime();
+}
 
 type ItemImport = {
   data: string; descricao: string; valor_centavos: number;
@@ -34,6 +40,13 @@ export async function POST(req: Request) {
     .from("transactions").select("data_compra, valor_centavos").eq(origemCol, origemId);
   const chaves = new Set((existentes ?? []).map((e) => `${e.data_compra}|${e.valor_centavos}`));
 
+  // gastos fixos já materializados na casa toda (qualquer origem) — um fixo já
+  // lançado noutro cartão/conta também é duplicado. Consumido no máximo 1x por tx
+  // (guloso), pra duas linhas fixas iguais não serem ambas suprimidas por 1 só tx.
+  const { data: recorrentesRaw } = await supabase
+    .from("transactions").select("data_compra, valor_centavos, tipo, descricao").not("recorrente_id", "is", null);
+  const poolRecorrentes = (recorrentesRaw ?? []).map((r) => ({ ...r, usado: false }));
+
   // dia de fechamento do cartão buscado uma vez para todo o lote (evita 1 SELECT por lançamento)
   let diaFechamento: number | null | undefined = undefined;
   if (origem.card_id) {
@@ -54,6 +67,14 @@ export async function POST(req: Request) {
     }
     const chave = `${it.data}|${it.valor_centavos}`;
     if (chaves.has(chave)) { duplicadas++; continue; } // já existe → pula
+
+    // fixo já materializado (qualquer origem): mesmo valor+tipo e ( descrição
+    // normalizada igual OU dentro de 27 dias ) → pula sem recriar
+    const idxRec = poolRecorrentes.findIndex((r) =>
+      !r.usado && r.valor_centavos === it.valor_centavos && r.tipo === it.tipo &&
+      (Math.abs(diasMs(r.data_compra) - diasMs(it.data)) <= 27 * DIA_MS ||
+        (normalizeDescricao(r.descricao) === normalizeDescricao(it.descricao) && r.data_compra.slice(0, 7) === it.data.slice(0, 7))));
+    if (idxRec >= 0) { poolRecorrentes[idxRec].usado = true; duplicadas++; continue; }
 
     const novo: NovoLancamento = {
       tipo: it.tipo, valor_centavos: it.valor_centavos, data_compra: it.data,
