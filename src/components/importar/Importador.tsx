@@ -19,7 +19,9 @@ export function Importador({
   categorias: { id: string; nome: string }[]; membros: string[];
 }) {
   const router = useRouter();
+  const agora = new Date();
   const [origem, setOrigem] = useState(cartoes[0] ? `card:${cartoes[0].id}` : contas[0] ? `acc:${contas[0].id}` : "");
+  const [comp, setComp] = useState(`${agora.getFullYear()}-${String(agora.getMonth() + 1).padStart(2, "0")}`);
   const [texto, setTexto] = useState("");
   const [linhas, setLinhas] = useState<Linha[] | null>(null);
   const [carregando, setCarregando] = useState(false);
@@ -79,10 +81,15 @@ export function Importador({
       data: l.data, descricao: l.descricao, valor_centavos: l.valor_centavos,
       tipo: l.tipo, total_parcelas: l.total_parcelas, categoria_id: l.categoria_id, pessoa: l.pessoa,
     }));
+    const [ano, mes] = comp.split("-").map(Number);
     setCarregando(true);
     const r = await fetch("/api/importar/confirmar", {
       method: "POST",
-      body: JSON.stringify({ origem: { [prefixo === "card" ? "card_id" : "account_id"]: id }, linhas: selecionadas }),
+      body: JSON.stringify({
+        origem: { [prefixo === "card" ? "card_id" : "account_id"]: id },
+        linhas: selecionadas,
+        ...(prefixo === "card" ? { competencia: { ano, mes } } : {}),
+      }),
     }).then((x) => x.json());
     setCarregando(false);
     setResultado(
@@ -106,6 +113,13 @@ export function Importador({
               {contas.map((c) => <option key={c.id} value={`acc:${c.id}`}>Conta · {c.nome}</option>)}
             </select>
           </label>
+          {origem.startsWith("card:") && (
+            <label className="grid gap-1 text-sm">
+              <span className="text-[var(--muted)]">Mês da fatura (tudo entra nesta fatura)</span>
+              <input type="month" value={comp} onChange={(e) => setComp(e.target.value)}
+                className="rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--surface)] p-2 text-[var(--text)]" />
+            </label>
+          )}
           <textarea value={texto} onChange={(e) => setTexto(e.target.value)} rows={6}
             placeholder="Cole aqui o extrato/fatura (ou o conteúdo do CSV)..."
             className="rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--surface)] p-2 font-mono text-sm text-[var(--text)]" />

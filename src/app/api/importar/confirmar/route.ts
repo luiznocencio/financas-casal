@@ -20,6 +20,11 @@ export async function POST(req: Request) {
   const itens: ItemImport[] = Array.isArray(body.linhas) ? body.linhas : [];
   if (!origem.card_id && !origem.account_id) return NextResponse.json({ error: "origem inválida" }, { status: 400 });
 
+  // import de fatura: todas as linhas entram nesta fatura (mês), sem espalhar parcelas
+  const c = body.competencia;
+  const competencia = origem.card_id && c && c.ano >= 2000 && c.mes >= 1 && c.mes <= 12
+    ? { ano: Number(c.ano), mes: Number(c.mes) } : null;
+
   const supabase = await createServerSupabase();
 
   // lançamentos já existentes nessa origem, p/ pular duplicados (data + valor)
@@ -58,7 +63,7 @@ export async function POST(req: Request) {
       descricao: it.descricao, origem_ia: true,
     };
     const { error } = await persistirLancamento(
-      supabase, { householdId: membro.household_id, criadoPor: membro.user_id, grupoImportacao }, novo, diaFechamento,
+      supabase, { householdId: membro.household_id, criadoPor: membro.user_id, grupoImportacao }, novo, diaFechamento, competencia,
     );
     if (error) falhas.push(it.descricao || "(sem descrição)");
     else { criadas++; chaves.add(chave); } // evita duplicar dentro do próprio lote

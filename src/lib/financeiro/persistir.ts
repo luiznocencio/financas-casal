@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { planejarLinhas } from "./planejar";
+import { planejarLinhas, type LinhaPlanejada } from "./planejar";
 import { mapearRegistros } from "./registros";
 import type { NovoLancamento } from "./tipos";
 
@@ -8,10 +8,13 @@ export async function persistirLancamento(
   ctx: { householdId: string; criadoPor: string; grupoImportacao?: string | null; recorrenteId?: string | null },
   l: NovoLancamento,
   diaFechamentoConhecido?: number | null,
+  // Import de fatura: joga a linha nesta fatura (competência), como cobrança
+  // única, SEM espalhar parcelas nem redistribuir por data.
+  competenciaForcada?: { ano: number; mes: number } | null,
 ): Promise<{ error: string | null }> {
-  // dia de fechamento do cartão (se for cartão)
+  // dia de fechamento do cartão (só precisa quando vamos calcular a competência)
   let diaFechamento: number | null = null;
-  if (l.card_id) {
+  if (l.card_id && !competenciaForcada) {
     if (diaFechamentoConhecido !== undefined) {
       diaFechamento = diaFechamentoConhecido;
     } else {
@@ -25,7 +28,16 @@ export async function persistirLancamento(
     if (!conta) return { error: "conta inexistente" };
   }
 
-  const linhas = planejarLinhas(l, diaFechamento);
+  const linhas: LinhaPlanejada[] = (competenciaForcada && l.card_id)
+    ? [{
+        tipo: l.tipo, valor_centavos: l.valor_centavos, data_compra: l.data_compra,
+        categoria_id: l.categoria_id ?? null, pessoa: l.pessoa,
+        account_id: null, card_id: l.card_id,
+        grupo_parcela: null, parcela_n: 1, total_parcelas: 1,
+        descricao: l.descricao ?? null,
+        invoiceCompetencia: { ano: competenciaForcada.ano, mes: competenciaForcada.mes },
+      }]
+    : planejarLinhas(l, diaFechamento);
 
   const invoiceIdPorComp = new Map<string, string>();
   for (const linha of linhas) {
