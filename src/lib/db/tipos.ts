@@ -11,6 +11,11 @@ export type Recorrente = {
   categoria_id: string | null; pessoa: string; dia: number;
   account_id: string | null; card_id: string | null; ativo: boolean;
 };
+export type ReceitaAgendada = {
+  id: string; household_id: string; descricao: string; valor_centavos: number;
+  account_id: string; pessoa: string; data_prevista: string;
+  recorrencia: "unica" | "mensal"; ativo: boolean;
+};
 export type Member = { user_id: string; household_id: string; nome: string; papel: "membro" | "dono" };
 export type Account = { id: string; household_id: string; nome: string; tipo: "corrente" | "dinheiro" | "poupanca"; saldo_inicial_centavos: number; titular: string | null };
 export type Card = { id: string; household_id: string; nome: string; bandeira: string | null; limite_centavos: number; dia_fechamento: number; dia_vencimento: number; titular: string | null };
