@@ -73,6 +73,7 @@ export default async function FixosPage() {
                     <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--muted)]">
                       <span>dia {r.dia}</span>
                       <span>· {origemNome(r)}</span>
+                      {r.data_fim && <span>· até {new Date(r.data_fim + "T12:00:00").toLocaleDateString("pt-BR")}</span>}
                       {cat && <CategoriaTag nome={cat.nome} cor={cat.cor} tamanho="sm" />}
                       {lancado
                         ? <span className="text-[var(--positivo)]">lançado este mês</span>

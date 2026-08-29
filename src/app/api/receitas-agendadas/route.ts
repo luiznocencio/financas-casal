@@ -28,6 +28,7 @@ export async function POST(req: Request) {
     pessoa: b.pessoa ?? "conjunto",
     data_prevista: b.data_prevista,
     recorrencia,
+    data_fim: DATA_ISO.test(b.data_fim ?? "") ? b.data_fim : null,
   }).select("*").single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json(data);

@@ -50,6 +50,7 @@ export async function POST() {
     if (feitos.has(r.id) || temManualEquivalente(r)) { pulados++; continue; }
     const dia = Math.min(r.dia, ultimo);
     const data = `${ano}-${pad(mes)}-${pad(dia)}`;
+    if (r.data_fim && data > r.data_fim) { pulados++; continue; } // fixo já encerrado
     const { error } = await persistirLancamento(
       supabase,
       { householdId: membro.household_id, criadoPor: membro.user_id, recorrenteId: r.id },

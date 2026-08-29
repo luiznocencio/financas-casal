@@ -29,6 +29,7 @@ export async function POST(req: Request) {
     dia,
     account_id: b.account_id ?? null,
     card_id: b.card_id ?? null,
+    data_fim: /^\d{4}-\d{2}-\d{2}$/.test(b.data_fim ?? "") ? b.data_fim : null,
   }).select("*").single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json(data);

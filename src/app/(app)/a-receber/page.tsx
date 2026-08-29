@@ -60,6 +60,7 @@ export default async function AReceberPage() {
                         <span className="rounded-full px-2 py-0.5 text-[0.7rem] font-medium"
                           style={{ background: "var(--accent-weak)", color: "var(--accent)" }}>mensal</span>
                       )}
+                      {r.data_fim && <span>· até {new Date(r.data_fim + "T12:00:00").toLocaleDateString("pt-BR")}</span>}
                     </div>
                   </div>
                   <div className="flex items-center gap-3">

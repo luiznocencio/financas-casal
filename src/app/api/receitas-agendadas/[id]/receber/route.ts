@@ -41,7 +41,13 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
   if (errTx) return NextResponse.json({ error: errTx }, { status: 500 });
 
   if (r.recorrencia === "mensal") {
-    await supabase.from("receitas_agendadas").update({ data_prevista: proximoMes(r.data_prevista) }).eq("id", id);
+    const prox = proximoMes(r.data_prevista);
+    // se passou do "até quando", encerra em vez de avançar
+    if (r.data_fim && prox > r.data_fim) {
+      await supabase.from("receitas_agendadas").update({ ativo: false }).eq("id", id);
+    } else {
+      await supabase.from("receitas_agendadas").update({ data_prevista: prox }).eq("id", id);
+    }
   } else {
     await supabase.from("receitas_agendadas").update({ ativo: false }).eq("id", id);
   }

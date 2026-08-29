@@ -17,6 +17,7 @@ export function AddReceitaAgendada({ contas, membros }: { contas: Conta[]; membr
   const [accountId, setAccountId] = useState(contas[0]?.id ?? "");
   const [data, setData] = useState(hoje);
   const [recorrencia, setRecorrencia] = useState<"unica" | "mensal">("unica");
+  const [dataFim, setDataFim] = useState("");
   const [pessoa, setPessoa] = useState(membros[0] ?? "conjunto");
   const [erro, setErro] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
@@ -30,11 +31,12 @@ export function AddReceitaAgendada({ contas, membros }: { contas: Conta[]; membr
       body: JSON.stringify({
         descricao: descricao.trim(), valor_centavos: reaisParaCentavos(valor),
         account_id: accountId, data_prevista: data, recorrencia, pessoa,
+        data_fim: recorrencia === "mensal" ? (dataFim || null) : null,
       }),
     }).catch(() => null);
     setSalvando(false);
     if (!res?.ok) { setErro("Não consegui salvar."); return; }
-    setDescricao(""); setValor(""); setData(hoje); setRecorrencia("unica"); setAberto(false); router.refresh();
+    setDescricao(""); setValor(""); setData(hoje); setRecorrencia("unica"); setDataFim(""); setAberto(false); router.refresh();
   }
 
   if (!aberto) return <Button variant="ghost" onClick={() => setAberto(true)}>+ Agendar receita</Button>;
@@ -73,6 +75,9 @@ export function AddReceitaAgendada({ contas, membros }: { contas: Conta[]; membr
           </select>
         </label>
       </div>
+      {recorrencia === "mensal" && (
+        <Field label="Até quando (opcional)" type="date" value={dataFim} onChange={(e) => setDataFim(e.target.value)} />
+      )}
       {erro && <p style={{ color: "var(--negativo)", margin: 0, fontSize: "0.85rem" }}>{erro}</p>}
       <div style={{ display: "flex", gap: 8 }}>
         <Button variant="primary" onClick={salvar} disabled={salvando} style={{ flex: 1 }}>Agendar receita</Button>

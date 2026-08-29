@@ -18,6 +18,7 @@ export function AddRecorrente({
   const [descricao, setDescricao] = useState("");
   const [valor, setValor] = useState("");
   const [dia, setDia] = useState("");
+  const [dataFim, setDataFim] = useState("");
   const [origem, setOrigem] = useState(origemInicial);
   const [categoriaId, setCategoriaId] = useState("");
   const [pessoa, setPessoa] = useState<string>(() => titularDe(origemInicial) ?? membros[0] ?? "conjunto");
@@ -42,11 +43,12 @@ export function AddRecorrente({
         descricao: descricao.trim(), valor_centavos: reaisParaCentavos(valor), dia: d,
         categoria_id: categoriaId || null, pessoa,
         account_id: prefixo === "acc" ? id : null, card_id: prefixo === "card" ? id : null,
+        data_fim: dataFim || null,
       }),
     }).catch(() => null);
     setSalvando(false);
     if (!res?.ok) { setErro("Não consegui salvar."); return; }
-    setDescricao(""); setValor(""); setDia(""); setCategoriaId(""); setAberto(false); router.refresh();
+    setDescricao(""); setValor(""); setDia(""); setDataFim(""); setCategoriaId(""); setAberto(false); router.refresh();
   }
 
   if (!aberto) return <Button variant="ghost" onClick={() => setAberto(true)}>+ Novo gasto fixo</Button>;
@@ -63,6 +65,7 @@ export function AddRecorrente({
         <Field label="Valor (R$)" inputMode="decimal" value={valor} onChange={(e) => setValor(e.target.value)} placeholder="49,90" />
         <Field label="Dia do mês" type="number" value={dia} onChange={(e) => setDia(e.target.value)} placeholder="10" />
       </div>
+      <Field label="Até quando (opcional)" type="date" value={dataFim} onChange={(e) => setDataFim(e.target.value)} />
       <label style={{ display: "grid", gap: 6 }}>
         <span style={{ fontSize: "0.8rem", color: "var(--muted)" }}>De onde sai o dinheiro</span>
         <select value={origem} onChange={(e) => { const v = e.target.value; setOrigem(v); const t = titularDe(v); if (t) setPessoa(t); }} style={selectStyle}>
