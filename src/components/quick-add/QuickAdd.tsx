@@ -10,8 +10,8 @@ import { Money } from "@/components/ui/Money";
 import { Spinner } from "@/components/ui/Spinner";
 
 export function QuickAdd({
-  cartoes, contas, categorias, membros,
-}: { cartoes: Card[]; contas: Account[]; categorias: Category[]; membros: string[] }) {
+  cartoes, contas, categorias, membros, usuarioAtual,
+}: { cartoes: Card[]; contas: Account[]; categorias: Category[]; membros: string[]; usuarioAtual: string }) {
   const router = useRouter();
   const [aberto, setAberto] = useState(false);
   const [texto, setTexto] = useState("");
@@ -138,6 +138,7 @@ export function QuickAdd({
             {modoForm && (
               <FormularioRapido
                 cartoes={cartoes} contas={contas} categorias={categorias} membros={membros}
+                usuarioAtual={usuarioAtual}
                 valorInicialReais={sugestao ? (sugestao.valor_centavos / 100).toString() : ""}
                 onCriado={recarregar}
               />

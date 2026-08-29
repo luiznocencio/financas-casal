@@ -54,9 +54,10 @@ export function Importador({
     try {
       const [prefixo, id] = origem.split(":");
       const origemBody = id ? { [prefixo === "card" ? "card_id" : "account_id"]: id } : {};
+      const [ano, mes] = comp.split("-").map(Number);
       const r = await fetch("/api/importar/analisar", {
         method: "POST",
-        body: JSON.stringify({ texto, origem: origemBody }),
+        body: JSON.stringify({ texto, origem: origemBody, ...(prefixo === "card" ? { competencia: { ano, mes } } : {}) }),
       }).then((x) => x.json());
       if (!r.ok) { setErro("Não consegui ler os lançamentos desse texto. Confira e tente de novo."); return; }
       setLinhas((r.linhas as Omit<Linha, "incluir" | "categoria_id" | "pessoa">[]).map((l) => {

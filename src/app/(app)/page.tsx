@@ -51,7 +51,7 @@ export default async function Dashboard() {
   const nomeCat = (id: string) => catById.get(id)?.nome ?? "Outros";
   const corCat = (id: string) => catById.get(id)?.cor ?? "#6b7280";
   const porPessoa = Object.entries(resumo.porPessoa).sort((a, b) => b[1] - a[1]);
-  const topCategorias = Object.entries(resumo.porCategoria).sort((a, b) => b[1] - a[1]).slice(0, 5);
+  const topCategorias = Object.entries(resumo.porCategoria).sort((a, b) => b[1] - a[1]);
   const maiorCategoria = topCategorias.length ? topCategorias[0][1] : 0;
 
   const stats = [
@@ -84,7 +84,7 @@ export default async function Dashboard() {
         </Card>
 
         <Card>
-          <h3 className="mb-4 font-medium text-[var(--text)]">Top categorias</h3>
+          <h3 className="mb-4 font-medium text-[var(--text)]">Categorias do mês</h3>
           {topCategorias.length === 0 ? (
             <p className="text-sm text-[var(--muted)]">Nenhuma categoria com gasto neste mês ainda.</p>
           ) : (

@@ -4,11 +4,13 @@ import { getMembroAtual } from "@/lib/auth/household";
 import { persistirLancamento } from "@/lib/financeiro/persistir";
 import type { NovoLancamento } from "@/lib/financeiro/tipos";
 import { normalizeDescricao } from "@/lib/financeiro/descricao";
+import { ultimoDiaDoMes } from "@/lib/financeiro/fechamento";
 
 const DIA_MS = 86_400_000;
 function diasMs(iso: string): number {
   return new Date(iso + "T12:00:00").getTime();
 }
+const pad = (n: number) => String(n).padStart(2, "0");
 
 type ItemImport = {
   data: string; descricao: string; valor_centavos: number;
@@ -43,8 +45,15 @@ export async function POST(req: Request) {
   // gastos fixos já materializados na casa toda (qualquer origem) — um fixo já
   // lançado noutro cartão/conta também é duplicado. Consumido no máximo 1x por tx
   // (guloso), pra duas linhas fixas iguais não serem ambas suprimidas por 1 só tx.
-  const { data: recorrentesRaw } = await supabase
+  // escopado ao mês da fatura importada: não reconhece nem sobrescreve um fixo de OUTRA fatura
+  let recQuery = supabase
     .from("transactions").select("data_compra, valor_centavos, tipo, descricao").not("recorrente_id", "is", null);
+  if (competencia) {
+    const ini = `${competencia.ano}-${pad(competencia.mes)}-01`;
+    const fim = `${competencia.ano}-${pad(competencia.mes)}-${pad(ultimoDiaDoMes(competencia.ano, competencia.mes))}`;
+    recQuery = recQuery.gte("data_compra", ini).lte("data_compra", fim);
+  }
+  const { data: recorrentesRaw } = await recQuery;
   const poolRecorrentes = (recorrentesRaw ?? []).map((r) => ({ ...r, usado: false }));
 
   // dia de fechamento do cartão buscado uma vez para todo o lote (evita 1 SELECT por lançamento)

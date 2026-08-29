@@ -5,10 +5,10 @@ import { reaisParaCentavos } from "@/lib/financeiro/dinheiro";
 import { Button } from "@/components/ui/Button";
 
 export function FormularioRapido({
-  cartoes, contas, categorias, membros, valorInicialReais = "", onCriado,
+  cartoes, contas, categorias, membros, usuarioAtual, valorInicialReais = "", onCriado,
 }: {
   cartoes: Card[]; contas: Account[]; categorias: Category[]; membros: string[];
-  valorInicialReais?: string; onCriado: () => void;
+  usuarioAtual: string; valorInicialReais?: string; onCriado: () => void;
 }) {
   const membrosSet = new Set(membros);
   // dono da origem (cartão/conta), se for um membro do lar — pra já sugerir a pessoa
@@ -17,13 +17,22 @@ export function FormularioRapido({
     const item = (prefixo === "card" ? cartoes : contas).find((x) => x.id === id);
     return item?.titular && membrosSet.has(item.titular) ? item.titular : null;
   }
+  // sugere a origem (cartão/conta) do próprio usuário logado; senão a 1ª disponível
+  function origemDoUsuario(): string {
+    const meuCartao = cartoes.find((c) => c.titular === usuarioAtual);
+    if (meuCartao) return `card:${meuCartao.id}`;
+    const minhaConta = contas.find((c) => c.titular === usuarioAtual);
+    if (minhaConta) return `acc:${minhaConta.id}`;
+    return cartoes[0] ? `card:${cartoes[0].id}` : contas[0] ? `acc:${contas[0].id}` : "";
+  }
 
-  const origemInicial = cartoes[0] ? `card:${cartoes[0].id}` : contas[0] ? `acc:${contas[0].id}` : "";
+  const origemInicial = origemDoUsuario();
   const [valor, setValor] = useState(valorInicialReais);
+  const [descricao, setDescricao] = useState("");
   const [tipo, setTipo] = useState<"despesa" | "receita">("despesa");
   const [origem, setOrigem] = useState<string>(origemInicial);
   const [categoriaId, setCategoriaId] = useState<string>("");
-  const [pessoa, setPessoa] = useState(titularDaOrigem(origemInicial) ?? membros[0] ?? "conjunto");
+  const [pessoa, setPessoa] = useState(titularDaOrigem(origemInicial) ?? usuarioAtual ?? membros[0] ?? "conjunto");
   const [parcelas, setParcelas] = useState(1);
   const [erro, setErro] = useState<string | null>(null);
 
@@ -37,7 +46,7 @@ export function FormularioRapido({
       account_id: prefixo === "acc" ? id : null,
       card_id: prefixo === "card" ? id : null,
       total_parcelas: prefixo === "card" ? parcelas : 1,
-      descricao: null,
+      descricao: descricao.trim() || null,
     };
     const res = await fetch("/api/transactions", { method: "POST", body: JSON.stringify(body) });
     if (!res.ok) {
@@ -78,6 +87,11 @@ export function FormularioRapido({
           <button onClick={() => setTipo("receita")} aria-pressed={tipo === "receita"} style={{ ...chipStyle(tipo === "receita"), padding: "6px 8px" }}>Receita</button>
         </div>
       </div>
+
+      {/* nome/descrição do gasto (opcional) */}
+      <input value={descricao} onChange={(e) => setDescricao(e.target.value)}
+        placeholder="Nome (ex.: mercado do mês)"
+        style={{ ...selectStyle, fontSize: "1rem" }} />
 
       {/* origem (+ parcelas quando cartão) */}
       <div style={{ display: "grid", gridTemplateColumns: ehCard ? "1fr 84px" : "1fr", gap: 8 }}>

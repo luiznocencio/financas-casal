@@ -5,6 +5,9 @@ import { chamarModeloJson } from "@/lib/ai/openai";
 import { getMembroAtual } from "@/lib/auth/household";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { normalizeDescricao } from "@/lib/financeiro/descricao";
+import { ultimoDiaDoMes } from "@/lib/financeiro/fechamento";
+
+const pad = (n: number) => String(n).padStart(2, "0");
 
 export async function POST(req: Request) {
   // exige usuário logado antes de gastar chamada à OpenAI
@@ -14,6 +17,9 @@ export async function POST(req: Request) {
     const body = await req.json();
     const texto = body?.texto;
     const origem: { card_id?: string; account_id?: string } = body?.origem ?? {};
+    const cmp = body?.competencia;
+    const competencia = cmp && cmp.ano >= 2000 && cmp.mes >= 1 && cmp.mes <= 12
+      ? { ano: Number(cmp.ano), mes: Number(cmp.mes) } : null;
     if (!texto || typeof texto !== "string") return NextResponse.json({ ok: false });
     const linhas = await interpretarImportacao(texto, chamarModeloJson);
 
@@ -50,9 +56,17 @@ export async function POST(req: Request) {
         .from("transactions").select("id, data_compra, valor_centavos, tipo, descricao, recorrente_id").eq(origemCol, origemId);
       for (const t of data ?? []) addTx(t);
     }
-    // gastos fixos já materializados na casa toda (RLS já limita ao household)
-    const { data: recorrentes } = await supabase
+    // gastos fixos já materializados na casa toda (RLS já limita ao household).
+    // Escopa ao MÊS da fatura importada: não pode reconhecer (nem sobrescrever)
+    // um fixo ligado a OUTRA fatura/mês.
+    let recQuery = supabase
       .from("transactions").select("id, data_compra, valor_centavos, tipo, descricao, recorrente_id").not("recorrente_id", "is", null);
+    if (competencia) {
+      const ini = `${competencia.ano}-${pad(competencia.mes)}-01`;
+      const fim = `${competencia.ano}-${pad(competencia.mes)}-${pad(ultimoDiaDoMes(competencia.ano, competencia.mes))}`;
+      recQuery = recQuery.gte("data_compra", ini).lte("data_compra", fim);
+    }
+    const { data: recorrentes } = await recQuery;
     for (const t of recorrentes ?? []) addTx(t);
 
     const existentes = [...porId.values()];

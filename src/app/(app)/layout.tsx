@@ -40,6 +40,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <QuickAdd
         cartoes={cartoes ?? []} contas={contas ?? []}
         categorias={categorias ?? []} membros={(membros ?? []).map((m) => m.nome)}
+        usuarioAtual={membro.nome}
       />
     </div>
   );
