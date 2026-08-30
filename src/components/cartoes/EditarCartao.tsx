@@ -6,6 +6,7 @@ import { reaisParaCentavos } from "@/lib/financeiro/dinheiro";
 import { Field } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
 import { TitularSelect } from "@/components/ui/TitularSelect";
+import { FechamentoPreview } from "@/components/cartoes/FechamentoPreview";
 import type { Card } from "@/lib/db/tipos";
 
 export function EditarCartao({ card, membros }: { card: Card; membros: string[] }) {
@@ -63,6 +64,7 @@ export function EditarCartao({ card, membros }: { card: Card; membros: string[] 
           <Field label="Dia de vencimento" type="number" value={vencimento} onChange={(e) => setVencimento(e.target.value)} />
           <Field label="Fecha quantos dias antes" type="number" value={diasAntes} onChange={(e) => setDiasAntes(e.target.value)} />
         </div>
+        <FechamentoPreview vencimento={Number(vencimento)} diasAntes={Number(diasAntes)} />
         {erro && <p style={{ color: "var(--negativo)", margin: 0, fontSize: "0.85rem" }}>{erro}</p>}
         <div style={{ display: "flex", gap: 8 }}>
           <Button variant="primary" onClick={salvar} disabled={salvando} style={{ flex: 1 }}>Salvar</Button>

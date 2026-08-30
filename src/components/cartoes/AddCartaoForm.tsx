@@ -5,6 +5,7 @@ import { reaisParaCentavos } from "@/lib/financeiro/dinheiro";
 import { Field } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
 import { TitularSelect } from "@/components/ui/TitularSelect";
+import { FechamentoPreview } from "@/components/cartoes/FechamentoPreview";
 
 export function AddCartaoForm({ membros }: { membros: string[] }) {
   const router = useRouter();
@@ -48,6 +49,7 @@ export function AddCartaoForm({ membros }: { membros: string[] }) {
         <Field label="Dia de vencimento" type="number" value={vencimento} onChange={(e) => setVencimento(e.target.value)} placeholder="17" />
         <Field label="Fecha quantos dias antes" type="number" value={diasAntes} onChange={(e) => setDiasAntes(e.target.value)} placeholder="7" />
       </div>
+      <FechamentoPreview vencimento={Number(vencimento)} diasAntes={Number(diasAntes)} />
       {erro && <p style={{ color: "var(--negativo)", margin: 0, fontSize: "0.85rem" }}>{erro}</p>}
       <div style={{ display: "flex", gap: 8 }}>
         <Button variant="primary" onClick={salvar} disabled={salvando} style={{ flex: 1 }}>Criar cartão</Button>

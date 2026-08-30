@@ -3,6 +3,7 @@ import { useState } from "react";
 import type { Card, Account, Category } from "@/lib/db/tipos";
 import { reaisParaCentavos } from "@/lib/financeiro/dinheiro";
 import { Button } from "@/components/ui/Button";
+import { MoneyInput } from "@/components/ui/MoneyInput";
 
 export function FormularioRapido({
   cartoes, contas, categorias, membros, usuarioAtual, valorInicialReais = "", onCriado,
@@ -27,7 +28,7 @@ export function FormularioRapido({
     : contas.length > 0 ? "acc" : "card";
   const idInicial = primeiroDoTipo(tipoInicial);
 
-  const [valor, setValor] = useState(valorInicialReais);
+  const [centavos, setCentavos] = useState(valorInicialReais ? reaisParaCentavos(valorInicialReais) : 0);
   const [descricao, setDescricao] = useState("");
   const [tipo, setTipo] = useState<"despesa" | "receita">("despesa");
   const [tipoOrigem, setTipoOrigem] = useState<TipoOrigem>(tipoInicial);
@@ -52,7 +53,7 @@ export function FormularioRapido({
     setErro(null);
     if (!origemId) { setErro("Escolha o cartão/conta."); return; }
     const body = {
-      tipo, valor_centavos: reaisParaCentavos(valor),
+      tipo, valor_centavos: centavos,
       data_compra: new Date().toISOString().slice(0, 10),
       categoria_id: categoriaId || null, pessoa,
       account_id: tipoOrigem === "acc" ? origemId : null,
@@ -86,8 +87,7 @@ export function FormularioRapido({
     <div style={{ display: "grid", gap: 10 }}>
       {/* valor + tipo na mesma linha */}
       <div style={{ display: "flex", gap: 8, alignItems: "stretch" }}>
-        <input inputMode="decimal" placeholder="Valor (R$)" value={valor} autoFocus
-          onChange={(e) => setValor(e.target.value)} className="mono"
+        <MoneyInput centavos={centavos} onCentavos={setCentavos} autoFocus placeholder="Valor (R$)" className="mono"
           style={{
             flex: 1, minWidth: 0, fontSize: "1.5rem", fontWeight: 700, padding: "8px 12px", textAlign: "center",
             fontVariantNumeric: "tabular-nums", borderRadius: "var(--radius-sm)",
