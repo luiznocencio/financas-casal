@@ -3,7 +3,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Check, ArrowCounterClockwise } from "@phosphor-icons/react";
 
-type Conta = { id: string; nome: string };
+type Conta = { id: string; nome: string; titular?: string | null };
+const rotuloConta = (c: Conta) => c.titular ? `${c.nome} · ${c.titular}` : c.nome;
 
 export function FaturaBotao({ invoiceId, paga, contas }: { invoiceId: string; paga: boolean; contas: Conta[] }) {
   const router = useRouter();
@@ -38,7 +39,7 @@ export function FaturaBotao({ invoiceId, paga, contas }: { invoiceId: string; pa
       <span className="flex flex-wrap items-center justify-end gap-1">
         <select value={contaId} onChange={(e) => setContaId(e.target.value)}
           className="rounded-md border border-[var(--border)] bg-[var(--surface)] px-1.5 py-1 text-xs text-[var(--text)]">
-          {contas.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
+          {contas.map((c) => <option key={c.id} value={c.id}>{rotuloConta(c)}</option>)}
         </select>
         <button onClick={() => enviar(true, contaId)} disabled={carregando || !contaId} className={btn}
           style={{ borderColor: "var(--positivo)", color: "var(--positivo)" }}>{carregando ? "..." : "Pagar"}</button>

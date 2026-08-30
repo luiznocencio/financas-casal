@@ -24,7 +24,7 @@ export default async function CartoesPage() {
       .select("card_id, invoice_id, valor_centavos, paga").not("card_id", "is", null),
     supabase.from("invoices").select("id, card_id, competencia_ano, competencia_mes, status"),
     supabase.from("members").select("nome"),
-    supabase.from("accounts").select("id, nome").order("nome"),
+    supabase.from("accounts").select("id, nome, titular").order("nome"),
   ]);
   const erro = cardsRes.error ?? txsRes.error ?? invoicesRes.error ?? membrosRes.error ?? contasRes.error;
   if (erro) throw new Error(`Falha ao carregar os cartões: ${erro.message}`);

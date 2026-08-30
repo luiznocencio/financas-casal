@@ -18,7 +18,7 @@ export async function SecaoContasPagar() {
   const [cpRes, catsRes, contasRes, membrosRes, pagasRes] = await Promise.all([
     supabase.from("contas_pagar").select("*").eq("ativo", true).order("dia_vencimento"),
     supabase.from("categories").select("id, nome, cor").eq("tipo", "despesa").order("nome"),
-    supabase.from("accounts").select("id, nome").order("nome"),
+    supabase.from("accounts").select("id, nome, titular").order("nome"),
     supabase.from("members").select("nome"),
     supabase.from("transactions").select("conta_pagar_id, valor_centavos")
       .not("conta_pagar_id", "is", null).gte("data_compra", ini).lte("data_compra", fim),
