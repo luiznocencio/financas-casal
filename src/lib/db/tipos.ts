@@ -17,6 +17,12 @@ export type ReceitaAgendada = {
   account_id: string; pessoa: string; data_prevista: string;
   recorrencia: "unica" | "mensal"; ativo: boolean; data_fim: string | null;
 };
+export type ContaPagar = {
+  id: string; household_id: string; descricao: string; categoria_id: string | null;
+  pessoa: string; dia_vencimento: number; valor_estimado_centavos: number | null;
+  account_id: string | null; card_id: string | null;
+  recorrencia: "unica" | "mensal"; data_fim: string | null; ativo: boolean;
+};
 export type Member = { user_id: string; household_id: string; nome: string; papel: "membro" | "dono" };
 export type Account = { id: string; household_id: string; nome: string; tipo: "corrente" | "dinheiro" | "poupanca"; saldo_inicial_centavos: number; titular: string | null };
 export type Card = { id: string; household_id: string; nome: string; bandeira: string | null; limite_centavos: number; dia_fechamento: number; dia_vencimento: number; dias_fechamento_antes: number | null; titular: string | null };
