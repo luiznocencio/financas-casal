@@ -43,7 +43,7 @@ export default async function OrcamentoPage() {
     <main className="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-10 sm:px-6">
       <header className="flex items-center justify-between gap-3">
         <h1 className="text-2xl font-bold text-[var(--text)]">Orçamento</h1>
-        <Link href="/fixos" className="text-sm text-[var(--accent)]">Gastos fixos</Link>
+        <Link href="/planejamento?aba=fixos" className="text-sm text-[var(--accent)]">Gastos fixos</Link>
       </header>
 
       <RendaCasal membros={membros} />

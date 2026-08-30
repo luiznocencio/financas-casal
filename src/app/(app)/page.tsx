@@ -35,7 +35,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
     supabase.from("cards").select("*"),
     supabase.from("transactions").select("*"),
     supabase.from("categories").select("id, nome, cor"),
-    supabase.from("members").select("nome"),
+    supabase.from("members").select("nome, renda_mensal_centavos"),
     supabase.from("invoices").select("id, competencia_ano, competencia_mes"),
     supabase.from("contas_pagar").select("id, valor_estimado_centavos").eq("ativo", true),
   ]);
@@ -73,9 +73,17 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   const pendenteContas = (contasPagarRes.data ?? [])
     .filter((c) => !pagoContaMes.has(c.id)).reduce((s, c) => s + (c.valor_estimado_centavos ?? 0), 0);
   const aPagar = comprometido + pendenteContas;
-  const sobra = saldoTotal - aPagar;
 
   const resumo = resumoDoMes(txsRef, ref);
+
+  // renda certa do mês (salário fixo no orçamento) que ainda não caiu na conta:
+  // renda mensal − receitas já recebidas no mês (o que já entrou está no saldo).
+  const rendaMensal = (membrosData ?? []).reduce((s, m) => s + (m.renda_mensal_centavos ?? 0), 0);
+  const aReceberMes = Math.max(0, rendaMensal - resumo.totalReceitas);
+
+  const disponivel = saldoTotal + aReceberMes;
+  const sobra = disponivel - aPagar;
+
   const catById = new Map((cats ?? []).map((c) => [c.id, c]));
   const nomeCat = (id: string) => catById.get(id)?.nome ?? "Outros";
   const corCat = (id: string) => catById.get(id)?.cor ?? "#6b7280";
@@ -124,7 +132,9 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
               {sobra >= 0 ? "Dá pra pagar o pendente" : "Falta pra pagar o pendente"}
             </span>
             <span className="text-xs text-[var(--muted)]">
-              Saldo <Money centavos={saldoTotal} tamanho="sm" /> − a pagar <Money centavos={aPagar} tamanho="sm" /> (faturas + contas)
+              Saldo <Money centavos={saldoTotal} tamanho="sm" />
+              {aReceberMes > 0 && <> + renda a entrar <Money centavos={aReceberMes} tamanho="sm" /></>}
+              {" − "}a pagar <Money centavos={aPagar} tamanho="sm" /> (faturas + contas)
             </span>
           </div>
           <span className="mono text-lg font-semibold" style={{ color: sobra >= 0 ? "var(--positivo)" : "var(--negativo)" }}>

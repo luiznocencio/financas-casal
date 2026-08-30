@@ -48,8 +48,7 @@ export default async function Lancamentos({
         <div className="flex items-center justify-between gap-3">
           <h1 className="text-2xl font-semibold text-[var(--text)]">Extrato</h1>
           <div className="flex flex-wrap items-center justify-end gap-3">
-            <Link href="/contas-pagar" className="text-sm text-[var(--accent)]">A pagar</Link>
-            <Link href="/a-receber" className="text-sm text-[var(--accent)]">A receber</Link>
+            <Link href="/planejamento" className="text-sm text-[var(--accent)]">Planejamento</Link>
             <Link href="/importar" className="text-sm text-[var(--accent)]">Importar</Link>
           </div>
         </div>
