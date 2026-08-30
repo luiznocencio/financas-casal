@@ -14,10 +14,20 @@ const MESES = [
   "julho", "agosto", "setembro", "outubro", "novembro", "dezembro",
 ];
 
-export default async function Dashboard() {
+export default async function Dashboard({ searchParams }: { searchParams: Promise<{ mes?: string }> }) {
   const supabase = await createServerSupabase();
+  const sp = await searchParams;
   const agora = new Date();
-  const ref = { ano: agora.getFullYear(), mes: agora.getMonth() + 1 };
+  const atual = { ano: agora.getFullYear(), mes: agora.getMonth() + 1 };
+  let ref = atual;
+  if (sp.mes && /^\d{4}-\d{2}$/.test(sp.mes)) {
+    const [a, m] = sp.mes.split("-").map(Number);
+    if (m >= 1 && m <= 12) ref = { ano: a, mes: m };
+  }
+  const ehAtual = ref.ano === atual.ano && ref.mes === atual.mes;
+  const mesPrev = ref.mes === 1 ? { ano: ref.ano - 1, mes: 12 } : { ano: ref.ano, mes: ref.mes - 1 };
+  const mesProx = ref.mes === 12 ? { ano: ref.ano + 1, mes: 1 } : { ano: ref.ano, mes: ref.mes + 1 };
+  const paramMes = (c: { ano: number; mes: number }) => `/?mes=${c.ano}-${String(c.mes).padStart(2, "0")}`;
 
   const [contasRes, cardsRes, txsRes, catsRes, membrosRes] = await Promise.all([
     supabase.from("accounts").select("*"),
@@ -65,7 +75,16 @@ export default async function Dashboard() {
     <main className="mx-auto flex max-w-5xl flex-col gap-6 px-4 py-10 sm:px-6">
       <header className="flex items-start justify-between gap-3">
         <div className="flex flex-col gap-1">
-          <h1 className="text-2xl font-bold text-[var(--text)]">{MESES[ref.mes - 1]}</h1>
+          <div className="flex items-center gap-1">
+            <Link href={paramMes(mesPrev)} aria-label="Mês anterior"
+              className="rounded-md px-2 py-1 text-xl leading-none text-[var(--muted)] hover:bg-[var(--surface-2)] hover:text-[var(--text)]">‹</Link>
+            <h1 className="text-2xl font-bold capitalize text-[var(--text)]">
+              {MESES[ref.mes - 1]}{ref.ano !== atual.ano ? ` ${ref.ano}` : ""}
+            </h1>
+            <Link href={paramMes(mesProx)} aria-label="Próximo mês"
+              className="rounded-md px-2 py-1 text-xl leading-none text-[var(--muted)] hover:bg-[var(--surface-2)] hover:text-[var(--text)]">›</Link>
+            {!ehAtual && <Link href="/" className="ml-1 text-xs text-[var(--accent)]">hoje</Link>}
+          </div>
           <p className="text-sm text-[var(--muted)]">Visão do casal</p>
         </div>
         <div className="lg:hidden"><SairButton variant="inline" /></div>
