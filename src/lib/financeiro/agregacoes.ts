@@ -4,6 +4,9 @@ type TxResumo = {
   pessoa: string;
   categoria_id: string | null;
   data_compra: string; // yyyy-mm-dd
+  // mês "de verdade" do gasto: p/ compra no cartão é a competência da fatura
+  // (se a fatura já fechou, a compra é gasto do mês seguinte), não a data.
+  competencia?: { ano: number; mes: number };
 };
 
 export function resumoDoMes(
@@ -16,7 +19,9 @@ export function resumoDoMes(
   porCategoria: Record<string, number>;
 } {
   const doMes = txs.filter((t) => {
-    const [ano, mes] = t.data_compra.split("-").map(Number);
+    let ano: number, mes: number;
+    if (t.competencia) { ano = t.competencia.ano; mes = t.competencia.mes; }
+    else { [ano, mes] = t.data_compra.split("-").map(Number); }
     return ano === ref.ano && mes === ref.mes;
   });
   const porPessoa: Record<string, number> = {};

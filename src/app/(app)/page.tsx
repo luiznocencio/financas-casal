@@ -29,15 +29,16 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   const mesProx = ref.mes === 12 ? { ano: ref.ano + 1, mes: 1 } : { ano: ref.ano, mes: ref.mes + 1 };
   const paramMes = (c: { ano: number; mes: number }) => `/?mes=${c.ano}-${String(c.mes).padStart(2, "0")}`;
 
-  const [contasRes, cardsRes, txsRes, catsRes, membrosRes] = await Promise.all([
+  const [contasRes, cardsRes, txsRes, catsRes, membrosRes, invoicesRes] = await Promise.all([
     supabase.from("accounts").select("*"),
     supabase.from("cards").select("*"),
     supabase.from("transactions").select("*"),
     supabase.from("categories").select("id, nome, cor"),
     supabase.from("members").select("nome"),
+    supabase.from("invoices").select("id, competencia_ano, competencia_mes"),
   ]);
   // falha de leitura não pode virar "R$ 0" silencioso num app de dinheiro
-  const erro = contasRes.error ?? cardsRes.error ?? txsRes.error ?? catsRes.error ?? membrosRes.error;
+  const erro = contasRes.error ?? cardsRes.error ?? txsRes.error ?? catsRes.error ?? membrosRes.error ?? invoicesRes.error;
   if (erro) throw new Error(`Falha ao carregar o painel: ${erro.message}`);
   const { data: contas } = contasRes;
   const { data: cards } = cardsRes;
@@ -45,6 +46,13 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   const { data: cats } = catsRes;
   const { data: membrosData } = membrosRes;
   const membros = (membrosData ?? []).map((m) => m.nome);
+
+  // gasto no cartão conta no mês da FATURA (competência), não da data da compra
+  const compPorInvoice = new Map((invoicesRes.data ?? []).map((i) => [i.id, { ano: i.competencia_ano, mes: i.competencia_mes }]));
+  const txsRef = (txs ?? []).map((t) =>
+    t.card_id && t.invoice_id && compPorInvoice.has(t.invoice_id)
+      ? { ...t, competencia: compPorInvoice.get(t.invoice_id) }
+      : t);
 
   const saldoTotal = (contas ?? []).reduce((s, c) => {
     const mov = (txs ?? []).filter((t) => t.account_id === c.id);
@@ -56,7 +64,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
     return s + (card.limite_centavos - limiteDisponivel(card.limite_centavos, emAberto));
   }, 0);
 
-  const resumo = resumoDoMes(txs ?? [], ref);
+  const resumo = resumoDoMes(txsRef, ref);
   const catById = new Map((cats ?? []).map((c) => [c.id, c]));
   const nomeCat = (id: string) => catById.get(id)?.nome ?? "Outros";
   const corCat = (id: string) => catById.get(id)?.cor ?? "#6b7280";

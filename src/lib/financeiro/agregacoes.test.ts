@@ -22,4 +22,10 @@ describe("resumoDoMes", () => {
     const r = resumoDoMes([...txs], { ano: 2026, mes: 3 });
     expect(r.porCategoria).toEqual({ c1: 15000 });
   });
+  it("compra no cartão conta no mês da fatura (competência), não da data", () => {
+    // compra 28/02 mas a fatura fechou → competência março
+    const t = [{ tipo: "despesa" as const, valor_centavos: 5000, pessoa: "Luiz", categoria_id: "c1", data_compra: "2026-02-28", competencia: { ano: 2026, mes: 3 } }];
+    expect(resumoDoMes(t, { ano: 2026, mes: 3 }).totalDespesas).toBe(5000);
+    expect(resumoDoMes(t, { ano: 2026, mes: 2 }).totalDespesas).toBe(0);
+  });
 });
