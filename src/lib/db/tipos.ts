@@ -19,7 +19,7 @@ export type ReceitaAgendada = {
 };
 export type Member = { user_id: string; household_id: string; nome: string; papel: "membro" | "dono" };
 export type Account = { id: string; household_id: string; nome: string; tipo: "corrente" | "dinheiro" | "poupanca"; saldo_inicial_centavos: number; titular: string | null };
-export type Card = { id: string; household_id: string; nome: string; bandeira: string | null; limite_centavos: number; dia_fechamento: number; dia_vencimento: number; titular: string | null };
+export type Card = { id: string; household_id: string; nome: string; bandeira: string | null; limite_centavos: number; dia_fechamento: number; dia_vencimento: number; dias_fechamento_antes: number | null; titular: string | null };
 export type Category = { id: string; household_id: string; nome: string; tipo: "despesa" | "receita"; cor: string; icone: string | null };
 export type Invoice = { id: string; household_id: string; card_id: string; competencia_ano: number; competencia_mes: number; status: "aberta" | "fechada" | "paga" };
 export type Transaction = {

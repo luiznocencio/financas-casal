@@ -1,7 +1,20 @@
 import { describe, it, expect } from "vitest";
 import {
-  ultimoDiaDoMes, diaDeFechamentoNoMes, faturaFechaNaData, diaSeguinte, partesNoFuso,
+  ultimoDiaDoMes, diaDeFechamentoNoMes, faturaFechaNaData, diaSeguinte, partesNoFuso, fechamentoDoVencimento,
 } from "./fechamento";
+
+describe("fechamentoDoVencimento", () => {
+  it("vencimento menos os dias", () => {
+    expect(fechamentoDoVencimento(17, 7)).toBe(10);
+    expect(fechamentoDoVencimento(10, 7)).toBe(3);
+  });
+  it("nunca abaixo de 1", () => {
+    expect(fechamentoDoVencimento(5, 7)).toBe(1);
+  });
+  it("nunca acima de 28 (seguro em mês curto)", () => {
+    expect(fechamentoDoVencimento(31, 0)).toBe(28);
+  });
+});
 
 describe("ultimoDiaDoMes", () => {
   it("meses de 31, 30 e fevereiro (comum e bissexto)", () => {

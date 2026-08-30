@@ -84,7 +84,8 @@ export default async function CartoesPage() {
                   )}
                 </div>
                 <span className="shrink-0 text-xs text-[var(--muted)]">
-                  fecha dia {card.dia_fechamento} · vence dia {card.dia_vencimento}
+                  vence dia {card.dia_vencimento} · fecha dia {card.dia_fechamento}
+                  {card.dias_fechamento_antes != null ? ` (${card.dias_fechamento_antes}d antes)` : ""}
                 </span>
               </div>
               <div className="flex flex-col gap-1">

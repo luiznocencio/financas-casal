@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { getMembroAtual } from "@/lib/auth/household";
+import { fechamentoDoVencimento } from "@/lib/financeiro/fechamento";
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const membro = await getMembroAtual();
@@ -10,8 +11,14 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   const patch: Record<string, unknown> = {};
   if (typeof b.nome === "string") patch.nome = b.nome.trim();
   if (b.limite_centavos != null) patch.limite_centavos = Math.max(0, Math.round(Number(b.limite_centavos) || 0));
-  if (b.dia_fechamento != null) patch.dia_fechamento = Number(b.dia_fechamento);
   if (b.dia_vencimento != null) patch.dia_vencimento = Number(b.dia_vencimento);
+  // fechamento derivado do vencimento ("N dias antes") ou direto
+  if (b.dias_fechamento_antes != null && b.dia_vencimento != null) {
+    patch.dias_fechamento_antes = Number(b.dias_fechamento_antes);
+    patch.dia_fechamento = fechamentoDoVencimento(Number(b.dia_vencimento), Number(b.dias_fechamento_antes));
+  } else if (b.dia_fechamento != null) {
+    patch.dia_fechamento = Number(b.dia_fechamento);
+  }
   if ("titular" in b) patch.titular = b.titular || null;
   if ("bandeira" in b) patch.bandeira = b.bandeira || null;
   const supabase = await createServerSupabase();

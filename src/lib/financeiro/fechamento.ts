@@ -2,6 +2,12 @@
 // dia_fechamento é um dia do mês (1..31); em meses curtos ele "encosta" no
 // último dia (ex.: fechamento 31 em fevereiro fecha no dia 28/29).
 
+// Fechamento derivado do vencimento: "fecha N dias antes". Limitado a 1..28 pra
+// não estourar em mês curto nem ficar inválido.
+export function fechamentoDoVencimento(diaVencimento: number, diasAntes: number): number {
+  return Math.min(28, Math.max(1, Math.round(diaVencimento) - Math.round(diasAntes)));
+}
+
 export function ultimoDiaDoMes(ano: number, mes: number): number {
   // mes é 1-based; Date.UTC usa mês 0-based, então (ano, mes, 0) = último dia de `mes`.
   return new Date(Date.UTC(ano, mes, 0)).getUTCDate();
