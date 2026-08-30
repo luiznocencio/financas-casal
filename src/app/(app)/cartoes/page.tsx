@@ -18,17 +18,19 @@ const MESES = [
 
 export default async function CartoesPage() {
   const supabase = await createServerSupabase();
-  const [cardsRes, txsRes, invoicesRes, membrosRes] = await Promise.all([
+  const [cardsRes, txsRes, invoicesRes, membrosRes, contasRes] = await Promise.all([
     supabase.from("cards").select("*").order("nome"),
     supabase.from("transactions")
       .select("card_id, invoice_id, valor_centavos, paga").not("card_id", "is", null),
     supabase.from("invoices").select("id, card_id, competencia_ano, competencia_mes, status"),
     supabase.from("members").select("nome"),
+    supabase.from("accounts").select("id, nome").order("nome"),
   ]);
-  const erro = cardsRes.error ?? txsRes.error ?? invoicesRes.error ?? membrosRes.error;
+  const erro = cardsRes.error ?? txsRes.error ?? invoicesRes.error ?? membrosRes.error ?? contasRes.error;
   if (erro) throw new Error(`Falha ao carregar os cartões: ${erro.message}`);
   const cards = cardsRes.data ?? [];
   const membros = (membrosRes.data ?? []).map((m) => m.nome);
+  const contas = contasRes.data ?? [];
   const txs = txsRes.data ?? [];
   const invoices = invoicesRes.data ?? [];
 
@@ -113,7 +115,7 @@ export default async function CartoesPage() {
                       </Link>
                       <span className="flex items-center gap-3">
                         <Money centavos={f.totalCentavos} />
-                        <FaturaBotao invoiceId={f.id} paga={f.paga} />
+                        <FaturaBotao invoiceId={f.id} paga={f.paga} contas={contas} />
                       </span>
                     </div>
                   ))}

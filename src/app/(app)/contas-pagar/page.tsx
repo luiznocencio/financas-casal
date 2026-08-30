@@ -16,21 +16,19 @@ export default async function ContasPagarPage() {
   const ini = `${ano}-${pad(mes)}-01`;
   const fim = `${ano}-${pad(mes)}-${pad(ultimoDiaDoMes(ano, mes))}`;
 
-  const [cpRes, catsRes, cardsRes, contasRes, membrosRes, pagasRes] = await Promise.all([
+  const [cpRes, catsRes, contasRes, membrosRes, pagasRes] = await Promise.all([
     supabase.from("contas_pagar").select("*").eq("ativo", true).order("dia_vencimento"),
     supabase.from("categories").select("id, nome, cor").eq("tipo", "despesa").order("nome"),
-    supabase.from("cards").select("id, nome, titular").order("nome"),
-    supabase.from("accounts").select("id, nome, titular").order("nome"),
+    supabase.from("accounts").select("id, nome").order("nome"),
     supabase.from("members").select("nome"),
     supabase.from("transactions").select("conta_pagar_id, valor_centavos")
       .not("conta_pagar_id", "is", null).gte("data_compra", ini).lte("data_compra", fim),
   ]);
-  const erro = cpRes.error ?? catsRes.error ?? cardsRes.error ?? contasRes.error ?? membrosRes.error ?? pagasRes.error;
+  const erro = cpRes.error ?? catsRes.error ?? contasRes.error ?? membrosRes.error ?? pagasRes.error;
   if (erro) throw new Error(`Falha ao carregar as contas a pagar: ${erro.message}`);
 
   const contasPagar = (cpRes.data ?? []) as ContaPagar[];
   const cats = catsRes.data ?? [];
-  const cartoes = cardsRes.data ?? [];
   const contas = contasRes.data ?? [];
   const membros = (membrosRes.data ?? []).map((m) => m.nome);
 
@@ -38,9 +36,6 @@ export default async function ContasPagarPage() {
   const pagoNoMes = new Map<string, number>(); // conta_pagar_id -> valor pago
   for (const t of pagasRes.data ?? []) if (t.conta_pagar_id) pagoNoMes.set(t.conta_pagar_id, t.valor_centavos);
   const categoriaPadrao = cats.find((c) => c.nome === "Contas de casa")?.id ?? "";
-  const nomeOrigem = (c: ContaPagar) =>
-    c.card_id ? cartoes.find((x) => x.id === c.card_id)?.nome ?? "cartão"
-      : contas.find((x) => x.id === c.account_id)?.nome ?? "conta";
 
   const pendentes = contasPagar.filter((c) => !pagoNoMes.has(c.id));
   const totalEstimado = pendentes.reduce((s, c) => s + (c.valor_estimado_centavos ?? 0), 0);
@@ -50,7 +45,10 @@ export default async function ContasPagarPage() {
       <header className="flex flex-col gap-1">
         <div className="flex items-center justify-between gap-3">
           <h1 className="text-2xl font-semibold text-[var(--text)]">Contas a pagar</h1>
-          <Link href="/lancamentos" className="text-sm text-[var(--accent)]">Extrato</Link>
+          <div className="flex flex-wrap items-center gap-3">
+            <Link href="/fixos" className="text-sm text-[var(--accent)]">Gastos fixos</Link>
+            <Link href="/lancamentos" className="text-sm text-[var(--accent)]">Extrato</Link>
+          </div>
         </div>
         <p className="text-sm text-[var(--muted)]">
           Contas de valor variável (água, energia, internet…): vencimento e lembrete. Ao pagar, você informa o valor e vira uma despesa.
@@ -58,7 +56,7 @@ export default async function ContasPagarPage() {
         </p>
       </header>
 
-      <AddContaPagar cartoes={cartoes} contas={contas} categorias={cats} membros={membros} categoriaPadrao={categoriaPadrao} />
+      <AddContaPagar categorias={cats} membros={membros} categoriaPadrao={categoriaPadrao} />
 
       {contasPagar.length === 0 ? (
         <Card><p className="text-sm text-[var(--muted)]">Nenhuma conta cadastrada. Adicione as fixas do mês (ex.: energia, água, internet).</p></Card>
@@ -79,13 +77,12 @@ export default async function ContasPagarPage() {
                       {jaPaga
                         ? <span className="text-[var(--positivo)]">pago: <Money centavos={pago!} tamanho="sm" /></span>
                         : <span style={atrasada ? { color: "var(--alerta)" } : undefined}>{atrasada ? "venceu dia " : "vence dia "}{c.dia_vencimento}</span>}
-                      <span>· {nomeOrigem(c)}</span>
                       <span>· {c.pessoa}</span>
                       {cat && <CategoriaTag nome={cat.nome} cor={cat.cor} tamanho="sm" />}
                       {c.valor_estimado_centavos != null && !jaPaga && <span>· ~<Money centavos={c.valor_estimado_centavos} tamanho="sm" /></span>}
                     </div>
                   </div>
-                  <ContaPagarAcoes id={c.id} valorEstimado={c.valor_estimado_centavos ?? 0} jaPaga={jaPaga} />
+                  <ContaPagarAcoes id={c.id} valorEstimado={c.valor_estimado_centavos ?? 0} jaPaga={jaPaga} contas={contas} />
                 </div>
               );
             })}

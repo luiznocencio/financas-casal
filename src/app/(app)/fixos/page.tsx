@@ -47,10 +47,13 @@ export default async function FixosPage() {
       <header className="flex flex-col gap-1">
         <div className="flex items-center justify-between gap-3">
           <h1 className="text-2xl font-semibold text-[var(--text)]">Gastos fixos</h1>
-          <Link href="/orcamento" className="text-sm text-[var(--accent)]">Orçamento</Link>
+          <div className="flex flex-wrap items-center gap-3">
+            <Link href="/contas-pagar" className="text-sm text-[var(--accent)]">Contas a pagar</Link>
+            <Link href="/orcamento" className="text-sm text-[var(--accent)]">Orçamento</Link>
+          </div>
         </div>
         <p className="text-sm text-[var(--muted)]">
-          Contas que se repetem todo mês. Some <Money centavos={totalMes} tamanho="sm" /> por mês. Ao lançar, entram no mapeamento — e a fatura importada não duplica os que forem no cartão.
+          Valor fixo que se repete todo mês (ex.: Netflix, aluguel). Some <Money centavos={totalMes} tamanho="sm" /> por mês. Para contas de <strong>valor variável</strong> (água, energia), use <Link href="/contas-pagar" className="text-[var(--accent)]">Contas a pagar</Link>.
         </p>
       </header>
 

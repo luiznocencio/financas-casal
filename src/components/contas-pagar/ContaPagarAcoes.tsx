@@ -5,19 +5,23 @@ import { Check, Trash } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/Button";
 import { MoneyInput } from "@/components/ui/MoneyInput";
 
-export function ContaPagarAcoes({ id, valorEstimado, jaPaga }: { id: string; valorEstimado: number; jaPaga: boolean }) {
+export function ContaPagarAcoes({
+  id, valorEstimado, jaPaga, contas,
+}: { id: string; valorEstimado: number; jaPaga: boolean; contas: { id: string; nome: string }[] }) {
   const router = useRouter();
   const [pagando, setPagando] = useState(false);
   const [valor, setValor] = useState(valorEstimado);
+  const [contaId, setContaId] = useState(contas[0]?.id ?? "");
   const [ocupado, setOcupado] = useState(false);
   const [confirmando, setConfirmando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
 
   async function pagar() {
     if (!(valor > 0)) { setErro("Informe o valor pago."); return; }
+    if (!contaId) { setErro("Escolha a conta."); return; }
     setErro(null); setOcupado(true);
     const res = await fetch(`/api/contas-pagar/${id}/pagar`, {
-      method: "POST", body: JSON.stringify({ valor_centavos: valor }),
+      method: "POST", body: JSON.stringify({ valor_centavos: valor, account_id: contaId }),
     }).catch(() => null);
     setOcupado(false);
     if (!res?.ok) { setErro("Falhou"); return; }
@@ -34,7 +38,11 @@ export function ContaPagarAcoes({ id, valorEstimado, jaPaga }: { id: string; val
     return (
       <div className="flex flex-wrap items-center justify-end gap-2">
         <MoneyInput centavos={valor} onCentavos={setValor} autoFocus placeholder="Valor pago" className="mono"
-          style={{ width: 120, padding: "8px 10px", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)", textAlign: "right" }} />
+          style={{ width: 110, padding: "8px 10px", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)", textAlign: "right" }} />
+        <select value={contaId} onChange={(e) => setContaId(e.target.value)}
+          className="rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--surface)] px-2 py-1.5 text-sm text-[var(--text)]">
+          {contas.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
+        </select>
         <Button variant="primary" onClick={pagar} disabled={ocupado}>Confirmar</Button>
         <Button variant="quiet" onClick={() => setPagando(false)}>Cancelar</Button>
         {erro && <span className="text-xs text-[var(--negativo)]">{erro}</span>}

@@ -17,7 +17,6 @@ export async function POST(req: Request) {
   if (!b.descricao?.trim() || !(dia >= 1 && dia <= 31)) {
     return NextResponse.json({ error: "preencha descrição e dia de vencimento (1 a 31)" }, { status: 400 });
   }
-  if (!b.account_id && !b.card_id) return NextResponse.json({ error: "escolha de onde sai o pagamento" }, { status: 400 });
   const recorrencia = b.recorrencia === "unica" ? "unica" : "mensal";
   const supabase = await createServerSupabase();
   const { data, error } = await supabase.from("contas_pagar").insert({

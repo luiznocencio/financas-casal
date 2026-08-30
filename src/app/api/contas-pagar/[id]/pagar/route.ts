@@ -16,6 +16,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const b = await req.json().catch(() => ({}));
   const valor = Math.round(Number(b.valor_centavos) || 0);
   if (!(valor > 0)) return NextResponse.json({ error: "informe o valor pago" }, { status: 400 });
+  const accountId: string | null = b.account_id ?? null;
+  if (!accountId) return NextResponse.json({ error: "escolha a conta de onde saiu o pagamento" }, { status: 400 });
 
   const supabase = await createServerSupabase();
   const { data: cp, error } = await supabase.from("contas_pagar").select("*").eq("id", id).maybeSingle();
@@ -35,7 +37,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     {
       tipo: "despesa", valor_centavos: valor, data_compra: hoje,
       categoria_id: c.categoria_id, pessoa: c.pessoa,
-      account_id: c.account_id, card_id: c.card_id,
+      account_id: accountId, card_id: null,
       total_parcelas: 1, descricao: c.descricao, origem_ia: false,
     },
   );

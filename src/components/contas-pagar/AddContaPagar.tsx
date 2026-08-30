@@ -5,16 +5,13 @@ import { Field } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
 import { MoneyInput } from "@/components/ui/MoneyInput";
 
-type Origem = { id: string; nome: string; titular?: string | null };
-
 export function AddContaPagar({
-  cartoes, contas, categorias, membros, categoriaPadrao,
+  categorias, membros, categoriaPadrao,
 }: {
-  cartoes: Origem[]; contas: Origem[]; categorias: { id: string; nome: string }[];
+  categorias: { id: string; nome: string }[];
   membros: string[]; categoriaPadrao: string;
 }) {
   const router = useRouter();
-  const origemInicial = contas[0] ? `acc:${contas[0].id}` : cartoes[0] ? `card:${cartoes[0].id}` : "";
 
   const [aberto, setAberto] = useState(false);
   const [descricao, setDescricao] = useState("");
@@ -22,7 +19,6 @@ export function AddContaPagar({
   const [dia, setDia] = useState("");
   const [categoriaId, setCategoriaId] = useState(categoriaPadrao);
   const [pessoa, setPessoa] = useState(membros[0] ?? "conjunto");
-  const [origem, setOrigem] = useState(origemInicial);
   const [recorrencia, setRecorrencia] = useState<"mensal" | "unica">("mensal");
   const [dataFim, setDataFim] = useState("");
   const [erro, setErro] = useState<string | null>(null);
@@ -32,14 +28,12 @@ export function AddContaPagar({
     setErro(null);
     const d = Number(dia);
     if (!descricao.trim() || !(d >= 1 && d <= 31)) { setErro("Preencha descrição e dia de vencimento (1 a 31)."); return; }
-    const [prefixo, id] = origem.split(":");
     setSalvando(true);
     const res = await fetch("/api/contas-pagar", {
       method: "POST",
       body: JSON.stringify({
         descricao: descricao.trim(), valor_estimado_centavos: estimado || null, dia_vencimento: d,
         categoria_id: categoriaId || null, pessoa,
-        account_id: prefixo === "acc" ? id : null, card_id: prefixo === "card" ? id : null,
         recorrencia, data_fim: recorrencia === "mensal" ? (dataFim || null) : null,
       }),
     }).catch(() => null);
@@ -66,13 +60,6 @@ export function AddContaPagar({
         </label>
         <Field label="Dia de vencimento" type="number" value={dia} onChange={(e) => setDia(e.target.value)} placeholder="10" />
       </div>
-      <label style={{ display: "grid", gap: 6 }}>
-        <span style={{ fontSize: "0.8rem", color: "var(--muted)" }}>De onde sai o pagamento</span>
-        <select value={origem} onChange={(e) => setOrigem(e.target.value)} style={selectStyle}>
-          {contas.map((c) => <option key={c.id} value={`acc:${c.id}`}>Conta · {c.nome}{c.titular ? ` (${c.titular})` : ""}</option>)}
-          {cartoes.map((c) => <option key={c.id} value={`card:${c.id}`}>Cartão · {c.nome}{c.titular ? ` (${c.titular})` : ""}</option>)}
-        </select>
-      </label>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 10 }}>
         <label style={{ display: "grid", gap: 6 }}>
           <span style={{ fontSize: "0.8rem", color: "var(--muted)" }}>Categoria</span>

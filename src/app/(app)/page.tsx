@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { saldoConta, limiteDisponivel } from "@/lib/financeiro/derivados";
 import { resumoDoMes } from "@/lib/financeiro/agregacoes";
+import { centavosParaReais } from "@/lib/financeiro/dinheiro";
 import { Money } from "@/components/ui/Money";
 import { Card } from "@/components/ui/Card";
 import { StatTile } from "@/components/ui/StatTile";
@@ -29,16 +30,17 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   const mesProx = ref.mes === 12 ? { ano: ref.ano + 1, mes: 1 } : { ano: ref.ano, mes: ref.mes + 1 };
   const paramMes = (c: { ano: number; mes: number }) => `/?mes=${c.ano}-${String(c.mes).padStart(2, "0")}`;
 
-  const [contasRes, cardsRes, txsRes, catsRes, membrosRes, invoicesRes] = await Promise.all([
+  const [contasRes, cardsRes, txsRes, catsRes, membrosRes, invoicesRes, contasPagarRes] = await Promise.all([
     supabase.from("accounts").select("*"),
     supabase.from("cards").select("*"),
     supabase.from("transactions").select("*"),
     supabase.from("categories").select("id, nome, cor"),
     supabase.from("members").select("nome"),
     supabase.from("invoices").select("id, competencia_ano, competencia_mes"),
+    supabase.from("contas_pagar").select("id, valor_estimado_centavos").eq("ativo", true),
   ]);
   // falha de leitura não pode virar "R$ 0" silencioso num app de dinheiro
-  const erro = contasRes.error ?? cardsRes.error ?? txsRes.error ?? catsRes.error ?? membrosRes.error ?? invoicesRes.error;
+  const erro = contasRes.error ?? cardsRes.error ?? txsRes.error ?? catsRes.error ?? membrosRes.error ?? invoicesRes.error ?? contasPagarRes.error;
   if (erro) throw new Error(`Falha ao carregar o painel: ${erro.message}`);
   const { data: contas } = contasRes;
   const { data: cards } = cardsRes;
@@ -63,6 +65,15 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
     const emAberto = (txs ?? []).filter((t) => t.card_id === card.id && !t.paga);
     return s + (card.limite_centavos - limiteDisponivel(card.limite_centavos, emAberto));
   }, 0);
+
+  // "dá pra pagar o pendente?": dinheiro em conta vs (faturas abertas + contas a pagar do mês)
+  const pagoContaMes = new Set((txs ?? [])
+    .filter((t) => { if (!t.conta_pagar_id) return false; const [a, m] = t.data_compra.split("-").map(Number); return a === ref.ano && m === ref.mes; })
+    .map((t) => t.conta_pagar_id));
+  const pendenteContas = (contasPagarRes.data ?? [])
+    .filter((c) => !pagoContaMes.has(c.id)).reduce((s, c) => s + (c.valor_estimado_centavos ?? 0), 0);
+  const aPagar = comprometido + pendenteContas;
+  const sobra = saldoTotal - aPagar;
 
   const resumo = resumoDoMes(txsRef, ref);
   const catById = new Map((cats ?? []).map((c) => [c.id, c]));
@@ -102,6 +113,24 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
         {stats.map((s) => (
           <StatTile key={s.rotulo} rotulo={s.rotulo} valorCentavos={s.valor} sinal={s.sinal} />
         ))}
+      </div>
+
+      {/* dá pra pagar o pendente? saldo em conta vs (faturas abertas + contas a pagar) */}
+      <div className="rounded-[var(--radius)] border px-4 py-3"
+        style={{ borderColor: sobra >= 0 ? "var(--positivo)" : "var(--negativo)", background: `color-mix(in srgb, ${sobra >= 0 ? "var(--positivo)" : "var(--negativo)"} 8%, transparent)` }}>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex min-w-0 flex-col">
+            <span className="text-sm font-medium text-[var(--text)]">
+              {sobra >= 0 ? "Dá pra pagar o pendente" : "Falta pra pagar o pendente"}
+            </span>
+            <span className="text-xs text-[var(--muted)]">
+              Saldo <Money centavos={saldoTotal} tamanho="sm" /> − a pagar <Money centavos={aPagar} tamanho="sm" /> (faturas + contas)
+            </span>
+          </div>
+          <span className="mono text-lg font-semibold" style={{ color: sobra >= 0 ? "var(--positivo)" : "var(--negativo)" }}>
+            {sobra >= 0 ? "sobra " : "falta "}{centavosParaReais(Math.abs(sobra))}
+          </span>
+        </div>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
