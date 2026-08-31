@@ -11,6 +11,9 @@ export async function persistirLancamento(
   // Import de fatura: joga a linha nesta fatura (competência), como cobrança
   // única, SEM espalhar parcelas nem redistribuir por data.
   competenciaForcada?: { ano: number; mes: number } | null,
+  // Import de fatura: liga esta linha à compra parcelada (grupo/parcela atual),
+  // pra acompanhar quantas faltam entre faturas. Só usado com competenciaForcada.
+  parcelaInfo?: { grupo_parcela: string | null; parcela_n: number; total_parcelas: number } | null,
 ): Promise<{ error: string | null }> {
   // dia de fechamento do cartão (só precisa quando vamos calcular a competência)
   let diaFechamento: number | null = null;
@@ -33,7 +36,9 @@ export async function persistirLancamento(
         tipo: l.tipo, valor_centavos: l.valor_centavos, data_compra: l.data_compra,
         categoria_id: l.categoria_id ?? null, pessoa: l.pessoa,
         account_id: null, card_id: l.card_id,
-        grupo_parcela: null, parcela_n: 1, total_parcelas: 1,
+        grupo_parcela: parcelaInfo?.grupo_parcela ?? null,
+        parcela_n: parcelaInfo?.parcela_n ?? 1,
+        total_parcelas: parcelaInfo?.total_parcelas ?? 1,
         descricao: l.descricao ?? null,
         invoiceCompetencia: { ano: competenciaForcada.ano, mes: competenciaForcada.mes },
       }]
