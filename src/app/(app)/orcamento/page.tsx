@@ -18,7 +18,7 @@ export default async function OrcamentoPage() {
 
   const [membrosRes, catsRes, budgetsRes, txsRes] = await Promise.all([
     supabase.from("members").select("user_id, nome, renda_mensal_centavos").order("papel"),
-    supabase.from("categories").select("id, nome, cor").eq("tipo", "despesa").order("nome"),
+    supabase.from("categories").select("id, nome, cor, parent_id").eq("tipo", "despesa").order("nome"),
     supabase.from("budgets").select("categoria_id, percentual"),
     supabase.from("transactions").select("categoria_id, tipo, pessoa, valor_centavos, data_compra"),
   ]);
@@ -30,12 +30,25 @@ export default async function OrcamentoPage() {
   const cats = catsRes.data ?? [];
   const budgets = budgetsRes.data ?? [];
 
+  // subcategorias: o orçamento fica na mãe; o gasto do filho soma na mãe
+  const maes = cats.filter((c) => !c.parent_id);
+  const filhosPorMae = new Map<string, typeof cats>();
+  for (const c of cats) if (c.parent_id) (filhosPorMae.get(c.parent_id) ?? filhosPorMae.set(c.parent_id, []).get(c.parent_id)!).push(c);
+  const paiDe = new Map(cats.filter((c) => c.parent_id).map((c) => [c.id, c.parent_id as string]));
+
   // reusa a agregação do mês (mesma regra do dashboard)
   const rd = resumoDoMes(txsRes.data ?? [], { ano, mes });
-  const gastoPorCategoria = rd.porCategoria; // despesas do mês por categoria
+  const gastoPorCategoria = rd.porCategoria; // despesas do mês por categoria (filho fica no filho)
   const gastoTotalMes = rd.totalDespesas;    // total de despesas do mês (todas as categorias)
 
-  const resumo = resumoOrcamento({ rendaCentavos: renda, budgets, gastoPorCategoria });
+  // gasto com rollup: o que caiu no filho soma na mãe (pro orçamento e barra)
+  const gastoRollup: Record<string, number> = {};
+  for (const [catId, val] of Object.entries(gastoPorCategoria)) {
+    const alvo = paiDe.get(catId) ?? catId;
+    gastoRollup[alvo] = (gastoRollup[alvo] ?? 0) + val;
+  }
+
+  const resumo = resumoOrcamento({ rendaCentavos: renda, budgets, gastoPorCategoria: gastoRollup });
   const pctPorCat = new Map(budgets.map((b) => [b.categoria_id, b.percentual]));
   const itemPorCat = new Map(resumo.itens.map((i) => [i.categoria_id, i]));
 
@@ -61,15 +74,16 @@ export default async function OrcamentoPage() {
         )}
       </Card>
 
-      {/* categorias */}
+      {/* categorias (mães; o gasto dos filhos soma aqui) */}
       <div className="flex flex-col gap-3">
-        {cats.map((c) => {
+        {maes.map((c) => {
           const pct = pctPorCat.get(c.id) ?? 0;
           const item = itemPorCat.get(c.id);
           const limite = item?.limiteCentavos ?? 0;
-          const gasto = gastoPorCategoria[c.id] ?? 0;
+          const gasto = gastoRollup[c.id] ?? 0;
           const usado = item?.pctUsado ?? 0;
           const cor = usado > 100 ? "var(--negativo)" : usado > 85 ? "var(--alerta)" : c.cor;
+          const filhos = filhosPorMae.get(c.id) ?? [];
           return (
             <Card key={c.id}>
               <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
@@ -86,6 +100,24 @@ export default async function OrcamentoPage() {
                 <span>Gasto <Money centavos={gasto} tamanho="sm" /> de <Money centavos={limite} tamanho="sm" /></span>
                 <span>{limite > 0 ? <>Resta <Money centavos={limite - gasto} tamanho="sm" sinal /></> : "sem limite"}</span>
               </div>
+
+              {filhos.length > 0 && (
+                <div className="mt-3 flex flex-col gap-1.5 border-t border-[var(--border)] pt-3">
+                  {filhos.map((f) => (
+                    <div key={f.id} className="flex items-center justify-between gap-2 text-sm text-[var(--muted)]">
+                      <Link href={`/lancamentos?categoria=${f.id}`}
+                        className="flex min-w-0 items-center gap-2 break-words hover:text-[var(--accent)]">
+                        <CategoriaPonto cor={f.cor} />{f.nome}
+                      </Link>
+                      <div className="flex shrink-0 items-center gap-2">
+                        <Money centavos={gastoPorCategoria[f.id] ?? 0} tamanho="sm" />
+                        <EditarCategoria categoriaId={f.id} nome={f.nome} cor={f.cor} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
               <div className="mt-3">
                 <EditarCategoria categoriaId={c.id} nome={c.nome} cor={c.cor} />
               </div>
@@ -94,7 +126,7 @@ export default async function OrcamentoPage() {
         })}
       </div>
 
-      <AddCategoriaForm />
+      <AddCategoriaForm maes={maes.map((m) => ({ id: m.id, nome: m.nome }))} />
     </main>
   );
 }

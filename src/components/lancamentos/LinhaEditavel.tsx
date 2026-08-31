@@ -6,6 +6,7 @@ import { Money } from "@/components/ui/Money";
 import { PersonChip } from "@/components/ui/PersonChip";
 import { CategoriaTag } from "@/components/ui/CategoriaTag";
 import { Button } from "@/components/ui/Button";
+import { ordenarComSubcategorias } from "@/lib/ui/categorias";
 
 type Tx = {
   id: string; descricao: string | null; data_compra: string; pessoa: string;
@@ -16,7 +17,7 @@ type Tx = {
 
 export function LinhaEditavel({
   tx, categorias, membros, cartoes,
-}: { tx: Tx; categorias: { id: string; nome: string; cor: string }[]; membros: string[]; cartoes: { id: string; nome: string }[] }) {
+}: { tx: Tx; categorias: { id: string; nome: string; cor: string; parent_id?: string | null }[]; membros: string[]; cartoes: { id: string; nome: string }[] }) {
   const router = useRouter();
   const [editando, setEditando] = useState(false);
   const [descricao, setDescricao] = useState(tx.descricao ?? "");
@@ -121,7 +122,7 @@ export function LinhaEditavel({
         <select value={categoriaId} onChange={(e) => setCategoriaId(e.target.value)}
           className="flex-1 rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--surface)] px-2 py-1.5 text-[var(--text)]">
           <option value="">Sem categoria</option>
-          {categorias.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
+          {ordenarComSubcategorias(categorias).map((c) => <option key={c.id} value={c.id}>{c.rotulo}</option>)}
         </select>
         <Button variant="primary" onClick={salvar} disabled={salvando}>Salvar</Button>
         <Button variant="quiet" onClick={() => setEditando(false)}>Cancelar</Button>

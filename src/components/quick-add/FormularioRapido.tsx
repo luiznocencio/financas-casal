@@ -4,6 +4,7 @@ import type { Card, Account, Category } from "@/lib/db/tipos";
 import { reaisParaCentavos } from "@/lib/financeiro/dinheiro";
 import { Button } from "@/components/ui/Button";
 import { MoneyInput } from "@/components/ui/MoneyInput";
+import { ordenarComSubcategorias } from "@/lib/ui/categorias";
 
 export function FormularioRapido({
   cartoes, contas, categorias, membros, usuarioAtual, valorInicialReais = "", onCriado,
@@ -129,7 +130,7 @@ export function FormularioRapido({
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
         <select value={categoriaId} onChange={(e) => setCategoriaId(e.target.value)} style={selectStyle}>
           <option value="">Sem categoria</option>
-          {categorias.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
+          {ordenarComSubcategorias(categorias).map((c) => <option key={c.id} value={c.id}>{c.rotulo}</option>)}
         </select>
         <select value={pessoa} onChange={(e) => setPessoa(e.target.value)} style={selectStyle}>
           {membros.map((m) => <option key={m} value={m}>{m}</option>)}

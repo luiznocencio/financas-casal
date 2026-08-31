@@ -5,6 +5,7 @@ import { centavosParaReais } from "@/lib/financeiro/dinheiro";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Spinner } from "@/components/ui/Spinner";
+import { ordenarComSubcategorias } from "@/lib/ui/categorias";
 
 type Linha = {
   data: string; descricao: string; valor_centavos: number;
@@ -17,7 +18,7 @@ export function Importador({
 }: {
   cartoes: { id: string; nome: string; titular?: string | null }[];
   contas: { id: string; nome: string; titular?: string | null }[];
-  categorias: { id: string; nome: string }[]; membros: string[];
+  categorias: { id: string; nome: string; parent_id?: string | null }[]; membros: string[];
 }) {
   const router = useRouter();
   const agora = new Date();
@@ -178,7 +179,7 @@ export function Importador({
                   <select value={l.categoria_id ?? ""} onChange={(e) => atualizar(i, { categoria_id: e.target.value || null })}
                     className="min-w-0 flex-1 rounded border border-[var(--border)] bg-[var(--surface)] px-1 py-1 text-[var(--text)] sm:flex-none">
                     <option value="">—</option>
-                    {categorias.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
+                    {ordenarComSubcategorias(categorias).map((c) => <option key={c.id} value={c.id}>{c.rotulo}</option>)}
                   </select>
                   <span className="mono ml-auto text-right sm:ml-0 sm:w-24">{centavosParaReais(l.valor_centavos)}</span>
                   {l.duplicada && <span className="w-full text-xs text-[var(--alerta)] sm:w-auto">já lançado</span>}
