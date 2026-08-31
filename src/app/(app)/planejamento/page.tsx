@@ -3,8 +3,9 @@ import { PlanejamentoTabs, type AbaPlanejamento } from "@/components/planejament
 import { SecaoFixos } from "@/components/planejamento/SecaoFixos";
 import { SecaoContasPagar } from "@/components/planejamento/SecaoContasPagar";
 import { SecaoAReceber } from "@/components/planejamento/SecaoAReceber";
+import { SecaoMetas } from "@/components/planejamento/SecaoMetas";
 
-const ABAS_VALIDAS = new Set(["fixos", "contas", "receber"]);
+const ABAS_VALIDAS = new Set(["fixos", "contas", "receber", "metas"]);
 
 export default async function PlanejamentoPage({
   searchParams,
@@ -29,6 +30,7 @@ export default async function PlanejamentoPage({
       {aba === "fixos" && <SecaoFixos />}
       {aba === "contas" && <SecaoContasPagar />}
       {aba === "receber" && <SecaoAReceber />}
+      {aba === "metas" && <SecaoMetas />}
     </main>
   );
 }

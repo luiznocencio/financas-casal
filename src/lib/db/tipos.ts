@@ -16,6 +16,7 @@ export type ReceitaAgendada = {
   id: string; household_id: string; descricao: string; valor_centavos: number;
   account_id: string; pessoa: string; data_prevista: string;
   recorrencia: "unica" | "mensal"; ativo: boolean; data_fim: string | null;
+  origem_salario: boolean;
 };
 export type ContaPagar = {
   id: string; household_id: string; descricao: string; categoria_id: string | null;

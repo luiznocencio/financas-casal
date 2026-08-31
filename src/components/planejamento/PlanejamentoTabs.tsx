@@ -1,11 +1,12 @@
 import Link from "next/link";
 
-export type AbaPlanejamento = "fixos" | "contas" | "receber";
+export type AbaPlanejamento = "fixos" | "contas" | "receber" | "metas";
 
 const ABAS: { id: AbaPlanejamento; rotulo: string }[] = [
   { id: "fixos", rotulo: "Gastos fixos" },
   { id: "contas", rotulo: "Contas a pagar" },
   { id: "receber", rotulo: "A receber" },
+  { id: "metas", rotulo: "Metas" },
 ];
 
 // Barra de abas do Planejamento — cada aba é um link ?aba=, servidor decide o conteúdo.

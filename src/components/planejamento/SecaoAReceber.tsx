@@ -3,6 +3,7 @@ import { Money } from "@/components/ui/Money";
 import { Card } from "@/components/ui/Card";
 import { AddReceitaAgendada } from "@/components/receitas/AddReceitaAgendada";
 import { ReceitaAcoes } from "@/components/receitas/ReceitaAcoes";
+import { SalarioSync } from "@/components/receitas/SalarioSync";
 import type { ReceitaAgendada } from "@/lib/db/tipos";
 
 export async function SecaoAReceber() {
@@ -10,7 +11,7 @@ export async function SecaoAReceber() {
   const [raRes, contasRes, membrosRes] = await Promise.all([
     supabase.from("receitas_agendadas").select("*").eq("ativo", true).order("data_prevista"),
     supabase.from("accounts").select("id, nome, titular").order("nome"),
-    supabase.from("members").select("nome"),
+    supabase.from("members").select("nome, renda_mensal_centavos"),
   ]);
   const erro = raRes.error ?? contasRes.error ?? membrosRes.error;
   if (erro) throw new Error(`Falha ao carregar as receitas a receber: ${erro.message}`);
@@ -18,6 +19,8 @@ export async function SecaoAReceber() {
   const receitas = (raRes.data ?? []) as ReceitaAgendada[];
   const contas = contasRes.data ?? [];
   const membros = (membrosRes.data ?? []).map((m) => m.nome);
+  const temRenda = (membrosRes.data ?? []).some((m) => (m.renda_mensal_centavos ?? 0) > 0);
+  const jaTemSalario = receitas.some((r) => r.origem_salario);
   const nomeConta = new Map(contas.map((c) => [c.id, c.nome]));
   const totalAReceber = receitas.reduce((s, r) => s + r.valor_centavos, 0);
   const hoje = new Date().toISOString().slice(0, 10);
@@ -28,6 +31,8 @@ export async function SecaoAReceber() {
         O que você tem a receber (salário, freela, reembolso): quando, pra qual conta e com qual recorrência.
         Total previsto: <Money centavos={totalAReceber} tamanho="sm" />. Ao marcar “Recebi”, vira uma receita na conta.
       </p>
+
+      {(temRenda || jaTemSalario) && <SalarioSync jaTem={jaTemSalario} />}
 
       <AddReceitaAgendada contas={contas} membros={membros} />
 
@@ -42,7 +47,13 @@ export async function SecaoAReceber() {
               return (
                 <div key={r.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
                   <div className="flex min-w-0 flex-col gap-1">
-                    <span className="break-words font-medium text-[var(--text)]">{r.descricao}</span>
+                    <span className="break-words font-medium text-[var(--text)]">
+                      {r.descricao}
+                      {r.origem_salario && (
+                        <span className="ml-2 rounded-full px-2 py-0.5 align-middle text-[0.65rem] font-medium"
+                          style={{ background: "var(--positivo-weak, color-mix(in srgb, var(--positivo) 15%, transparent))", color: "var(--positivo)" }}>salário</span>
+                      )}
+                    </span>
                     <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--muted)]">
                       <span style={atrasada ? { color: "var(--alerta)" } : undefined}>
                         {atrasada ? "venceu " : "prev. "}{data}
