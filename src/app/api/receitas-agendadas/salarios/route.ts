@@ -35,7 +35,9 @@ export async function POST() {
   for (const m of membrosRes.data ?? []) {
     const renda = m.renda_mensal_centavos ?? 0;
     if (!(renda > 0)) continue;
-    const contaDoTitular = contas.find((c) => c.titular === m.nome) ?? contas[0];
+    // conta do titular; se não houver e a casa tiver só uma conta, usa ela.
+    // Com várias contas e nenhuma do titular, não adivinha (não joga na conta de outro).
+    const contaDoTitular = contas.find((c) => c.titular === m.nome) ?? (contas.length === 1 ? contas[0] : null);
     if (!contaDoTitular) { semConta.push(m.nome); continue; }
 
     const existente = salarioPorPessoa.get(m.nome);
