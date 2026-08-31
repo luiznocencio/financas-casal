@@ -1,5 +1,6 @@
 import { createServerSupabase } from "@/lib/supabase/server";
 import { partesNoFuso, ultimoDiaDoMes } from "@/lib/financeiro/fechamento";
+import { proximoVencimento } from "@/lib/financeiro/vencimento";
 import { Money } from "@/components/ui/Money";
 import { Card } from "@/components/ui/Card";
 import { CategoriaTag } from "@/components/ui/CategoriaTag";
@@ -57,8 +58,8 @@ export async function SecaoContasPagar() {
               const cat = c.categoria_id ? catById.get(c.categoria_id) : null;
               const pago = pagoNoMes.get(c.id);
               const jaPaga = pago != null;
-              const diaEfetivo = Math.min(c.dia_vencimento, ultimoDiaDoMes(ano, mes));
-              const atrasada = !jaPaga && diaEfetivo < hojeDia;
+              const venc = proximoVencimento(c.dia_vencimento, { ano, mes, dia: hojeDia }, c.created_at, jaPaga);
+              const dataVenc = `${pad(venc.dia)}/${pad(venc.mes)}`;
               return (
                 <div key={c.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
                   <div className="flex min-w-0 flex-col gap-1">
@@ -66,7 +67,7 @@ export async function SecaoContasPagar() {
                     <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--muted)]">
                       {jaPaga
                         ? <span className="text-[var(--positivo)]">pago: <Money centavos={pago!} tamanho="sm" /></span>
-                        : <span style={atrasada ? { color: "var(--alerta)" } : undefined}>{atrasada ? "venceu dia " : "vence dia "}{c.dia_vencimento}</span>}
+                        : <span style={venc.atrasada ? { color: "var(--alerta)" } : undefined}>{venc.atrasada ? "venceu " : "vence "}{dataVenc}</span>}
                       <span>· {c.pessoa}</span>
                       {cat && <CategoriaTag nome={cat.nome} cor={cat.cor} tamanho="sm" />}
                       {c.valor_estimado_centavos != null && !jaPaga && <span>· ~<Money centavos={c.valor_estimado_centavos} tamanho="sm" /></span>}

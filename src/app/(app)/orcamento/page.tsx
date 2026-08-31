@@ -8,6 +8,7 @@ import { RendaCasal } from "@/components/orcamento/RendaCasal";
 import { PercentualEditor } from "@/components/orcamento/PercentualEditor";
 import { EditarCategoria } from "@/components/orcamento/EditarCategoria";
 import { AddCategoriaForm } from "@/components/orcamento/AddCategoriaForm";
+import { AddSubcategoria } from "@/components/orcamento/AddSubcategoria";
 import { CategoriaPonto } from "@/components/ui/CategoriaTag";
 
 export default async function OrcamentoPage() {
@@ -118,8 +119,9 @@ export default async function OrcamentoPage() {
                 </div>
               )}
 
-              <div className="mt-3">
+              <div className="mt-3 flex flex-wrap items-center gap-3">
                 <EditarCategoria categoriaId={c.id} nome={c.nome} cor={c.cor} />
+                <AddSubcategoria maeId={c.id} maeCor={c.cor} />
               </div>
             </Card>
           );

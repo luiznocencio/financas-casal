@@ -23,6 +23,7 @@ export type ContaPagar = {
   pessoa: string; dia_vencimento: number; valor_estimado_centavos: number | null;
   account_id: string | null; card_id: string | null;
   recorrencia: "unica" | "mensal"; data_fim: string | null; ativo: boolean;
+  created_at: string;
 };
 export type Member = { user_id: string; household_id: string; nome: string; papel: "membro" | "dono" };
 export type Account = { id: string; household_id: string; nome: string; tipo: "corrente" | "dinheiro" | "poupanca"; saldo_inicial_centavos: number; titular: string | null };
