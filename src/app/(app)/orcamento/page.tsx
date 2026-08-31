@@ -105,15 +105,13 @@ export default async function OrcamentoPage() {
               {filhos.length > 0 && (
                 <div className="mt-3 flex flex-col gap-1.5 border-t border-[var(--border)] pt-3">
                   {filhos.map((f) => (
-                    <div key={f.id} className="flex items-center justify-between gap-2 text-sm text-[var(--muted)]">
+                    <div key={f.id} className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-[var(--muted)]">
                       <Link href={`/lancamentos?categoria=${f.id}`}
-                        className="flex min-w-0 items-center gap-2 break-words hover:text-[var(--accent)]">
+                        className="flex min-w-0 flex-1 items-center gap-2 break-words hover:text-[var(--accent)]">
                         <CategoriaPonto cor={f.cor} />{f.nome}
                       </Link>
-                      <div className="flex shrink-0 items-center gap-2">
-                        <Money centavos={gastoPorCategoria[f.id] ?? 0} tamanho="sm" />
-                        <EditarCategoria categoriaId={f.id} nome={f.nome} cor={f.cor} />
-                      </div>
+                      <Money centavos={gastoPorCategoria[f.id] ?? 0} tamanho="sm" />
+                      <EditarCategoria categoriaId={f.id} nome={f.nome} cor={f.cor} />
                     </div>
                   ))}
                 </div>
