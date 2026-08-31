@@ -35,8 +35,9 @@ export async function GET(req: Request) {
   const amanha = diaSeguinte(hoje.ano, hoje.mes, hoje.dia);
 
   const supabase = createServiceSupabase();
+  // janela de pagamentos: mês atual + mês seguinte (cobre um vencimento que cai amanhã já no próximo mês)
   const iniMes = `${hoje.ano}-${pad(hoje.mes)}-01`;
-  const fimMes = `${hoje.ano}-${pad(hoje.mes)}-${pad(ultimoDiaDoMes(hoje.ano, hoje.mes))}`;
+  const fimMes = `${amanha.ano}-${pad(amanha.mes)}-${pad(ultimoDiaDoMes(amanha.ano, amanha.mes))}`;
   const [cardsRes, subsRes, contasRes, pagasRes] = await Promise.all([
     supabase.from("cards").select("id, nome, dia_fechamento, household_id"),
     supabase.from("push_subscriptions").select("household_id, endpoint, p256dh, auth"),
@@ -57,10 +58,10 @@ export async function GET(req: Request) {
     faturaFechaNaData(c.dia_fechamento, amanha.ano, amanha.mes, amanha.dia),
   );
 
-  // contas a pagar que vencem HOJE e ainda não foram pagas neste mês
+  // contas a pagar que vencem AMANHÃ (um dia de antecedência) e ainda não foram pagas
   const pagasMes = new Set((pagasRes.data ?? []).map((t) => t.conta_pagar_id));
-  const vencendoHoje = (contasRes.data ?? []).filter((c) =>
-    !pagasMes.has(c.id) && Math.min(c.dia_vencimento, ultimoDiaDoMes(hoje.ano, hoje.mes)) === hoje.dia,
+  const vencendoAmanha = (contasRes.data ?? []).filter((c) =>
+    !pagasMes.has(c.id) && Math.min(c.dia_vencimento, ultimoDiaDoMes(amanha.ano, amanha.mes)) === amanha.dia,
   );
 
   // teste: 1 notificação por dispositivo. real: 1 por (cartão que fecha amanhã × dispositivo).
@@ -89,14 +90,14 @@ export async function GET(req: Request) {
               },
             })),
         ),
-        ...vencendoHoje.flatMap((conta) =>
+        ...vencendoAmanha.flatMap((conta) =>
           subs
             .filter((s) => s.household_id === conta.household_id)
             .map((s) => ({
               s,
               payload: {
-                title: "Conta vence hoje",
-                body: `${conta.descricao} vence hoje. Não esqueça de pagar.`,
+                title: "Conta vence amanhã",
+                body: `${conta.descricao} vence amanhã. Já deixa pago pra não esquecer.`,
                 url: "/planejamento?aba=contas",
                 tag: `conta-${conta.id}`,
               },
@@ -128,7 +129,7 @@ export async function GET(req: Request) {
     amanha,
     dispositivos: subs.length,
     cartoesFechando: fechandoAmanha.length,
-    contasVencendo: vencendoHoje.length,
+    contasVencendo: vencendoAmanha.length,
     enviadas,
     removidas: expirados.length,
   });

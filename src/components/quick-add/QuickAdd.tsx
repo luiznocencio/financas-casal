@@ -140,6 +140,11 @@ export function QuickAdd({
                 cartoes={cartoes} contas={contas} categorias={categorias} membros={membros}
                 usuarioAtual={usuarioAtual}
                 valorInicialReais={sugestao ? (sugestao.valor_centavos / 100).toString() : ""}
+                inicial={sugestao ? {
+                  descricao: sugestao.descricao, tipo: sugestao.tipo, categoria_id: sugestao.categoria_id,
+                  pessoa: sugestao.pessoa, total_parcelas: sugestao.total_parcelas,
+                  card_id: sugestao.card_id, account_id: sugestao.account_id,
+                } : undefined}
                 onCriado={recarregar}
               />
             )}

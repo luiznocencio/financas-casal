@@ -7,10 +7,15 @@ import { MoneyInput } from "@/components/ui/MoneyInput";
 import { ordenarComSubcategorias } from "@/lib/ui/categorias";
 
 export function FormularioRapido({
-  cartoes, contas, categorias, membros, usuarioAtual, valorInicialReais = "", onCriado,
+  cartoes, contas, categorias, membros, usuarioAtual, valorInicialReais = "", inicial, onCriado,
 }: {
   cartoes: Card[]; contas: Account[]; categorias: Category[]; membros: string[];
   usuarioAtual: string; valorInicialReais?: string; onCriado: () => void;
+  // valores pré-preenchidos (ex.: vindo da sugestão da IA ao clicar "Ajustar")
+  inicial?: {
+    descricao?: string | null; tipo?: "despesa" | "receita"; categoria_id?: string | null;
+    pessoa?: string | null; total_parcelas?: number; card_id?: string | null; account_id?: string | null;
+  };
 }) {
   const membrosSet = new Set(membros);
   type TipoOrigem = "card" | "acc";
@@ -24,19 +29,25 @@ export function FormularioRapido({
     const lista = tipo === "card" ? cartoes : contas;
     return (lista.find((x) => x.titular === usuarioAtual) ?? lista[0])?.id ?? "";
   }
-  // tipo inicial: onde o usuário tem algo (prefere cartão)
-  const tipoInicial: TipoOrigem = cartoes.some((c) => c.titular === usuarioAtual) || cartoes.length > 0 ? "card"
-    : contas.length > 0 ? "acc" : "card";
-  const idInicial = primeiroDoTipo(tipoInicial);
+  // origem inicial: respeita a sugestão (card/conta) se ela existir; senão prefere cartão
+  const origemInicial: { tipo: TipoOrigem; id: string } =
+    inicial?.card_id && cartoes.some((c) => c.id === inicial.card_id) ? { tipo: "card", id: inicial.card_id }
+      : inicial?.account_id && contas.some((c) => c.id === inicial.account_id) ? { tipo: "acc", id: inicial.account_id }
+        : (() => {
+            const t: TipoOrigem = cartoes.length > 0 ? "card" : contas.length > 0 ? "acc" : "card";
+            return { tipo: t, id: primeiroDoTipo(t) };
+          })();
 
   const [centavos, setCentavos] = useState(valorInicialReais ? reaisParaCentavos(valorInicialReais) : 0);
-  const [descricao, setDescricao] = useState("");
-  const [tipo, setTipo] = useState<"despesa" | "receita">("despesa");
-  const [tipoOrigem, setTipoOrigem] = useState<TipoOrigem>(tipoInicial);
-  const [origemId, setOrigemId] = useState<string>(idInicial);
-  const [categoriaId, setCategoriaId] = useState<string>("");
-  const [pessoa, setPessoa] = useState(titularDe(tipoInicial, idInicial) ?? usuarioAtual ?? membros[0] ?? "conjunto");
-  const [parcelas, setParcelas] = useState(1);
+  const [descricao, setDescricao] = useState(inicial?.descricao ?? "");
+  const [tipo, setTipo] = useState<"despesa" | "receita">(inicial?.tipo ?? "despesa");
+  const [tipoOrigem, setTipoOrigem] = useState<TipoOrigem>(origemInicial.tipo);
+  const [origemId, setOrigemId] = useState<string>(origemInicial.id);
+  const [categoriaId, setCategoriaId] = useState<string>(inicial?.categoria_id ?? "");
+  const [pessoa, setPessoa] = useState(
+    inicial?.pessoa ?? titularDe(origemInicial.tipo, origemInicial.id) ?? usuarioAtual ?? membros[0] ?? "conjunto",
+  );
+  const [parcelas, setParcelas] = useState(inicial?.total_parcelas && inicial.total_parcelas > 0 ? inicial.total_parcelas : 1);
   const [erro, setErro] = useState<string | null>(null);
 
   function trocarTipo(t: TipoOrigem) {
