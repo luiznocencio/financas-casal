@@ -1,5 +1,18 @@
 import { describe, it, expect } from "vitest";
-import { interpretarImportacao } from "./extrair";
+import { interpretarImportacao, detectarTotalFatura } from "./extrair";
+
+describe("detectarTotalFatura", () => {
+  it("pega o total da fatura (Itaú)", () => {
+    expect(detectarTotalFatura("O total da sua fatura é: R$ 4.042,64")).toBe(404264);
+  });
+  it("variações de frase", () => {
+    expect(detectarTotalFatura("Total desta fatura R$ 1.234,56")).toBe(123456);
+    expect(detectarTotalFatura("TOTAL A PAGAR: 999,00")).toBe(99900);
+  });
+  it("sem total → null", () => {
+    expect(detectarTotalFatura("Mercado 50,00\nUber 20,00")).toBeNull();
+  });
+});
 
 describe("interpretarImportacao", () => {
   it("mapeia os lançamentos do JSON do modelo para centavos", async () => {

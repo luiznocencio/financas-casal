@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { interpretarImportacao } from "@/lib/importacao/extrair";
+import { interpretarImportacao, detectarTotalFatura } from "@/lib/importacao/extrair";
 import { marcarDuplicados } from "@/lib/importacao/duplicados";
 import { chamarModeloJson } from "@/lib/ai/openai";
 import { getMembroAtual } from "@/lib/auth/household";
@@ -72,7 +72,10 @@ export async function POST(req: Request) {
     const existentes = [...porId.values()];
     const comDup = marcarDuplicados(comRegra, existentes);
 
-    return NextResponse.json({ ok: true, linhas: comDup });
+    // total declarado na fatura (se houver) pra conferir a completude da extração
+    const totalFaturaCentavos = origem.card_id ? detectarTotalFatura(texto) : null;
+
+    return NextResponse.json({ ok: true, linhas: comDup, totalFaturaCentavos });
   } catch {
     return NextResponse.json({ ok: false });
   }

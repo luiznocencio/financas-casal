@@ -27,6 +27,7 @@ export function Importador({
   const [comp, setComp] = useState(`${agora.getFullYear()}-${String(agora.getMonth() + 1).padStart(2, "0")}`);
   const [texto, setTexto] = useState("");
   const [linhas, setLinhas] = useState<Linha[] | null>(null);
+  const [totalFatura, setTotalFatura] = useState<number | null>(null);
   const [carregando, setCarregando] = useState(false);
   const [lendoPdf, setLendoPdf] = useState(false);
   const [arqNome, setArqNome] = useState<string | null>(null);
@@ -77,7 +78,7 @@ export function Importador({
   }
 
   async function analisar() {
-    setErro(null); setCarregando(true); setLinhas(null);
+    setErro(null); setCarregando(true); setLinhas(null); setTotalFatura(null);
     try {
       const [prefixo, id] = origem.split(":");
       const origemBody = id ? { [prefixo === "card" ? "card_id" : "account_id"]: id } : {};
@@ -93,6 +94,7 @@ export function Importador({
         // já existe na origem → desmarcado por padrão (só adiciona os novos)
         return { ...l, incluir: !dup, categoria_id: (l as { categoria_id?: string | null }).categoria_id ?? null, pessoa: dono };
       }));
+      setTotalFatura(typeof r.totalFaturaCentavos === "number" ? r.totalFaturaCentavos : null);
     } catch {
       setErro("Falha ao analisar. Tente de novo.");
     } finally {
@@ -206,6 +208,27 @@ export function Importador({
               Importar {linhas.filter((l) => l.incluir).length}
             </Button>
           </div>
+
+          {totalFatura != null && (() => {
+            const soma = linhas.reduce((s, l) => s + (l.tipo === "receita" ? -l.valor_centavos : l.valor_centavos), 0);
+            const diff = totalFatura - soma; // > 0 = faltou extrair
+            const bate = Math.abs(diff) < 100; // tolerância de R$ 1
+            return (
+              <div className="mb-3 rounded-[var(--radius-sm)] px-3 py-2 text-sm"
+                style={{
+                  border: `1px solid ${bate ? "var(--positivo)" : "var(--alerta)"}`,
+                  background: `color-mix(in srgb, ${bate ? "var(--positivo)" : "var(--alerta)"} 8%, transparent)`,
+                  color: bate ? "var(--positivo)" : "var(--alerta)",
+                }}>
+                {bate ? (
+                  <>✓ Bate com o total da fatura ({centavosParaReais(totalFatura)}).</>
+                ) : (
+                  <>⚠ A fatura diz <strong>{centavosParaReais(totalFatura)}</strong>, mas os lançamentos somam <strong>{centavosParaReais(soma)}</strong> — {diff > 0 ? "faltam" : "sobram"} <strong>{centavosParaReais(Math.abs(diff))}</strong>. Confira/adicione o que faltou antes de importar (a leitura da fatura pode ter pulado linhas).</>
+                )}
+              </div>
+            );
+          })()}
+
           <div className="flex flex-col divide-y divide-[var(--border)]">
             {linhas.map((l, i) => (
               <div key={i} className="flex flex-col gap-1 py-2 text-sm sm:flex-row sm:items-center sm:gap-2">
