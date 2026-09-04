@@ -24,7 +24,7 @@ export function Importador({
 }) {
   const router = useRouter();
   const agora = new Date();
-  const [origem, setOrigem] = useState(cartoes[0] ? `card:${cartoes[0].id}` : contas[0] ? `acc:${contas[0].id}` : "");
+  const [origem, setOrigem] = useState(cartoes[0] ? `card:${cartoes[0].id}` : "");
   const [comp, setComp] = useState(`${agora.getFullYear()}-${String(agora.getMonth() + 1).padStart(2, "0")}`);
   const [texto, setTexto] = useState("");
   const [linhas, setLinhas] = useState<Linha[] | null>(null);
@@ -149,20 +149,23 @@ export function Importador({
     <div className="flex flex-col gap-4">
       <Card>
         <div className="flex flex-col gap-3">
-          <label className="grid gap-1 text-sm">
-            <span className="text-[var(--muted)]">Origem dos lançamentos</span>
-            <select value={origem} onChange={(e) => setOrigem(e.target.value)}
-              className="rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--surface)] p-2 text-[var(--text)]">
-              {cartoes.map((c) => <option key={c.id} value={`card:${c.id}`}>Cartão · {c.nome}{c.titular ? ` (${c.titular})` : ""}</option>)}
-              {contas.map((c) => <option key={c.id} value={`acc:${c.id}`}>Conta · {c.nome}{c.titular ? ` (${c.titular})` : ""}</option>)}
-            </select>
-          </label>
-          {origem.startsWith("card:") && (
-            <label className="grid gap-1 text-sm">
-              <span className="text-[var(--muted)]">Mês da fatura (tudo entra nesta fatura)</span>
-              <input type="month" value={comp} onChange={(e) => setComp(e.target.value)}
-                className="rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--surface)] p-2 text-[var(--text)]" />
-            </label>
+          {cartoes.length === 0 ? (
+            <p className="text-sm text-[var(--muted)]">Cadastre um cartão para importar a fatura. Movimentações de conta (Pix) são lançadas manualmente no “+”.</p>
+          ) : (
+            <>
+              <label className="grid gap-1 text-sm">
+                <span className="text-[var(--muted)]">Cartão da fatura</span>
+                <select value={origem} onChange={(e) => setOrigem(e.target.value)}
+                  className="rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--surface)] p-2 text-[var(--text)]">
+                  {cartoes.map((c) => <option key={c.id} value={`card:${c.id}`}>{c.nome}{c.titular ? ` (${c.titular})` : ""}</option>)}
+                </select>
+              </label>
+              <label className="grid gap-1 text-sm">
+                <span className="text-[var(--muted)]">Mês da fatura (tudo entra nesta fatura)</span>
+                <input type="month" value={comp} onChange={(e) => setComp(e.target.value)}
+                  className="rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--surface)] p-2 text-[var(--text)]" />
+              </label>
+            </>
           )}
           <textarea value={texto} onChange={(e) => setTexto(e.target.value)} rows={6}
             placeholder="Cole aqui o extrato/fatura (ou o conteúdo do CSV)..."
