@@ -17,17 +17,19 @@ export default async function OrcamentoPage() {
   const ano = agora.getFullYear();
   const mes = agora.getMonth() + 1;
 
-  const [membrosRes, catsRes, budgetsRes, txsRes] = await Promise.all([
-    supabase.from("members").select("user_id, nome, renda_mensal_centavos").order("papel"),
+  const [membrosRes, catsRes, budgetsRes, txsRes, contasRes] = await Promise.all([
+    supabase.from("members").select("user_id, nome, renda_mensal_centavos, ajuda_custo_centavos, salario_account_id, ajuda_custo_account_id").order("papel"),
     supabase.from("categories").select("id, nome, cor, parent_id").eq("tipo", "despesa").order("nome"),
     supabase.from("budgets").select("categoria_id, percentual"),
     supabase.from("transactions").select("categoria_id, tipo, pessoa, valor_centavos, data_compra"),
+    supabase.from("accounts").select("id, nome, titular").order("nome"),
   ]);
-  const erro = membrosRes.error ?? catsRes.error ?? budgetsRes.error ?? txsRes.error;
+  const erro = membrosRes.error ?? catsRes.error ?? budgetsRes.error ?? txsRes.error ?? contasRes.error;
   if (erro) throw new Error(`Falha ao carregar o orçamento: ${erro.message}`);
 
   const membros = membrosRes.data ?? [];
-  const renda = membros.reduce((s, m) => s + (m.renda_mensal_centavos ?? 0), 0);
+  const contasRenda = contasRes.data ?? [];
+  const renda = membros.reduce((s, m) => s + (m.renda_mensal_centavos ?? 0) + (m.ajuda_custo_centavos ?? 0), 0);
   const cats = catsRes.data ?? [];
   const budgets = budgetsRes.data ?? [];
 
@@ -60,7 +62,7 @@ export default async function OrcamentoPage() {
         <Link href="/planejamento?aba=fixos" className="text-sm text-[var(--accent)]">Gastos fixos</Link>
       </header>
 
-      <RendaCasal membros={membros} />
+      <RendaCasal membros={membros} contas={contasRenda} />
 
       {/* resumo do mês: alocado x reserva, orçado x gasto */}
       <Card>

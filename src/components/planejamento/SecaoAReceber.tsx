@@ -18,7 +18,7 @@ export async function SecaoAReceber() {
   const [raRes, contasRes, membrosRes, recebidasRes] = await Promise.all([
     supabase.from("receitas_agendadas").select("*").eq("ativo", true).order("data_prevista"),
     supabase.from("accounts").select("id, nome, titular").order("nome"),
-    supabase.from("members").select("nome, renda_mensal_centavos"),
+    supabase.from("members").select("nome, renda_mensal_centavos, ajuda_custo_centavos"),
     supabase.from("transactions").select("receita_agendada_id, valor_centavos")
       .not("receita_agendada_id", "is", null).gte("data_compra", ini).lte("data_compra", fim),
   ]);
@@ -28,7 +28,7 @@ export async function SecaoAReceber() {
   const receitas = (raRes.data ?? []) as ReceitaAgendada[];
   const contas = contasRes.data ?? [];
   const membros = (membrosRes.data ?? []).map((m) => m.nome);
-  const temRenda = (membrosRes.data ?? []).some((m) => (m.renda_mensal_centavos ?? 0) > 0);
+  const temRenda = (membrosRes.data ?? []).some((m) => (m.renda_mensal_centavos ?? 0) + (m.ajuda_custo_centavos ?? 0) > 0);
   const jaTemSalario = receitas.some((r) => r.origem_salario);
   const nomeConta = new Map(contas.map((c) => [c.id, c.nome]));
   // o que já foi recebido neste mês, por receita agendada

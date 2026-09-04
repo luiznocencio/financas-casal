@@ -37,7 +37,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
     supabase.from("cards").select("*"),
     supabase.from("transactions").select("*"),
     supabase.from("categories").select("id, nome, cor"),
-    supabase.from("members").select("nome, renda_mensal_centavos"),
+    supabase.from("members").select("nome, renda_mensal_centavos, ajuda_custo_centavos"),
     supabase.from("invoices").select("id, competencia_ano, competencia_mes"),
     supabase.from("contas_pagar").select("id, valor_estimado_centavos, dia_vencimento, recorrencia, data_fim, created_at").eq("ativo", true),
   ]);
@@ -76,7 +76,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   const idxRef = idxMes(ref.ano, ref.mes);
 
   // renda mensal (salário fixo do orçamento) e o que ainda falta cair NO MÊS ATUAL
-  const rendaMensal = (membrosData ?? []).reduce((s, m) => s + (m.renda_mensal_centavos ?? 0), 0);
+  const rendaMensal = (membrosData ?? []).reduce((s, m) => s + (m.renda_mensal_centavos ?? 0) + (m.ajuda_custo_centavos ?? 0), 0);
   const resumoAtual = idxRef === idxAtual ? resumo : resumoDoMes(txsRef, atual);
   const aReceberAtual = Math.max(0, rendaMensal - resumoAtual.totalReceitas);
 
