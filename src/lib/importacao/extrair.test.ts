@@ -1,16 +1,30 @@
 import { describe, it, expect } from "vitest";
-import { interpretarImportacao, detectarTotalFatura } from "./extrair";
+import { interpretarImportacao, detectarTotalFatura, cortarSecaoFuturas } from "./extrair";
 
 describe("detectarTotalFatura", () => {
   it("pega o total da fatura (Itaú)", () => {
     expect(detectarTotalFatura("O total da sua fatura é: R$ 4.042,64")).toBe(404264);
+    expect(detectarTotalFatura("Total desta fatura 4.042,79")).toBe(404279);
+    expect(detectarTotalFatura("Total dos lançamentos atuais 4.042,79")).toBe(404279);
   });
-  it("variações de frase", () => {
-    expect(detectarTotalFatura("Total desta fatura R$ 1.234,56")).toBe(123456);
-    expect(detectarTotalFatura("TOTAL A PAGAR: 999,00")).toBe(99900);
+  it("ignora 'total a pagar' (ambíguo com encargos)", () => {
+    // só tem 'total a pagar' → não deve pegar esse valor
+    expect(detectarTotalFatura("Total a pagar R$ 4.622,19")).toBeNull();
   });
   it("sem total → null", () => {
     expect(detectarTotalFatura("Mercado 50,00\nUber 20,00")).toBeNull();
+  });
+});
+
+describe("cortarSecaoFuturas", () => {
+  it("remove tudo a partir de 'Compras parceladas - próximas faturas'", () => {
+    const t = "05/08 BURGER KING 31,90\nTotal dos lançamentos atuais 4.042,79\nCompras parceladas - próximas faturas\n17/04 PARC 06/06 31,70";
+    const corte = cortarSecaoFuturas(t);
+    expect(corte).toContain("BURGER KING");
+    expect(corte).not.toContain("06/06");
+  });
+  it("sem o marcador, devolve o texto inteiro", () => {
+    expect(cortarSecaoFuturas("Mercado 50,00")).toBe("Mercado 50,00");
   });
 });
 

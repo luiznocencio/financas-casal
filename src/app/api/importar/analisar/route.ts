@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { interpretarImportacao, detectarTotalFatura } from "@/lib/importacao/extrair";
+import { interpretarImportacao, detectarTotalFatura, cortarSecaoFuturas } from "@/lib/importacao/extrair";
 import { marcarDuplicados } from "@/lib/importacao/duplicados";
 import { chamarModeloJson } from "@/lib/ai/openai";
 import { getMembroAtual } from "@/lib/auth/household";
@@ -21,7 +21,10 @@ export async function POST(req: Request) {
     const competencia = cmp && cmp.ano >= 2000 && cmp.mes >= 1 && cmp.mes <= 12
       ? { ano: Number(cmp.ano), mes: Number(cmp.mes) } : null;
     if (!texto || typeof texto !== "string") return NextResponse.json({ ok: false });
-    const linhas = await interpretarImportacao(texto, chamarModeloJson);
+    // fatura de cartão: detecta o total, remove a seção de próximas faturas e ancora a extração
+    const totalFaturaCentavos = origem.card_id ? detectarTotalFatura(texto) : null;
+    const textoExtrair = origem.card_id ? cortarSecaoFuturas(texto) : texto;
+    const linhas = await interpretarImportacao(textoExtrair, chamarModeloJson, totalFaturaCentavos);
 
     const supabase = await createServerSupabase();
 
@@ -71,9 +74,6 @@ export async function POST(req: Request) {
 
     const existentes = [...porId.values()];
     const comDup = marcarDuplicados(comRegra, existentes);
-
-    // total declarado na fatura (se houver) pra conferir a completude da extração
-    const totalFaturaCentavos = origem.card_id ? detectarTotalFatura(texto) : null;
 
     return NextResponse.json({ ok: true, linhas: comDup, totalFaturaCentavos });
   } catch {
