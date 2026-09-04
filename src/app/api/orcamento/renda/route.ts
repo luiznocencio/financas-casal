@@ -11,14 +11,18 @@ export async function POST(req: Request) {
   // qual membro: o informado (parceiro) ou, por padrão, o próprio usuário
   const userId = typeof body.user_id === "string" ? body.user_id : membro.user_id;
   const supabase = await createServerSupabase();
+  // conta de cada parte: só aceita uma conta REAL do próprio lar (senão null = titular)
+  const { data: contas } = await supabase.from("accounts").select("id");
+  const idsContas = new Set((contas ?? []).map((c) => c.id));
+  const contaOuNull = (v: unknown) => (typeof v === "string" && idsContas.has(v) ? v : null);
   // a RLS (members_update, escopada ao household) garante que só dá pra editar
   // um membro do próprio lar
   const { error } = await supabase
     .from("members").update({
       renda_mensal_centavos: salario,
       ajuda_custo_centavos: ajuda,
-      salario_account_id: body.salario_account_id ?? null,
-      ajuda_custo_account_id: body.ajuda_custo_account_id ?? null,
+      salario_account_id: contaOuNull(body.salario_account_id),
+      ajuda_custo_account_id: contaOuNull(body.ajuda_custo_account_id),
     }).eq("user_id", userId);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ ok: true });
