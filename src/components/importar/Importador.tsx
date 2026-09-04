@@ -5,12 +5,13 @@ import { centavosParaReais } from "@/lib/financeiro/dinheiro";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Spinner } from "@/components/ui/Spinner";
+import { Repeat } from "@phosphor-icons/react";
 import { ordenarComSubcategorias } from "@/lib/ui/categorias";
 
 type Linha = {
   data: string; descricao: string; valor_centavos: number;
   tipo: "despesa" | "receita"; total_parcelas: number;
-  categoria_id: string | null; pessoa: string; incluir: boolean; duplicada?: boolean;
+  categoria_id: string | null; pessoa: string; incluir: boolean; duplicada?: boolean; fixo?: boolean;
 };
 
 export function Importador({
@@ -91,6 +92,7 @@ export function Importador({
     const selecionadas = linhas.filter((l) => l.incluir).map((l) => ({
       data: l.data, descricao: l.descricao, valor_centavos: l.valor_centavos,
       tipo: l.tipo, total_parcelas: l.total_parcelas, categoria_id: l.categoria_id, pessoa: l.pessoa,
+      fixo: l.fixo ?? false,
     }));
     const [ano, mes] = comp.split("-").map(Number);
     setCarregando(true);
@@ -106,6 +108,7 @@ export function Importador({
     setResultado(
       `Importados ${r.criadas ?? 0} lançamentos` +
         (r.duplicadas ? `, ${r.duplicadas} já existiam (pulados)` : "") +
+        (r.fixosCriados ? `, ${r.fixosCriados} viraram gasto fixo` : "") +
         (r.falhas?.length ? `, ${r.falhas.length} falharam` : "") + ".",
     );
     setLinhas(null); setTexto("");
@@ -161,6 +164,9 @@ export function Importador({
                   {linhas.filter((l) => l.duplicada).length} já constam e vieram desmarcados
                 </span>
               )}
+              {origem.startsWith("card:") && (
+                <span className="text-xs text-[var(--muted)]">Marque <strong>fixo</strong> num lançamento pra virar gasto fixo e mapear nas próximas faturas.</span>
+              )}
             </div>
             <Button variant="primary" onClick={confirmar} disabled={carregando}>
               Importar {linhas.filter((l) => l.incluir).length}
@@ -182,6 +188,18 @@ export function Importador({
                     {ordenarComSubcategorias(categorias).map((c) => <option key={c.id} value={c.id}>{c.rotulo}</option>)}
                   </select>
                   <span className="mono ml-auto text-right sm:ml-0 sm:w-24">{centavosParaReais(l.valor_centavos)}</span>
+                  {origem.startsWith("card:") && (
+                    <button type="button" onClick={() => atualizar(i, { fixo: !l.fixo })}
+                      title={l.fixo ? "Marcado como gasto fixo (mapeia nas próximas faturas)" : "Marcar como gasto fixo"}
+                      className="flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs"
+                      style={{
+                        borderColor: l.fixo ? "var(--accent)" : "var(--border)",
+                        background: l.fixo ? "var(--accent-weak)" : "transparent",
+                        color: l.fixo ? "var(--accent)" : "var(--muted)",
+                      }}>
+                      <Repeat size={12} weight={l.fixo ? "fill" : "regular"} /> fixo
+                    </button>
+                  )}
                   {l.duplicada && <span className="w-full text-xs text-[var(--alerta)] sm:w-auto">já lançado</span>}
                 </div>
               </div>

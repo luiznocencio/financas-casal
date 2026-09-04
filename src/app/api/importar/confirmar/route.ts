@@ -16,6 +16,7 @@ const pad = (n: number) => String(n).padStart(2, "0");
 type ItemImport = {
   data: string; descricao: string; valor_centavos: number;
   tipo: "despesa" | "receita"; total_parcelas: number;
+  fixo?: boolean; // marcar como gasto fixo (acha-ou-cria recorrente e liga)
   categoria_id: string | null; pessoa: string;
 };
 
@@ -83,8 +84,16 @@ export async function POST(req: Request) {
 
   const grupoImportacao = crypto.randomUUID();
 
+  // gastos fixos (recorrentes) deste cartão, pra "achar-ou-criar" ao marcar linha como fixo
+  const recorrentePorChave = new Map<string, string>();
+  if (origem.card_id) {
+    const { data: recs } = await supabase.from("recorrentes").select("id, descricao").eq("card_id", origem.card_id);
+    for (const r of recs ?? []) if (r.descricao) recorrentePorChave.set(normalizeDescricao(r.descricao), r.id);
+  }
+
   let criadas = 0;
   let duplicadas = 0;
+  let fixosCriados = 0;
   const falhas: string[] = [];
   for (const it of itens) {
     if (!(it.valor_centavos > 0) || !DATA_ISO.test(it.data ?? "")) {
@@ -118,6 +127,22 @@ export async function POST(req: Request) {
       parcelaInfo = { grupo_parcela: grupo, parcela_n: parcelaN, total_parcelas: totalParcelas };
     }
 
+    // gasto fixo: acha-ou-cria o recorrente deste cartão e liga o lançamento a ele
+    let recorrenteId: string | null = null;
+    if (it.fixo && origem.card_id) {
+      const chaveRec = normalizeDescricao(it.descricao);
+      recorrenteId = recorrentePorChave.get(chaveRec) ?? null;
+      if (!recorrenteId) {
+        const dia = Math.min(31, Math.max(1, Number(it.data.slice(8, 10)) || 1));
+        const { data: rec } = await supabase.from("recorrentes").insert({
+          household_id: membro.household_id, descricao: it.descricao,
+          valor_centavos: it.valor_centavos, categoria_id: it.categoria_id ?? null,
+          pessoa: it.pessoa, dia, card_id: origem.card_id, account_id: null,
+        }).select("id").single();
+        if (rec) { recorrenteId = rec.id; recorrentePorChave.set(chaveRec, rec.id); fixosCriados++; }
+      }
+    }
+
     const novo: NovoLancamento = {
       tipo: it.tipo, valor_centavos: it.valor_centavos, data_compra: it.data,
       categoria_id: it.categoria_id ?? null, pessoa: it.pessoa,
@@ -126,10 +151,10 @@ export async function POST(req: Request) {
       descricao: it.descricao, origem_ia: true,
     };
     const { error } = await persistirLancamento(
-      supabase, { householdId: membro.household_id, criadoPor: membro.user_id, grupoImportacao }, novo, diaFechamento, competencia, parcelaInfo,
+      supabase, { householdId: membro.household_id, criadoPor: membro.user_id, grupoImportacao, recorrenteId }, novo, diaFechamento, competencia, parcelaInfo,
     );
     if (error) falhas.push(it.descricao || "(sem descrição)");
     else { criadas++; chaves.add(chave); } // evita duplicar dentro do próprio lote
   }
-  return NextResponse.json({ criadas, duplicadas, falhas });
+  return NextResponse.json({ criadas, duplicadas, fixosCriados, falhas });
 }
