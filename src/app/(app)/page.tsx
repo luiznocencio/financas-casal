@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { saldoConta, limiteDisponivel } from "@/lib/financeiro/derivados";
 import { resumoDoMes } from "@/lib/financeiro/agregacoes";
+import { ultimoDiaDoMes } from "@/lib/financeiro/fechamento";
 import { centavosParaReais } from "@/lib/financeiro/dinheiro";
 import { Money } from "@/components/ui/Money";
 import { Card } from "@/components/ui/Card";
@@ -66,23 +67,68 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
     return s + (card.limite_centavos - limiteDisponivel(card.limite_centavos, emAberto));
   }, 0);
 
-  // "dá pra pagar o pendente?": dinheiro em conta vs (faturas abertas + contas a pagar do mês)
-  const pagoContaMes = new Set((txs ?? [])
-    .filter((t) => { if (!t.conta_pagar_id) return false; const [a, m] = t.data_compra.split("-").map(Number); return a === ref.ano && m === ref.mes; })
-    .map((t) => t.conta_pagar_id));
-  const pendenteContas = (contasPagarRes.data ?? [])
-    .filter((c) => !pagoContaMes.has(c.id)).reduce((s, c) => s + (c.valor_estimado_centavos ?? 0), 0);
-  const aPagar = comprometido + pendenteContas;
-
   const resumo = resumoDoMes(txsRef, ref);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const chaveMes = (a: number, m: number) => `${a}-${m}`;
+  const idxMes = (a: number, m: number) => a * 12 + m;
+  const idxAtual = idxMes(atual.ano, atual.mes);
+  const idxRef = idxMes(ref.ano, ref.mes);
 
-  // renda certa do mês (salário fixo no orçamento) que ainda não caiu na conta:
-  // renda mensal − receitas já recebidas no mês (o que já entrou está no saldo).
+  // renda mensal (salário fixo do orçamento) e o que ainda falta cair NO MÊS ATUAL
   const rendaMensal = (membrosData ?? []).reduce((s, m) => s + (m.renda_mensal_centavos ?? 0), 0);
-  const aReceberMes = Math.max(0, rendaMensal - resumo.totalReceitas);
+  const resumoAtual = idxRef === idxAtual ? resumo : resumoDoMes(txsRef, atual);
+  const aReceberAtual = Math.max(0, rendaMensal - resumoAtual.totalReceitas);
 
-  const disponivel = saldoTotal + aReceberMes;
-  const sobra = disponivel - aPagar;
+  // faturas em aberto por competência (mês da fatura), pra saber o que sai em cada mês
+  const faturaAbertaPorComp: Record<string, number> = {};
+  for (const t of txs ?? []) {
+    if (!t.card_id || t.paga) continue;
+    const comp = t.invoice_id ? compPorInvoice.get(t.invoice_id) : null;
+    if (!comp) continue;
+    faturaAbertaPorComp[chaveMes(comp.ano, comp.mes)] = (faturaAbertaPorComp[chaveMes(comp.ano, comp.mes)] ?? 0) + t.valor_centavos;
+  }
+  // tudo que está em aberto até o mês atual (inclui atrasos), some no mês corrente
+  const faturasAbertasAteAtual = Object.entries(faturaAbertaPorComp)
+    .filter(([k]) => { const [a, m] = k.split("-").map(Number); return idxMes(a, m) <= idxAtual; })
+    .reduce((s, [, v]) => s + v, 0);
+
+  // contas a pagar: pendentes de um mês (todas as ativas menos as pagas naquele mês)
+  const totalContasAtivas = (contasPagarRes.data ?? []).reduce((s, c) => s + (c.valor_estimado_centavos ?? 0), 0);
+  const pagoContaMesAtual = new Set((txs ?? [])
+    .filter((t) => { if (!t.conta_pagar_id) return false; const [a, m] = t.data_compra.split("-").map(Number); return a === atual.ano && m === atual.mes; })
+    .map((t) => t.conta_pagar_id));
+  const contasPendentesAtual = (contasPagarRes.data ?? [])
+    .filter((c) => !pagoContaMesAtual.has(c.id)).reduce((s, c) => s + (c.valor_estimado_centavos ?? 0), 0);
+
+  // Projeção de caixa: parte do saldo de hoje e rola mês a mês até o mês visto,
+  // somando a renda e descontando faturas/contas de cada mês. Pro passado, mostra
+  // o saldo real no fim do mês (só o que está lançado até lá).
+  let saldoRef: number;
+  if (idxRef < idxAtual) {
+    const fimRef = `${ref.ano}-${pad(ref.mes)}-${pad(ultimoDiaDoMes(ref.ano, ref.mes))}`;
+    saldoRef = (contas ?? []).reduce((s, c) => {
+      const mov = (txs ?? []).filter((t) => t.account_id === c.id && t.data_compra <= fimRef);
+      return s + saldoConta(c.saldo_inicial_centavos, mov);
+    }, 0);
+  } else {
+    let running = saldoTotal;
+    for (let i = idxAtual; i <= idxRef; i++) {
+      const y = Math.floor((i - 1) / 12);
+      const mo = i - y * 12;
+      const ehAtualLoop = i === idxAtual;
+      const entrada = ehAtualLoop ? aReceberAtual : rendaMensal;
+      const saidaFaturas = ehAtualLoop ? faturasAbertasAteAtual : (faturaAbertaPorComp[chaveMes(y, mo)] ?? 0);
+      const saidaContas = ehAtualLoop ? contasPendentesAtual : totalContasAtivas;
+      running += entrada - saidaFaturas - saidaContas;
+    }
+    saldoRef = running;
+  }
+
+  const ehFuturo = idxRef > idxAtual;
+  const ehPassado = idxRef < idxAtual;
+  const aPagarAtual = faturasAbertasAteAtual + contasPendentesAtual;
+  // saldo mostrado na tile: mês atual = saldo vivo; outros meses = projeção/histórico
+  const saldoTileValor = ehAtual ? saldoTotal : saldoRef;
 
   const catById = new Map((cats ?? []).map((c) => [c.id, c]));
   const nomeCat = (id: string) => catById.get(id)?.nome ?? "Outros";
@@ -106,7 +152,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   const maiorCategoria = topCategorias.length ? topCategorias[0][1] : 0;
 
   const stats = [
-    { rotulo: "Saldo em contas", valor: saldoTotal, sinal: true },
+    { rotulo: ehAtual ? "Saldo em contas" : ehFuturo ? "Saldo projetado" : "Saldo no fim do mês", valor: saldoTileValor, sinal: true },
     { rotulo: "Faturas abertas", valor: comprometido, sinal: false },
     { rotulo: "Despesas do mês", valor: resumo.totalDespesas, sinal: false },
     { rotulo: "Receitas do mês", valor: resumo.totalReceitas, sinal: false },
@@ -137,22 +183,34 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
         ))}
       </div>
 
-      {/* dá pra pagar o pendente? saldo em conta vs (faturas abertas + contas a pagar) */}
+      {/* projeção de caixa: quanto sobra/falta considerando as faturas e contas de cada mês */}
       <div className="rounded-[var(--radius)] border px-4 py-3"
-        style={{ borderColor: sobra >= 0 ? "var(--positivo)" : "var(--negativo)", background: `color-mix(in srgb, ${sobra >= 0 ? "var(--positivo)" : "var(--negativo)"} 8%, transparent)` }}>
+        style={{ borderColor: saldoRef >= 0 ? "var(--positivo)" : "var(--negativo)", background: `color-mix(in srgb, ${saldoRef >= 0 ? "var(--positivo)" : "var(--negativo)"} 8%, transparent)` }}>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex min-w-0 flex-col">
             <span className="text-sm font-medium text-[var(--text)]">
-              {sobra >= 0 ? "Dá pra pagar o pendente" : "Falta pra pagar o pendente"}
+              {ehAtual
+                ? (saldoRef >= 0 ? "Dá pra pagar o pendente" : "Falta pra pagar o pendente")
+                : ehFuturo
+                  ? (saldoRef >= 0 ? `Deve sobrar até ${MESES[ref.mes - 1]}` : `Vai faltar até ${MESES[ref.mes - 1]}`)
+                  : `Saldo no fim de ${MESES[ref.mes - 1]}`}
             </span>
             <span className="text-xs text-[var(--muted)]">
-              Saldo <Money centavos={saldoTotal} tamanho="sm" />
-              {aReceberMes > 0 && <> + renda a entrar <Money centavos={aReceberMes} tamanho="sm" /></>}
-              {" − "}a pagar <Money centavos={aPagar} tamanho="sm" /> (faturas + contas)
+              {ehAtual ? (
+                <>
+                  Saldo <Money centavos={saldoTotal} tamanho="sm" />
+                  {aReceberAtual > 0 && <> + renda a entrar <Money centavos={aReceberAtual} tamanho="sm" /></>}
+                  {" − "}a pagar <Money centavos={aPagarAtual} tamanho="sm" /> (faturas + contas)
+                </>
+              ) : ehFuturo ? (
+                <>Projeção partindo do saldo de hoje, somando a renda e descontando as faturas/contas de cada mês.</>
+              ) : (
+                <>Saldo real no fim do mês, pelo que está lançado.</>
+              )}
             </span>
           </div>
-          <span className="mono text-lg font-semibold" style={{ color: sobra >= 0 ? "var(--positivo)" : "var(--negativo)" }}>
-            {sobra >= 0 ? "sobra " : "falta "}{centavosParaReais(Math.abs(sobra))}
+          <span className="mono text-lg font-semibold" style={{ color: saldoRef >= 0 ? "var(--positivo)" : "var(--negativo)" }}>
+            {ehPassado ? centavosParaReais(saldoRef) : <>{saldoRef >= 0 ? "sobra " : "falta "}{centavosParaReais(Math.abs(saldoRef))}</>}
           </span>
         </div>
       </div>
