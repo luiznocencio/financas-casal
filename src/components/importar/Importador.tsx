@@ -5,7 +5,8 @@ import { centavosParaReais } from "@/lib/financeiro/dinheiro";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Spinner } from "@/components/ui/Spinner";
-import { Repeat, UploadSimple } from "@phosphor-icons/react";
+import { MoneyInput } from "@/components/ui/MoneyInput";
+import { Repeat, UploadSimple, Plus, X } from "@phosphor-icons/react";
 import { ordenarComSubcategorias } from "@/lib/ui/categorias";
 
 type Linha = {
@@ -104,6 +105,15 @@ export function Importador({
 
   function atualizar(i: number, patch: Partial<Linha>) {
     setLinhas((ls) => ls!.map((l, idx) => (idx === i ? { ...l, ...patch } : l)));
+  }
+  function removerLinha(i: number) {
+    setLinhas((ls) => ls!.filter((_, idx) => idx !== i));
+  }
+  function adicionarLinha() {
+    const [ano, mes] = comp.split("-").map(Number);
+    const dataPadrao = origem.startsWith("card:") && ano && mes ? `${ano}-${String(mes).padStart(2, "0")}-01` : new Date().toISOString().slice(0, 10);
+    const nova: Linha = { data: dataPadrao, descricao: "", valor_centavos: 0, tipo: "despesa", total_parcelas: 1, categoria_id: null, pessoa: donoDaOrigem(), incluir: true };
+    setLinhas((ls) => [...(ls ?? []), nova]);
   }
 
   async function confirmar() {
@@ -238,13 +248,15 @@ export function Importador({
                     className="min-w-0 flex-1 rounded border border-[var(--border)] bg-[var(--surface)] px-2 py-1 text-[var(--text)]" />
                 </div>
                 <div className="flex flex-wrap items-center gap-2 pl-6 sm:flex-1 sm:pl-0">
-                  <span className="w-full text-xs text-[var(--muted)] sm:w-20 sm:text-sm">{l.data}</span>
+                  <input type="date" value={l.data} onChange={(e) => atualizar(i, { data: e.target.value })}
+                    className="rounded border border-[var(--border)] bg-[var(--surface)] px-1 py-1 text-xs text-[var(--text)] sm:w-32" />
                   <select value={l.categoria_id ?? ""} onChange={(e) => atualizar(i, { categoria_id: e.target.value || null })}
                     className="min-w-0 flex-1 rounded border border-[var(--border)] bg-[var(--surface)] px-1 py-1 text-[var(--text)] sm:flex-none">
                     <option value="">—</option>
                     {ordenarComSubcategorias(categorias).map((c) => <option key={c.id} value={c.id}>{c.rotulo}</option>)}
                   </select>
-                  <span className="mono ml-auto text-right sm:ml-0 sm:w-24">{centavosParaReais(l.valor_centavos)}</span>
+                  <MoneyInput centavos={l.valor_centavos} onCentavos={(v) => atualizar(i, { valor_centavos: v })} className="mono"
+                    style={{ width: 96, textAlign: "right", padding: "4px 8px", borderRadius: 4, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)" }} />
                   {origem.startsWith("card:") && (
                     <button type="button" onClick={() => atualizar(i, { fixo: !l.fixo })}
                       title={l.fixo ? "Marcado como gasto fixo (mapeia nas próximas faturas)" : "Marcar como gasto fixo"}
@@ -257,11 +269,18 @@ export function Importador({
                       <Repeat size={12} weight={l.fixo ? "fill" : "regular"} /> fixo
                     </button>
                   )}
-                  {l.duplicada && <span className="w-full text-xs text-[var(--alerta)] sm:w-auto">já lançado</span>}
+                  {l.duplicada && <span className="text-xs text-[var(--alerta)]">já lançado</span>}
+                  <button type="button" onClick={() => removerLinha(i)} aria-label="Remover linha"
+                    className="rounded p-1 text-[var(--muted)] hover:text-[var(--negativo)]"><X size={14} /></button>
                 </div>
               </div>
             ))}
           </div>
+
+          <button type="button" onClick={adicionarLinha}
+            className="mt-2 flex items-center gap-1.5 self-start rounded-[var(--radius-sm)] border border-dashed border-[var(--border)] px-3 py-1.5 text-sm text-[var(--muted)] hover:border-[var(--accent)] hover:text-[var(--accent)]">
+            <Plus size={14} /> Adicionar lançamento
+          </button>
         </Card>
       )}
     </div>
