@@ -7,7 +7,7 @@ export default async function ImportarPage() {
   const [{ data: cartoes }, { data: contas }, { data: categorias }, { data: membros }, { data: importadas }] = await Promise.all([
     supabase.from("cards").select("id, nome, titular").order("nome"),
     supabase.from("accounts").select("id, nome, titular").order("nome"),
-    supabase.from("categories").select("id, nome, parent_id"),
+    supabase.from("categories").select("id, nome, parent_id, tipo"),
     supabase.from("members").select("nome"),
     supabase.from("transactions")
       .select("grupo_importacao, valor_centavos, created_at, card_id, account_id")

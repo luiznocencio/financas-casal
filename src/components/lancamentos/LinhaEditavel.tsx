@@ -17,7 +17,7 @@ type Tx = {
 
 export function LinhaEditavel({
   tx, categorias, membros, cartoes,
-}: { tx: Tx; categorias: { id: string; nome: string; cor: string; parent_id?: string | null }[]; membros: string[]; cartoes: { id: string; nome: string }[] }) {
+}: { tx: Tx; categorias: { id: string; nome: string; cor: string; parent_id?: string | null; tipo?: string }[]; membros: string[]; cartoes: { id: string; nome: string }[] }) {
   const router = useRouter();
   const [editando, setEditando] = useState(false);
   const [descricao, setDescricao] = useState(tx.descricao ?? "");
@@ -124,7 +124,7 @@ export function LinhaEditavel({
         <select value={categoriaId} onChange={(e) => setCategoriaId(e.target.value)}
           className="flex-1 rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--surface)] px-2 py-1.5 text-[var(--text)]">
           <option value="">Sem categoria</option>
-          {ordenarComSubcategorias(categorias).map((c) => <option key={c.id} value={c.id}>{c.rotulo}</option>)}
+          {ordenarComSubcategorias(categorias.filter((c) => !c.tipo || c.tipo === tx.tipo)).map((c) => <option key={c.id} value={c.id}>{c.rotulo}</option>)}
         </select>
         <Button variant="primary" onClick={salvar} disabled={salvando}>Salvar</Button>
         <Button variant="quiet" onClick={() => setEditando(false)}>Cancelar</Button>

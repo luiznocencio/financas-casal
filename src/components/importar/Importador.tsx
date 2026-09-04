@@ -20,7 +20,7 @@ export function Importador({
 }: {
   cartoes: { id: string; nome: string; titular?: string | null }[];
   contas: { id: string; nome: string; titular?: string | null }[];
-  categorias: { id: string; nome: string; parent_id?: string | null }[]; membros: string[];
+  categorias: { id: string; nome: string; parent_id?: string | null; tipo?: string }[]; membros: string[];
 }) {
   const router = useRouter();
   const agora = new Date();
@@ -253,7 +253,7 @@ export function Importador({
                   <select value={l.categoria_id ?? ""} onChange={(e) => atualizar(i, { categoria_id: e.target.value || null })}
                     className="min-w-0 flex-1 rounded border border-[var(--border)] bg-[var(--surface)] px-1 py-1 text-[var(--text)] sm:flex-none">
                     <option value="">—</option>
-                    {ordenarComSubcategorias(categorias).map((c) => <option key={c.id} value={c.id}>{c.rotulo}</option>)}
+                    {ordenarComSubcategorias(categorias.filter((c) => !c.tipo || c.tipo === l.tipo)).map((c) => <option key={c.id} value={c.id}>{c.rotulo}</option>)}
                   </select>
                   <MoneyInput centavos={l.valor_centavos} onCentavos={(v) => atualizar(i, { valor_centavos: v })} className="mono"
                     style={{ width: 96, textAlign: "right", padding: "4px 8px", borderRadius: 4, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)" }} />

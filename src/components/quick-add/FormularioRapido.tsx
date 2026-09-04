@@ -63,6 +63,13 @@ export function FormularioRapido({
     setOrigemId(id);
     const dono = titularDe(tipoOrigem, id); if (dono) setPessoa(dono);
   }
+  // categorias do tipo do lançamento (não misturar receita/despesa)
+  const catsDoTipo = categorias.filter((c) => c.tipo === tipo);
+  function trocarTipoLancamento(t: "despesa" | "receita") {
+    setTipo(t);
+    // se a categoria escolhida não é do novo tipo, limpa
+    if (categoriaId && !categorias.some((c) => c.id === categoriaId && c.tipo === t)) setCategoriaId("");
+  }
 
   async function salvar() {
     setErro(null);
@@ -109,8 +116,8 @@ export function FormularioRapido({
             border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)",
           }} />
         <div style={{ display: "flex", flexDirection: "column", gap: 6, width: 108 }}>
-          <button onClick={() => setTipo("despesa")} aria-pressed={tipo === "despesa"} style={{ ...chipStyle(tipo === "despesa"), padding: "6px 8px" }}>Despesa</button>
-          <button onClick={() => setTipo("receita")} aria-pressed={tipo === "receita"} style={{ ...chipStyle(tipo === "receita"), padding: "6px 8px" }}>Receita</button>
+          <button onClick={() => trocarTipoLancamento("despesa")} aria-pressed={tipo === "despesa"} style={{ ...chipStyle(tipo === "despesa"), padding: "6px 8px" }}>Despesa</button>
+          <button onClick={() => trocarTipoLancamento("receita")} aria-pressed={tipo === "receita"} style={{ ...chipStyle(tipo === "receita"), padding: "6px 8px" }}>Receita</button>
         </div>
       </div>
 
@@ -148,7 +155,7 @@ export function FormularioRapido({
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
         <select value={categoriaId} onChange={(e) => setCategoriaId(e.target.value)} style={selectStyle}>
           <option value="">Sem categoria</option>
-          {ordenarComSubcategorias(categorias).map((c) => <option key={c.id} value={c.id}>{c.rotulo}</option>)}
+          {ordenarComSubcategorias(catsDoTipo).map((c) => <option key={c.id} value={c.id}>{c.rotulo}</option>)}
         </select>
         <select value={pessoa} onChange={(e) => setPessoa(e.target.value)} style={selectStyle}>
           {membros.map((m) => <option key={m} value={m}>{m}</option>)}

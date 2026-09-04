@@ -23,7 +23,7 @@ export default async function Lancamentos({
   const [txsRes, membrosRes, categoriasRes, cardsRes] = await Promise.all([
     q,
     supabase.from("members").select("nome"),
-    supabase.from("categories").select("id, nome, cor, parent_id"),
+    supabase.from("categories").select("id, nome, cor, parent_id, tipo"),
     supabase.from("cards").select("id, nome"),
   ]);
   const { data: txs, error } = txsRes;
