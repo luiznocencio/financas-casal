@@ -159,10 +159,20 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   const topCategorias = Object.entries(resumo.porCategoria).sort((a, b) => b[1] - a[1]);
   const maiorCategoria = topCategorias.length ? topCategorias[0][1] : 0;
 
+  // "Despesas do mês" inclui as contas a pagar PENDENTES do mês (despesa que vai
+  // existir mesmo antes de vencer). As já pagas já entram como despesa real.
+  const pagoContaRef = new Set((txs ?? [])
+    .filter((t) => { if (!t.conta_pagar_id) return false; const [a, m] = t.data_compra.split("-").map(Number); return a === ref.ano && m === ref.mes; })
+    .map((t) => t.conta_pagar_id));
+  const contasPendentesRef = contasAtivas
+    .filter((c) => contaVisivelNoMes(c, ref.ano, ref.mes, pagaContaAlgumaVez.has(c.id), pagoContaRef.has(c.id)) && !pagoContaRef.has(c.id))
+    .reduce((s, c) => s + (c.valor_estimado_centavos ?? 0), 0);
+  const despesasDoMes = resumo.totalDespesas + contasPendentesRef;
+
   const stats = [
     { rotulo: ehAtual ? "Saldo em contas" : ehFuturo ? "Saldo projetado" : "Saldo no fim do mês", valor: saldoTileValor, sinal: true },
     { rotulo: "Faturas abertas", valor: comprometido, sinal: false },
-    { rotulo: "Despesas do mês", valor: resumo.totalDespesas, sinal: false },
+    { rotulo: "Despesas do mês", valor: despesasDoMes, sinal: false },
     { rotulo: "Receitas do mês", valor: resumo.totalReceitas, sinal: false },
   ];
 
