@@ -69,7 +69,7 @@ export async function SecaoAReceber() {
                   </div>
                   <div className="flex items-center gap-3">
                     <Money centavos={r.valor_centavos} sinal />
-                    <ReceitaAcoes id={r.id} />
+                    <ReceitaAcoes id={r.id} valorBase={r.valor_centavos} />
                   </div>
                 </div>
               );

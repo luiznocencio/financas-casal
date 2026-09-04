@@ -22,4 +22,12 @@ describe("saldoConta", () => {
   it("transferência conta como despesa naquela conta", () => {
     expect(saldoConta(10000, [{ tipo: "transferencia", valor_centavos: 4000 }])).toBe(6000);
   });
+  it("a perna de entrada da transferência soma no saldo do destino", () => {
+    expect(saldoConta(10000, [{ tipo: "transferencia_entrada", valor_centavos: 4000 }])).toBe(14000);
+  });
+  it("transferência entre contas: sai de uma, entra na outra (soma zero)", () => {
+    const origem = saldoConta(10000, [{ tipo: "transferencia", valor_centavos: 4000 }]);
+    const destino = saldoConta(0, [{ tipo: "transferencia_entrada", valor_centavos: 4000 }]);
+    expect(origem + destino).toBe(10000); // o dinheiro só mudou de lugar
+  });
 });

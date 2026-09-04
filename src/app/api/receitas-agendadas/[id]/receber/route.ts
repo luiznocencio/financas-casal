@@ -17,10 +17,11 @@ function proximoMes(iso: string): string {
 
 // Marca "recebi": cria a receita de verdade na conta destino. Se for mensal,
 // avança a data pro mês seguinte; se for única, desativa (some do "a receber").
-export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const membro = await getMembroAtual();
   if (!membro) return NextResponse.json({ error: "sem household" }, { status: 400 });
   const { id } = await params;
+  const body = await req.json().catch(() => ({}));
   const supabase = await createServerSupabase();
 
   const { data: ra, error } = await supabase.from("receitas_agendadas").select("*").eq("id", id).maybeSingle();
@@ -28,12 +29,14 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
   const r = ra as ReceitaAgendada;
   if (!r.ativo) return NextResponse.json({ error: "já recebida" }, { status: 400 }); // evita receber 2x uma única
 
+  // valor real recebido (salário oscila); sem valor válido, usa o valor base
+  const valor = Number(body?.valor_centavos) > 0 ? Math.round(Number(body.valor_centavos)) : r.valor_centavos;
   const hoje = new Date().toISOString().slice(0, 10);
   const { error: errTx } = await persistirLancamento(
     supabase,
     { householdId: membro.household_id, criadoPor: membro.user_id },
     {
-      tipo: "receita", valor_centavos: r.valor_centavos, data_compra: hoje,
+      tipo: "receita", valor_centavos: valor, data_compra: hoje,
       categoria_id: null, pessoa: r.pessoa, account_id: r.account_id, card_id: null,
       total_parcelas: 1, descricao: r.descricao, origem_ia: false,
     },

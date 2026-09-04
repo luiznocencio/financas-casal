@@ -1,5 +1,5 @@
 export type Pessoa = string; // nome do membro ou 'conjunto'
-export type TipoTransacao = "despesa" | "receita" | "transferencia";
+export type TipoTransacao = "despesa" | "receita" | "transferencia" | "transferencia_entrada";
 
 export type Household = { id: string; nome: string; invite_code: string; renda_mensal_centavos: number };
 export type Budget = { id: string; household_id: string; categoria_id: string; percentual: number };

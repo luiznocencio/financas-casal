@@ -4,6 +4,7 @@ import { Money } from "@/components/ui/Money";
 import { Card } from "@/components/ui/Card";
 import { AddContaForm } from "@/components/contas/AddContaForm";
 import { EditarConta } from "@/components/contas/EditarConta";
+import { TransferirEntreContas } from "@/components/contas/TransferirEntreContas";
 
 const ROTULO_TIPO: Record<string, string> = {
   corrente: "Conta corrente",
@@ -33,7 +34,10 @@ export default async function ContasPage() {
         </p>
       </header>
 
-      <AddContaForm membros={membros} />
+      <div className="flex flex-wrap items-center gap-3">
+        <AddContaForm membros={membros} />
+        <TransferirEntreContas contas={(contas ?? []).map((c) => ({ id: c.id, nome: c.nome, titular: c.titular }))} />
+      </div>
 
       {linhas.length === 0 ? (
         <Card>

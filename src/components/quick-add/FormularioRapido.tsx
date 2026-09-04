@@ -15,6 +15,7 @@ export function FormularioRapido({
   inicial?: {
     descricao?: string | null; tipo?: "despesa" | "receita"; categoria_id?: string | null;
     pessoa?: string | null; total_parcelas?: number; card_id?: string | null; account_id?: string | null;
+    data?: string | null;
   };
 }) {
   const membrosSet = new Set(membros);
@@ -48,6 +49,8 @@ export function FormularioRapido({
     inicial?.pessoa ?? titularDe(origemInicial.tipo, origemInicial.id) ?? usuarioAtual ?? membros[0] ?? "conjunto",
   );
   const [parcelas, setParcelas] = useState(inicial?.total_parcelas && inicial.total_parcelas > 0 ? inicial.total_parcelas : 1);
+  const hojeISO = new Date().toISOString().slice(0, 10);
+  const [data, setData] = useState(inicial?.data ?? hojeISO);
   const [erro, setErro] = useState<string | null>(null);
 
   function trocarTipo(t: TipoOrigem) {
@@ -66,7 +69,7 @@ export function FormularioRapido({
     if (!origemId) { setErro("Escolha o cartão/conta."); return; }
     const body = {
       tipo, valor_centavos: centavos,
-      data_compra: new Date().toISOString().slice(0, 10),
+      data_compra: data,
       categoria_id: categoriaId || null, pessoa,
       account_id: tipoOrigem === "acc" ? origemId : null,
       card_id: tipoOrigem === "card" ? origemId : null,
@@ -111,10 +114,14 @@ export function FormularioRapido({
         </div>
       </div>
 
-      {/* nome/descrição do gasto (opcional) */}
-      <input value={descricao} onChange={(e) => setDescricao(e.target.value)}
-        placeholder="Nome (ex.: mercado do mês)"
-        style={{ ...selectStyle, fontSize: "1rem" }} />
+      {/* nome/descrição + data da compra */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 148px", gap: 8 }}>
+        <input value={descricao} onChange={(e) => setDescricao(e.target.value)}
+          placeholder="Nome (ex.: mercado do mês)"
+          style={{ ...selectStyle, fontSize: "1rem" }} />
+        <input type="date" value={data} onChange={(e) => setData(e.target.value)} title="Data da compra"
+          style={{ ...selectStyle, fontSize: "0.9rem" }} />
+      </div>
 
       {/* 1º passo: cartão ou pix */}
       <div style={{ display: "flex", gap: 8 }}>

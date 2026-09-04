@@ -52,6 +52,15 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
   if (!membro) return NextResponse.json({ error: "sem household" }, { status: 400 });
   const { id } = await params;
   const supabase = await createServerSupabase();
+
+  // se for uma perna de transferência, apaga o par inteiro (mantém o saldo íntegro)
+  const { data: alvo } = await supabase.from("transactions").select("grupo_transferencia").eq("id", id).maybeSingle();
+  if (alvo?.grupo_transferencia) {
+    const { error } = await supabase.from("transactions").delete().eq("grupo_transferencia", alvo.grupo_transferencia);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ ok: true });
+  }
+
   const { error } = await supabase.from("transactions").delete().eq("id", id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ ok: true });

@@ -1,5 +1,5 @@
 type TxResumo = {
-  tipo: "despesa" | "receita" | "transferencia";
+  tipo: "despesa" | "receita" | "transferencia" | "transferencia_entrada";
   valor_centavos: number;
   pessoa: string;
   categoria_id: string | null;

@@ -48,11 +48,13 @@ export function LinhaEditavel({
     router.refresh();
   }
 
-  const valorSinal = tx.tipo === "receita" ? tx.valor_centavos : -tx.valor_centavos;
+  const entrada = tx.tipo === "receita" || tx.tipo === "transferencia_entrada";
+  const valorSinal = entrada ? tx.valor_centavos : -tx.valor_centavos;
+  const ehTransferencia = tx.tipo === "transferencia" || tx.tipo === "transferencia_entrada";
   const cat = categorias.find((c) => c.id === tx.categoria_id);
   const cartaoNome = tx.card_id ? cartoes.find((c) => c.id === tx.card_id)?.nome ?? "Cartão" : null;
-  // origem: cartão (mostra o nome) ou conta (mostra "Pix")
-  const origemLabel = cartaoNome ?? (tx.account_id ? "Pix" : null);
+  // origem: transferência, cartão (mostra o nome) ou conta (mostra "Pix")
+  const origemLabel = ehTransferencia ? "Transferência" : (cartaoNome ?? (tx.account_id ? "Pix" : null));
 
   if (!editando) {
     return (
