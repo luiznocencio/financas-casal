@@ -60,7 +60,7 @@ export function Importador({
         setErro(r.senhaErrada ? "Senha incorreta. Tente de novo." : "Esse PDF é protegido — informe a senha.");
         return;
       }
-      if (!r.ok) { setErro("Não consegui ler esse PDF. Tente colar o texto."); return; }
+      if (!r.ok) { setErro(r.detalhe ? `Não consegui ler o PDF: ${r.detalhe}` : "Não consegui ler esse PDF. Tente colar o texto."); return; }
       setPrecisaSenha(false); setTexto(r.texto);
     } catch {
       setErro("Falha ao ler o PDF.");

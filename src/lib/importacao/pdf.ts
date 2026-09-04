@@ -1,6 +1,5 @@
 // Extração de texto de PDF no servidor, com suporte a PDF protegido por senha
 // (ex.: fatura do Itaú). Usa pdfjs-dist (legacy build, roda no Node sem worker).
-import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
 
 export type ResultadoPdf =
   | { ok: true; texto: string }
@@ -8,13 +7,30 @@ export type ResultadoPdf =
 
 type ItemTexto = { str?: string };
 
+// pdfjs v4 usa Promise.withResolvers (Node 22+); em runtimes com Node 20 isso
+// não existe e quebra a leitura. Polyfill defensivo antes de carregar o pdfjs.
+function garantirPolyfill() {
+  const P = Promise as unknown as { withResolvers?: () => unknown };
+  if (typeof P.withResolvers !== "function") {
+    P.withResolvers = function <T>() {
+      let resolve!: (v: T | PromiseLike<T>) => void;
+      let reject!: (r?: unknown) => void;
+      const promise = new Promise<T>((res, rej) => { resolve = res; reject = rej; });
+      return { promise, resolve, reject };
+    };
+  }
+}
+
 export async function extrairTextoPdf(buffer: Buffer, senha?: string): Promise<ResultadoPdf> {
+  garantirPolyfill();
+  const { getDocument } = await import("pdfjs-dist/legacy/build/pdf.mjs");
   try {
     const doc = await getDocument({
       data: new Uint8Array(buffer),
       password: senha || undefined,
       isEvalSupported: false,
       useSystemFonts: false,
+      useWorkerFetch: false,
     }).promise;
 
     let texto = "";

@@ -19,9 +19,11 @@ export async function POST(req: Request) {
       // PDF protegido: pede a senha (ou avisa que a senha está errada)
       return NextResponse.json({ ok: false, precisaSenha: true, senhaErrada: r.senhaErrada });
     }
-    if (!r.texto) return NextResponse.json({ ok: false });
+    if (!r.texto) return NextResponse.json({ ok: false, detalhe: "PDF sem texto extraível" });
     return NextResponse.json({ ok: true, texto: r.texto });
-  } catch {
-    return NextResponse.json({ ok: false });
+  } catch (e) {
+    const msg = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
+    console.error("[importar/pdf] falha:", msg);
+    return NextResponse.json({ ok: false, detalhe: msg.slice(0, 300) });
   }
 }
