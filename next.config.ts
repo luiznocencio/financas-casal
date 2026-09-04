@@ -1,6 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // pdfjs-dist não deve ser empacotado (usa ESM/dyn imports; roda no runtime node)
+  serverExternalPackages: ["pdfjs-dist"],
   images: {
     remotePatterns: [{ protocol: "https", hostname: "images.unsplash.com" }],
   },

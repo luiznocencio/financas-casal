@@ -30,6 +30,9 @@ export function Importador({
   const [carregando, setCarregando] = useState(false);
   const [lendoPdf, setLendoPdf] = useState(false);
   const [arqNome, setArqNome] = useState<string | null>(null);
+  const [arquivoPdf, setArquivoPdf] = useState<File | null>(null);
+  const [senhaPdf, setSenhaPdf] = useState("");
+  const [precisaSenha, setPrecisaSenha] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [resultado, setResultado] = useState<string | null>(null);
 
@@ -37,15 +40,28 @@ export function Importador({
     const f = e.target.files?.[0];
     if (!f) return;
     setArqNome(f.name);
+    setPrecisaSenha(false); setSenhaPdf(""); setArquivoPdf(null);
     const ehPdf = f.type === "application/pdf" || f.name.toLowerCase().endsWith(".pdf");
     if (!ehPdf) { f.text().then(setTexto); return; }
+    setArquivoPdf(f);
+    await lerPdf(f);
+  }
+
+  // lê o PDF no servidor; se for protegido, pede a senha e tenta de novo com ela
+  async function lerPdf(f: File, senha?: string) {
     setErro(null); setLendoPdf(true);
     try {
       const fd = new FormData();
       fd.append("arquivo", f);
+      if (senha) fd.append("senha", senha);
       const r = await fetch("/api/importar/pdf", { method: "POST", body: fd }).then((x) => x.json());
+      if (r.precisaSenha) {
+        setPrecisaSenha(true);
+        setErro(r.senhaErrada ? "Senha incorreta. Tente de novo." : "Esse PDF é protegido — informe a senha.");
+        return;
+      }
       if (!r.ok) { setErro("Não consegui ler esse PDF. Tente colar o texto."); return; }
-      setTexto(r.texto);
+      setPrecisaSenha(false); setTexto(r.texto);
     } catch {
       setErro("Falha ao ler o PDF.");
     } finally {
@@ -155,6 +171,18 @@ export function Importador({
               </span>
             </Button>
           </div>
+          {precisaSenha && arquivoPdf && (
+            <div className="flex flex-wrap items-center gap-2">
+              <input type="password" value={senhaPdf} onChange={(e) => setSenhaPdf(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter" && senhaPdf) lerPdf(arquivoPdf, senhaPdf); }}
+                placeholder="Senha do PDF" autoFocus
+                className="rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text)]" />
+              <Button variant="primary" onClick={() => lerPdf(arquivoPdf, senhaPdf)} disabled={lendoPdf || !senhaPdf}>
+                Abrir com senha
+              </Button>
+              <span className="text-xs text-[var(--muted)]">A senha da fatura do Itaú costuma ser os dígitos do CPF do titular.</span>
+            </div>
+          )}
           {erro && <p className="text-sm text-[var(--negativo)]">{erro}</p>}
           {resultado && <p className="text-sm text-[var(--positivo)]">{resultado}</p>}
         </div>
