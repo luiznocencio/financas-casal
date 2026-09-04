@@ -7,6 +7,7 @@ export type CtxRegistro = {
   grupoImportacao?: string | null;
   recorrenteId?: string | null;
   contaPagarId?: string | null;
+  receitaAgendadaId?: string | null;
 };
 
 /**
@@ -34,6 +35,7 @@ export function mapearRegistros(
       grupo_importacao: ctx.grupoImportacao ?? null,
       recorrente_id: ctx.recorrenteId ?? null,
       conta_pagar_id: ctx.contaPagarId ?? null,
+      receita_agendada_id: ctx.receitaAgendadaId ?? null,
     };
   });
 }

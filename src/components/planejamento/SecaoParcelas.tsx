@@ -1,20 +1,29 @@
 import { createServerSupabase } from "@/lib/supabase/server";
+import { partesNoFuso } from "@/lib/financeiro/fechamento";
 import { Money } from "@/components/ui/Money";
 import { Card } from "@/components/ui/Card";
 import { agruparParcelas, type TxParcela } from "@/lib/importacao/parcelas";
 
 export async function SecaoParcelas() {
   const supabase = await createServerSupabase();
-  const [txsRes, cardsRes] = await Promise.all([
+  const { ano, mes } = partesNoFuso(new Date(), "America/Sao_Paulo");
+  const [txsRes, cardsRes, invoicesRes] = await Promise.all([
     supabase.from("transactions")
-      .select("grupo_parcela, card_id, descricao, valor_centavos, total_parcelas, parcela_n")
+      .select("grupo_parcela, card_id, descricao, valor_centavos, total_parcelas, parcela_n, invoice_id")
       .gt("total_parcelas", 1).not("card_id", "is", null),
     supabase.from("cards").select("id, nome"),
+    supabase.from("invoices").select("id, competencia_ano, competencia_mes"),
   ]);
-  const erro = txsRes.error ?? cardsRes.error;
+  const erro = txsRes.error ?? cardsRes.error ?? invoicesRes.error;
   if (erro) throw new Error(`Falha ao carregar as parcelas: ${erro.message}`);
 
   const nomeCartao = new Map((cardsRes.data ?? []).map((c) => [c.id, c.nome]));
+  // parcela deste mês = soma das parcelas cuja fatura (competência) é o mês atual
+  const compPorInvoice = new Map((invoicesRes.data ?? []).map((i) => [i.id, { ano: i.competencia_ano, mes: i.competencia_mes }]));
+  const parcelaDoMes = (txsRes.data ?? []).reduce((s, t) => {
+    const comp = t.invoice_id ? compPorInvoice.get(t.invoice_id) : null;
+    return comp && comp.ano === ano && comp.mes === mes ? s + t.valor_centavos : s;
+  }, 0);
   const txs: TxParcela[] = (txsRes.data ?? []).map((t) => ({
     grupo_parcela: t.grupo_parcela,
     card_id: t.card_id,
@@ -32,8 +41,18 @@ export async function SecaoParcelas() {
     <div className="flex flex-col gap-6">
       <p className="text-sm text-[var(--muted)]">
         Compras parceladas nos cartões e quantas parcelas faltam. Ao importar a fatura seguinte, a parcela é ligada automaticamente à mesma compra.
-        {ativas.length > 0 && <> Ainda a pagar nas parceladas: <Money centavos={restanteTotal} tamanho="sm" />.</>}
       </p>
+
+      <div className="flex flex-wrap gap-3">
+        <div className="flex-1 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface)] px-4 py-3">
+          <div className="text-xs text-[var(--muted)]">Parcelas neste mês</div>
+          <Money centavos={parcelaDoMes} tamanho="lg" />
+        </div>
+        <div className="flex-1 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface)] px-4 py-3">
+          <div className="text-xs text-[var(--muted)]">Ainda a pagar (todas)</div>
+          <Money centavos={restanteTotal} tamanho="lg" />
+        </div>
+      </div>
 
       {compras.length === 0 ? (
         <Card><p className="text-sm text-[var(--muted)]">Nenhuma compra parcelada por enquanto. Elas aparecem aqui quando você importa uma fatura com parcelas (ex.: “3/12”) ou lança uma compra parcelada.</p></Card>

@@ -5,7 +5,7 @@ import { Check, Trash } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/Button";
 import { MoneyInput } from "@/components/ui/MoneyInput";
 
-export function ReceitaAcoes({ id, valorBase }: { id: string; valorBase: number }) {
+export function ReceitaAcoes({ id, valorBase, jaRecebido = false }: { id: string; valorBase: number; jaRecebido?: boolean }) {
   const router = useRouter();
   const [ocupado, setOcupado] = useState(false);
   const [recebendo, setRecebendo] = useState(false);
@@ -45,9 +45,13 @@ export function ReceitaAcoes({ id, valorBase }: { id: string; valorBase: number 
   return (
     <div className="flex flex-wrap items-center justify-end gap-2">
       {erro && <span className="text-xs text-[var(--negativo)]">{erro}</span>}
-      <Button variant="primary" onClick={() => setRecebendo(true)} disabled={ocupado}>
-        <span className="flex items-center gap-1.5"><Check size={14} /> Recebi</span>
-      </Button>
+      {jaRecebido ? (
+        <span className="flex items-center gap-1.5 text-sm text-[var(--positivo)]"><Check size={14} /> recebido</span>
+      ) : (
+        <Button variant="primary" onClick={() => setRecebendo(true)} disabled={ocupado}>
+          <span className="flex items-center gap-1.5"><Check size={14} /> Recebi</span>
+        </Button>
+      )}
       {confirmando ? (
         <>
           <Button variant="danger" onClick={remover} disabled={ocupado}>Apagar</Button>

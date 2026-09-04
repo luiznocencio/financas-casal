@@ -34,7 +34,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const hoje = new Date().toISOString().slice(0, 10);
   const { error: errTx } = await persistirLancamento(
     supabase,
-    { householdId: membro.household_id, criadoPor: membro.user_id },
+    { householdId: membro.household_id, criadoPor: membro.user_id, receitaAgendadaId: id },
     {
       tipo: "receita", valor_centavos: valor, data_compra: hoje,
       categoria_id: null, pessoa: r.pessoa, account_id: r.account_id, card_id: null,
