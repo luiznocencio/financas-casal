@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { PencilSimple, Trash } from "@phosphor-icons/react";
-import { reaisParaCentavos } from "@/lib/financeiro/dinheiro";
+import { MoneyField } from "@/components/ui/MoneyField";
 import { Field } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
 import { TitularSelect } from "@/components/ui/TitularSelect";
@@ -14,7 +14,7 @@ export function EditarConta({ conta, membros }: { conta: Account; membros: strin
   const [confirmandoExclusao, setConfirmandoExclusao] = useState(false);
   const [nome, setNome] = useState(conta.nome);
   const [tipo, setTipo] = useState(conta.tipo);
-  const [saldo, setSaldo] = useState((conta.saldo_inicial_centavos / 100).toString());
+  const [saldo, setSaldo] = useState(conta.saldo_inicial_centavos);
   const [titular, setTitular] = useState(conta.titular ?? "");
   const [erro, setErro] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
@@ -28,7 +28,7 @@ export function EditarConta({ conta, membros }: { conta: Account; membros: strin
       method: "PATCH",
       body: JSON.stringify({
         nome: nome.trim(), tipo,
-        saldo_inicial_centavos: reaisParaCentavos(saldo), titular: titular.trim() || null,
+        saldo_inicial_centavos: saldo, titular: titular.trim() || null,
       }),
     });
     setSalvando(false);
@@ -60,7 +60,7 @@ export function EditarConta({ conta, membros }: { conta: Account; membros: strin
               <option value="poupanca">Poupança</option>
             </select>
           </label>
-          <Field label="Saldo inicial (R$)" inputMode="decimal" value={saldo} onChange={(e) => setSaldo(e.target.value)} />
+          <MoneyField label="Saldo inicial (R$)" centavos={saldo} onCentavos={setSaldo} />
         </div>
         <TitularSelect value={titular} onChange={setTitular} membros={membros} />
         {erro && <p style={{ color: "var(--negativo)", margin: 0, fontSize: "0.85rem" }}>{erro}</p>}

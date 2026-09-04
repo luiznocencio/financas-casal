@@ -68,7 +68,7 @@ export async function SecaoAReceber() {
                       {r.descricao}
                       {r.origem_salario && (
                         <span className="ml-2 rounded-full px-2 py-0.5 align-middle text-[0.65rem] font-medium"
-                          style={{ background: "var(--positivo-weak, color-mix(in srgb, var(--positivo) 15%, transparent))", color: "var(--positivo)" }}>salário</span>
+                          style={{ background: "var(--positivo-weak, color-mix(in srgb, var(--positivo) 15%, transparent))", color: "var(--positivo)" }}>do orçamento</span>
                       )}
                     </span>
                     <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--muted)]">

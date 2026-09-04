@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { reaisParaCentavos } from "@/lib/financeiro/dinheiro";
+import { MoneyField } from "@/components/ui/MoneyField";
 import { Field } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
 import { TitularSelect } from "@/components/ui/TitularSelect";
@@ -11,7 +11,7 @@ export function AddContaForm({ membros }: { membros: string[] }) {
   const [aberto, setAberto] = useState(false);
   const [nome, setNome] = useState("");
   const [tipo, setTipo] = useState("corrente");
-  const [saldo, setSaldo] = useState("");
+  const [saldo, setSaldo] = useState(0);
   const [titular, setTitular] = useState("");
   const [erro, setErro] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
@@ -22,11 +22,11 @@ export function AddContaForm({ membros }: { membros: string[] }) {
     setSalvando(true);
     const res = await fetch("/api/accounts", {
       method: "POST",
-      body: JSON.stringify({ nome: nome.trim(), tipo, saldo_inicial_centavos: reaisParaCentavos(saldo), titular: titular.trim() || null }),
+      body: JSON.stringify({ nome: nome.trim(), tipo, saldo_inicial_centavos: saldo, titular: titular.trim() || null }),
     });
     setSalvando(false);
     if (!res.ok) { setErro("Não foi possível criar a conta."); return; }
-    setNome(""); setSaldo(""); setTipo("corrente"); setTitular(""); setAberto(false); router.refresh();
+    setNome(""); setSaldo(0); setTipo("corrente"); setTitular(""); setAberto(false); router.refresh();
   }
 
   if (!aberto) return <Button variant="ghost" onClick={() => setAberto(true)}>+ Adicionar conta</Button>;
@@ -43,7 +43,7 @@ export function AddContaForm({ membros }: { membros: string[] }) {
             <option value="poupanca">Poupança</option>
           </select>
         </label>
-        <Field label="Saldo inicial (R$)" inputMode="decimal" value={saldo} onChange={(e) => setSaldo(e.target.value)} placeholder="0,00" />
+        <MoneyField label="Saldo inicial (R$)" centavos={saldo} onCentavos={setSaldo} placeholder="0,00" />
       </div>
       <TitularSelect value={titular} onChange={setTitular} membros={membros} />
       {erro && <p style={{ color: "var(--negativo)", margin: 0, fontSize: "0.85rem" }}>{erro}</p>}

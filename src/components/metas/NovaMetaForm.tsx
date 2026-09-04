@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { reaisParaCentavos } from "@/lib/financeiro/dinheiro";
+import { MoneyField } from "@/components/ui/MoneyField";
 import { Field } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
 
@@ -9,7 +9,7 @@ export function NovaMetaForm() {
   const router = useRouter();
   const [aberto, setAberto] = useState(false);
   const [nome, setNome] = useState("");
-  const [alvo, setAlvo] = useState("");
+  const [alvo, setAlvo] = useState(0);
   const [dataAlvo, setDataAlvo] = useState("");
   const [erro, setErro] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
@@ -19,11 +19,11 @@ export function NovaMetaForm() {
     setSalvando(true);
     const res = await fetch("/api/metas", {
       method: "POST",
-      body: JSON.stringify({ nome, valor_alvo_centavos: reaisParaCentavos(alvo), data_alvo: dataAlvo || null }),
+      body: JSON.stringify({ nome, valor_alvo_centavos: alvo, data_alvo: dataAlvo || null }),
     });
     setSalvando(false);
     if (!res.ok) { setErro("Não foi possível criar a meta. Confira os dados."); return; }
-    setNome(""); setAlvo(""); setDataAlvo(""); setAberto(false); router.refresh();
+    setNome(""); setAlvo(0); setDataAlvo(""); setAberto(false); router.refresh();
   }
 
   if (!aberto) {
@@ -33,7 +33,7 @@ export function NovaMetaForm() {
     <div style={{ display: "grid", gap: 12, border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: 16, background: "var(--surface)" }}>
       <Field label="Nome" value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Ex.: Viagem" />
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-        <Field label="Valor alvo (R$)" inputMode="decimal" value={alvo} onChange={(e) => setAlvo(e.target.value)} placeholder="5.000" />
+        <MoneyField label="Valor alvo (R$)" centavos={alvo} onCentavos={setAlvo} placeholder="5.000,00" />
         <Field label="Data alvo (opcional)" type="date" value={dataAlvo} onChange={(e) => setDataAlvo(e.target.value)} />
       </div>
       {erro && <p style={{ color: "var(--negativo)", margin: 0, fontSize: "0.85rem" }}>{erro}</p>}

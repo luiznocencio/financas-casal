@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { reaisParaCentavos } from "@/lib/financeiro/dinheiro";
+import { MoneyField } from "@/components/ui/MoneyField";
 import { Field } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
 
@@ -16,7 +16,7 @@ export function AddRecorrente({
 
   const [aberto, setAberto] = useState(false);
   const [descricao, setDescricao] = useState("");
-  const [valor, setValor] = useState("");
+  const [valor, setValor] = useState(0);
   const [dia, setDia] = useState("");
   const [dataFim, setDataFim] = useState("");
   const [origem, setOrigem] = useState(origemInicial);
@@ -40,7 +40,7 @@ export function AddRecorrente({
     const res = await fetch("/api/recorrentes", {
       method: "POST",
       body: JSON.stringify({
-        descricao: descricao.trim(), valor_centavos: reaisParaCentavos(valor), dia: d,
+        descricao: descricao.trim(), valor_centavos: valor, dia: d,
         categoria_id: categoriaId || null, pessoa,
         account_id: prefixo === "acc" ? id : null, card_id: prefixo === "card" ? id : null,
         data_fim: dataFim || null,
@@ -48,7 +48,7 @@ export function AddRecorrente({
     }).catch(() => null);
     setSalvando(false);
     if (!res?.ok) { setErro("Não consegui salvar."); return; }
-    setDescricao(""); setValor(""); setDia(""); setDataFim(""); setCategoriaId(""); setAberto(false); router.refresh();
+    setDescricao(""); setValor(0); setDia(""); setDataFim(""); setCategoriaId(""); setAberto(false); router.refresh();
   }
 
   if (!aberto) return <Button variant="ghost" onClick={() => setAberto(true)}>+ Novo gasto fixo</Button>;
@@ -62,7 +62,7 @@ export function AddRecorrente({
     <div style={{ display: "grid", gap: 12, border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: 16, background: "var(--surface)" }}>
       <Field label="Descrição" value={descricao} onChange={(e) => setDescricao(e.target.value)} placeholder="Ex.: Netflix, aluguel, academia" />
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 10 }}>
-        <Field label="Valor (R$)" inputMode="decimal" value={valor} onChange={(e) => setValor(e.target.value)} placeholder="49,90" />
+        <MoneyField label="Valor (R$)" centavos={valor} onCentavos={setValor} placeholder="49,90" />
         <Field label="Dia do mês" type="number" value={dia} onChange={(e) => setDia(e.target.value)} placeholder="10" />
       </div>
       <Field label="Até quando (opcional)" type="date" value={dataFim} onChange={(e) => setDataFim(e.target.value)} />

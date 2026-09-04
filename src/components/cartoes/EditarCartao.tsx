@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { PencilSimple, Trash } from "@phosphor-icons/react";
-import { reaisParaCentavos } from "@/lib/financeiro/dinheiro";
+import { MoneyField } from "@/components/ui/MoneyField";
 import { Field } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
 import { TitularSelect } from "@/components/ui/TitularSelect";
@@ -14,7 +14,7 @@ export function EditarCartao({ card, membros }: { card: Card; membros: string[] 
   const [editando, setEditando] = useState(false);
   const [confirmandoExclusao, setConfirmandoExclusao] = useState(false);
   const [nome, setNome] = useState(card.nome);
-  const [limite, setLimite] = useState((card.limite_centavos / 100).toString());
+  const [limite, setLimite] = useState(card.limite_centavos);
   const [vencimento, setVencimento] = useState(String(card.dia_vencimento));
   const [diasAntes, setDiasAntes] = useState(String(card.dias_fechamento_antes ?? Math.max(0, card.dia_vencimento - card.dia_fechamento)));
   const [titular, setTitular] = useState(card.titular ?? "");
@@ -33,7 +33,7 @@ export function EditarCartao({ card, membros }: { card: Card; membros: string[] 
     const res = await fetch(`/api/cards/${card.id}`, {
       method: "PATCH",
       body: JSON.stringify({
-        nome: nome.trim(), limite_centavos: reaisParaCentavos(limite),
+        nome: nome.trim(), limite_centavos: limite,
         dia_vencimento: v, dias_fechamento_antes: d, titular: titular.trim() || null,
       }),
     });
@@ -57,7 +57,7 @@ export function EditarCartao({ card, membros }: { card: Card; membros: string[] 
       <div style={{ display: "grid", gap: 12 }}>
         <Field label="Nome" value={nome} onChange={(e) => setNome(e.target.value)} />
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-          <Field label="Limite (R$)" inputMode="decimal" value={limite} onChange={(e) => setLimite(e.target.value)} />
+          <MoneyField label="Limite (R$)" centavos={limite} onCentavos={setLimite} />
           <TitularSelect value={titular} onChange={setTitular} membros={membros} />
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>

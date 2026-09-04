@@ -1,20 +1,12 @@
 import { describe, it, expect } from "vitest";
-import { limiteCategoria, resumoOrcamento } from "./orcamento";
+import { resumoOrcamento } from "./orcamento";
 
-describe("limiteCategoria", () => {
-  it("limite = % da renda, arredondado em centavos", () => {
-    expect(limiteCategoria(1000000, 15)).toBe(150000); // 15% de R$10.000 = R$1.500
-    expect(limiteCategoria(1000000, 0)).toBe(0);
-    expect(limiteCategoria(333300, 33.33)).toBe(111089); // round(333300*0.3333)
-  });
-});
-
-describe("resumoOrcamento", () => {
+describe("resumoOrcamento (em reais)", () => {
   const params = {
     rendaCentavos: 1000000,
     budgets: [
-      { categoria_id: "mercado", percentual: 15 },
-      { categoria_id: "lazer", percentual: 10 },
+      { categoria_id: "mercado", valor_centavos: 150000 },
+      { categoria_id: "lazer", valor_centavos: 100000 },
     ],
     gastoPorCategoria: { mercado: 120000, lazer: 130000 },
   };
@@ -31,27 +23,25 @@ describe("resumoOrcamento", () => {
     expect(lazer.pctUsado).toBeCloseTo(130, 5);
   });
 
-  it("totais e alocação", () => {
+  it("totais e reserva (renda − orçado)", () => {
     const r = resumoOrcamento(params);
-    expect(r.totalPercentual).toBe(25);
     expect(r.totalOrcadoCentavos).toBe(250000);
     expect(r.totalGastoCentavos).toBe(250000);
-    expect(r.naoAlocadoPercentual).toBe(75);
-    expect(r.reservaCentavos).toBe(750000); // renda - orçado
+    expect(r.reservaCentavos).toBe(750000);
   });
 
-  it("categoria sem gasto conta como 0; não-alocado nunca negativo", () => {
+  it("orçar acima da renda deixa a reserva negativa", () => {
     const r = resumoOrcamento({
-      rendaCentavos: 1000000,
-      budgets: [{ categoria_id: "x", percentual: 120 as number }], // acima de 100 no total
+      rendaCentavos: 100000,
+      budgets: [{ categoria_id: "x", valor_centavos: 150000 }],
       gastoPorCategoria: {},
     });
-    expect(r.itens[0].gastoCentavos).toBe(0);
-    expect(r.naoAlocadoPercentual).toBe(0); // max(0, 100-120)
+    expect(r.totalOrcadoCentavos).toBe(150000);
+    expect(r.reservaCentavos).toBe(-50000);
   });
 
   it("pctUsado é 0 quando limite é 0 (evita divisão por zero)", () => {
-    const r = resumoOrcamento({ rendaCentavos: 0, budgets: [{ categoria_id: "x", percentual: 10 }], gastoPorCategoria: { x: 5000 } });
+    const r = resumoOrcamento({ rendaCentavos: 0, budgets: [{ categoria_id: "x", valor_centavos: 0 }], gastoPorCategoria: { x: 5000 } });
     expect(r.itens[0].limiteCentavos).toBe(0);
     expect(r.itens[0].pctUsado).toBe(0);
   });

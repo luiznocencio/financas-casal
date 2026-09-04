@@ -20,7 +20,7 @@ export default async function OrcamentoPage() {
   const [membrosRes, catsRes, budgetsRes, txsRes, contasRes] = await Promise.all([
     supabase.from("members").select("user_id, nome, renda_mensal_centavos, ajuda_custo_centavos, salario_account_id, ajuda_custo_account_id").order("papel"),
     supabase.from("categories").select("id, nome, cor, parent_id").eq("tipo", "despesa").order("nome"),
-    supabase.from("budgets").select("categoria_id, percentual"),
+    supabase.from("budgets").select("categoria_id, valor_centavos"),
     supabase.from("transactions").select("categoria_id, tipo, pessoa, valor_centavos, data_compra"),
     supabase.from("accounts").select("id, nome, titular").order("nome"),
   ]);
@@ -52,7 +52,7 @@ export default async function OrcamentoPage() {
   }
 
   const resumo = resumoOrcamento({ rendaCentavos: renda, budgets, gastoPorCategoria: gastoRollup });
-  const pctPorCat = new Map(budgets.map((b) => [b.categoria_id, b.percentual]));
+  const valorPorCat = new Map(budgets.map((b) => [b.categoria_id, b.valor_centavos]));
   const itemPorCat = new Map(resumo.itens.map((i) => [i.categoria_id, i]));
 
   return (
@@ -67,20 +67,19 @@ export default async function OrcamentoPage() {
       {/* resumo do mês: alocado x reserva, orçado x gasto */}
       <Card>
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-          <div><div className="text-xs text-[var(--muted)]">Alocado</div><div className="mono text-lg font-semibold" style={resumo.totalPercentual > 100 ? { color: "var(--alerta)" } : undefined}>{resumo.totalPercentual}%</div></div>
-          <div><div className="text-xs text-[var(--muted)]">Reserva</div><div className="text-lg"><Money centavos={resumo.reservaCentavos} sinal /></div></div>
+          <div><div className="text-xs text-[var(--muted)]">Renda</div><div className="text-lg"><Money centavos={renda} /></div></div>
           <div><div className="text-xs text-[var(--muted)]">Orçado</div><div className="text-lg"><Money centavos={resumo.totalOrcadoCentavos} /></div></div>
+          <div><div className="text-xs text-[var(--muted)]">Reserva</div><div className="text-lg"><Money centavos={resumo.reservaCentavos} sinal /></div></div>
           <div><div className="text-xs text-[var(--muted)]">Gasto no mês</div><div className="text-lg"><Money centavos={gastoTotalMes} /></div></div>
         </div>
-        {resumo.totalPercentual > 100 && (
-          <p style={{ color: "var(--alerta)" }}>Você alocou {resumo.totalPercentual}% da renda — acima de 100%.</p>
+        {resumo.reservaCentavos < 0 && (
+          <p style={{ color: "var(--alerta)" }}>Você orçou <Money centavos={resumo.totalOrcadoCentavos} tamanho="sm" /> — acima da renda de <Money centavos={renda} tamanho="sm" />.</p>
         )}
       </Card>
 
       {/* categorias (mães; o gasto dos filhos soma aqui) */}
       <div className="flex flex-col gap-3">
         {maes.map((c) => {
-          const pct = pctPorCat.get(c.id) ?? 0;
           const item = itemPorCat.get(c.id);
           const limite = item?.limiteCentavos ?? 0;
           const gasto = gastoRollup[c.id] ?? 0;
@@ -94,7 +93,7 @@ export default async function OrcamentoPage() {
                   className="flex min-w-0 items-center gap-2 break-words font-medium text-[var(--text)] hover:text-[var(--accent)]">
                   <CategoriaPonto cor={c.cor} />{c.nome}
                 </Link>
-                <PercentualEditor categoriaId={c.id} percentual={pct} />
+                <PercentualEditor categoriaId={c.id} valorCentavos={valorPorCat.get(c.id) ?? 0} />
               </div>
               <div className="h-2 overflow-hidden rounded-full bg-[var(--surface-2)]">
                 <div className="h-full rounded-full" style={{ width: `${Math.min(100, usado)}%`, background: cor }} />

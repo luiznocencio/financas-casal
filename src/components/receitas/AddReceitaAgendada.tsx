@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { reaisParaCentavos } from "@/lib/financeiro/dinheiro";
+import { MoneyField } from "@/components/ui/MoneyField";
 import { Field } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
 
@@ -13,7 +13,7 @@ export function AddReceitaAgendada({ contas, membros }: { contas: Conta[]; membr
 
   const [aberto, setAberto] = useState(false);
   const [descricao, setDescricao] = useState("");
-  const [valor, setValor] = useState("");
+  const [valor, setValor] = useState(0);
   const [accountId, setAccountId] = useState(contas[0]?.id ?? "");
   const [data, setData] = useState(hoje);
   const [recorrencia, setRecorrencia] = useState<"unica" | "mensal">("unica");
@@ -29,14 +29,14 @@ export function AddReceitaAgendada({ contas, membros }: { contas: Conta[]; membr
     const res = await fetch("/api/receitas-agendadas", {
       method: "POST",
       body: JSON.stringify({
-        descricao: descricao.trim(), valor_centavos: reaisParaCentavos(valor),
+        descricao: descricao.trim(), valor_centavos: valor,
         account_id: accountId, data_prevista: data, recorrencia, pessoa,
         data_fim: recorrencia === "mensal" ? (dataFim || null) : null,
       }),
     }).catch(() => null);
     setSalvando(false);
     if (!res?.ok) { setErro("Não consegui salvar."); return; }
-    setDescricao(""); setValor(""); setData(hoje); setRecorrencia("unica"); setDataFim(""); setAberto(false); router.refresh();
+    setDescricao(""); setValor(0); setData(hoje); setRecorrencia("unica"); setDataFim(""); setAberto(false); router.refresh();
   }
 
   if (!aberto) return <Button variant="ghost" onClick={() => setAberto(true)}>+ Agendar receita</Button>;
@@ -50,7 +50,7 @@ export function AddReceitaAgendada({ contas, membros }: { contas: Conta[]; membr
     <div style={{ display: "grid", gap: 12, border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: 16, background: "var(--surface)" }}>
       <Field label="O que é (descrição)" value={descricao} onChange={(e) => setDescricao(e.target.value)} placeholder="Ex.: freela do site, reembolso do João" />
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 10 }}>
-        <Field label="Valor (R$)" inputMode="decimal" value={valor} onChange={(e) => setValor(e.target.value)} placeholder="500,00" />
+        <MoneyField label="Valor (R$)" centavos={valor} onCentavos={setValor} placeholder="500,00" />
         <Field label="Quando (data prevista)" type="date" value={data} onChange={(e) => setData(e.target.value)} />
       </div>
       <label style={{ display: "grid", gap: 6 }}>

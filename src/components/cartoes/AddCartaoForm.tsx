@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { reaisParaCentavos } from "@/lib/financeiro/dinheiro";
+import { MoneyField } from "@/components/ui/MoneyField";
 import { Field } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
 import { TitularSelect } from "@/components/ui/TitularSelect";
@@ -11,7 +11,7 @@ export function AddCartaoForm({ membros }: { membros: string[] }) {
   const router = useRouter();
   const [aberto, setAberto] = useState(false);
   const [nome, setNome] = useState("");
-  const [limite, setLimite] = useState("");
+  const [limite, setLimite] = useState(0);
   const [vencimento, setVencimento] = useState("");
   const [diasAntes, setDiasAntes] = useState("7");
   const [titular, setTitular] = useState("");
@@ -28,13 +28,13 @@ export function AddCartaoForm({ membros }: { membros: string[] }) {
     const res = await fetch("/api/cards", {
       method: "POST",
       body: JSON.stringify({
-        nome: nome.trim(), limite_centavos: reaisParaCentavos(limite),
+        nome: nome.trim(), limite_centavos: limite,
         dia_vencimento: v, dias_fechamento_antes: d, titular: titular.trim() || null,
       }),
     });
     setSalvando(false);
     if (!res.ok) { setErro("Não foi possível criar o cartão."); return; }
-    setNome(""); setLimite(""); setVencimento(""); setDiasAntes("7"); setTitular(""); setAberto(false); router.refresh();
+    setNome(""); setLimite(0); setVencimento(""); setDiasAntes("7"); setTitular(""); setAberto(false); router.refresh();
   }
 
   if (!aberto) return <Button variant="ghost" onClick={() => setAberto(true)}>+ Adicionar cartão</Button>;
@@ -42,7 +42,7 @@ export function AddCartaoForm({ membros }: { membros: string[] }) {
     <div style={{ display: "grid", gap: 12, border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: 16, background: "var(--surface)" }}>
       <Field label="Nome" value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Ex.: Nubank" />
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-        <Field label="Limite (R$)" inputMode="decimal" value={limite} onChange={(e) => setLimite(e.target.value)} placeholder="5.000" />
+        <MoneyField label="Limite (R$)" centavos={limite} onCentavos={setLimite} placeholder="5.000,00" />
         <TitularSelect value={titular} onChange={setTitular} membros={membros} />
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>

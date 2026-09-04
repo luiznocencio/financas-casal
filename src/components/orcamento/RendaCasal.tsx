@@ -1,10 +1,11 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { reaisParaCentavos, centavosParaReais } from "@/lib/financeiro/dinheiro";
+import { centavosParaReais } from "@/lib/financeiro/dinheiro";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Money } from "@/components/ui/Money";
+import { MoneyInput } from "@/components/ui/MoneyInput";
 
 export type ContaOpt = { id: string; nome: string; titular?: string | null };
 export type MembroRenda = {
@@ -14,13 +15,12 @@ export type MembroRenda = {
 };
 
 const rotuloConta = (c: ContaOpt) => (c.titular ? `${c.nome} · ${c.titular}` : c.nome);
-const reais = (c: number) => (c / 100).toString();
 
 function LinhaMembro({ membro, contas }: { membro: MembroRenda; contas: ContaOpt[] }) {
   const router = useRouter();
   const [editando, setEditando] = useState(false);
-  const [salario, setSalario] = useState(reais(membro.renda_mensal_centavos));
-  const [ajuda, setAjuda] = useState(reais(membro.ajuda_custo_centavos));
+  const [salario, setSalario] = useState(membro.renda_mensal_centavos);
+  const [ajuda, setAjuda] = useState(membro.ajuda_custo_centavos);
   const [contaSalario, setContaSalario] = useState(membro.salario_account_id ?? "");
   const [contaAjuda, setContaAjuda] = useState(membro.ajuda_custo_account_id ?? "");
   const [salvando, setSalvando] = useState(false);
@@ -34,8 +34,8 @@ function LinhaMembro({ membro, contas }: { membro: MembroRenda; contas: ContaOpt
       method: "POST",
       body: JSON.stringify({
         user_id: membro.user_id,
-        renda_mensal_centavos: reaisParaCentavos(salario),
-        ajuda_custo_centavos: reaisParaCentavos(ajuda),
+        renda_mensal_centavos: salario,
+        ajuda_custo_centavos: ajuda,
         salario_account_id: contaSalario || null,
         ajuda_custo_account_id: contaAjuda || null,
       }),
@@ -72,7 +72,7 @@ function LinhaMembro({ membro, contas }: { membro: MembroRenda; contas: ContaOpt
     <div className="flex flex-col gap-3 py-3">
       <span className="text-sm font-medium text-[var(--text)]">{membro.nome}</span>
       <div className="flex flex-wrap items-center gap-2">
-        <input inputMode="decimal" value={salario} onChange={(e) => setSalario(e.target.value)} placeholder="Salário R$" className="mono" style={inputStyle} />
+        <MoneyInput centavos={salario} onCentavos={setSalario} placeholder="Salário R$" className="mono" style={inputStyle} />
         <span className="text-xs text-[var(--muted)]">cai na</span>
         <select value={contaSalario} onChange={(e) => setContaSalario(e.target.value)} style={selectStyle}>
           <option value="">conta do titular</option>
@@ -80,7 +80,7 @@ function LinhaMembro({ membro, contas }: { membro: MembroRenda; contas: ContaOpt
         </select>
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        <input inputMode="decimal" value={ajuda} onChange={(e) => setAjuda(e.target.value)} placeholder="Ajuda de custo R$" className="mono" style={inputStyle} />
+        <MoneyInput centavos={ajuda} onCentavos={setAjuda} placeholder="Ajuda de custo R$" className="mono" style={inputStyle} />
         <span className="text-xs text-[var(--muted)]">cai na</span>
         <select value={contaAjuda} onChange={(e) => setContaAjuda(e.target.value)} style={selectStyle}>
           <option value="">conta do titular</option>
