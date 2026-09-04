@@ -87,7 +87,21 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   const catById = new Map((cats ?? []).map((c) => [c.id, c]));
   const nomeCat = (id: string) => catById.get(id)?.nome ?? "Outros";
   const corCat = (id: string) => catById.get(id)?.cor ?? "#6b7280";
-  const porPessoa = Object.entries(resumo.porPessoa).sort((a, b) => b[1] - a[1]);
+
+  // fatura de cada um no mês: soma das compras dos cartões, por titular do cartão
+  // (na competência da fatura — mesma regra do resto do painel)
+  const titularPorCard = new Map((cards ?? []).map((c) => [c.id, c.titular]));
+  const faturaPorPessoa: Record<string, number> = {};
+  for (const t of txsRef) {
+    if (!t.card_id) continue;
+    const comp = t.competencia;
+    const ano = comp ? comp.ano : Number(t.data_compra.slice(0, 4));
+    const mes = comp ? comp.mes : Number(t.data_compra.slice(5, 7));
+    if (ano !== ref.ano || mes !== ref.mes) continue;
+    const pessoa = titularPorCard.get(t.card_id) ?? "conjunto";
+    faturaPorPessoa[pessoa] = (faturaPorPessoa[pessoa] ?? 0) + t.valor_centavos;
+  }
+  const porPessoa = Object.entries(faturaPorPessoa).sort((a, b) => b[1] - a[1]);
   const topCategorias = Object.entries(resumo.porCategoria).sort((a, b) => b[1] - a[1]);
   const maiorCategoria = topCategorias.length ? topCategorias[0][1] : 0;
 
@@ -145,7 +159,8 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
 
       <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
         <Card>
-          <h3 className="mb-4 font-medium text-[var(--text)]">Quem gastou este mês</h3>
+          <h3 className="mb-1 font-medium text-[var(--text)]">Fatura de cada um</h3>
+          <p className="mb-4 text-xs text-[var(--muted)]">Soma das compras dos cartões de cada pessoa neste mês.</p>
           <SplitBar itens={porPessoa.map(([nome, centavos]) => ({ nome, centavos }))} membros={membros} />
         </Card>
 
