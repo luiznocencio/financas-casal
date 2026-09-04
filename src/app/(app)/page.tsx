@@ -3,6 +3,7 @@ import { createServerSupabase } from "@/lib/supabase/server";
 import { saldoConta, limiteDisponivel } from "@/lib/financeiro/derivados";
 import { resumoDoMes } from "@/lib/financeiro/agregacoes";
 import { ultimoDiaDoMes } from "@/lib/financeiro/fechamento";
+import { contaOcorreNoMes, contaVisivelNoMes } from "@/lib/financeiro/contas";
 import { centavosParaReais } from "@/lib/financeiro/dinheiro";
 import { Money } from "@/components/ui/Money";
 import { Card } from "@/components/ui/Card";
@@ -38,7 +39,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
     supabase.from("categories").select("id, nome, cor"),
     supabase.from("members").select("nome, renda_mensal_centavos"),
     supabase.from("invoices").select("id, competencia_ano, competencia_mes"),
-    supabase.from("contas_pagar").select("id, valor_estimado_centavos").eq("ativo", true),
+    supabase.from("contas_pagar").select("id, valor_estimado_centavos, dia_vencimento, recorrencia, data_fim, created_at").eq("ativo", true),
   ]);
   // falha de leitura não pode virar "R$ 0" silencioso num app de dinheiro
   const erro = contasRes.error ?? cardsRes.error ?? txsRes.error ?? catsRes.error ?? membrosRes.error ?? invoicesRes.error ?? contasPagarRes.error;
@@ -92,13 +93,20 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
     .filter(([k]) => { const [a, m] = k.split("-").map(Number); return idxMes(a, m) <= idxAtual; })
     .reduce((s, [, v]) => s + v, 0);
 
-  // contas a pagar: pendentes de um mês (todas as ativas menos as pagas naquele mês)
-  const totalContasAtivas = (contasPagarRes.data ?? []).reduce((s, c) => s + (c.valor_estimado_centavos ?? 0), 0);
+  // contas a pagar: respeita recorrência (mensal/única) e data_fim
+  const contasAtivas = contasPagarRes.data ?? [];
   const pagoContaMesAtual = new Set((txs ?? [])
     .filter((t) => { if (!t.conta_pagar_id) return false; const [a, m] = t.data_compra.split("-").map(Number); return a === atual.ano && m === atual.mes; })
     .map((t) => t.conta_pagar_id));
-  const contasPendentesAtual = (contasPagarRes.data ?? [])
-    .filter((c) => !pagoContaMesAtual.has(c.id)).reduce((s, c) => s + (c.valor_estimado_centavos ?? 0), 0);
+  const pagaContaAlgumaVez = new Set((txs ?? []).filter((t) => t.conta_pagar_id).map((t) => t.conta_pagar_id));
+  // pendente do mês atual = conta visível neste mês e ainda não paga neste mês
+  const contasPendentesAtual = contasAtivas
+    .filter((c) => contaVisivelNoMes(c, atual.ano, atual.mes, pagaContaAlgumaVez.has(c.id), pagoContaMesAtual.has(c.id)) && !pagoContaMesAtual.has(c.id))
+    .reduce((s, c) => s + (c.valor_estimado_centavos ?? 0), 0);
+  // contas devidas num mês futuro (única só no mês dela e se ainda não paga)
+  const contasDoMes = (a: number, m: number) => contasAtivas
+    .filter((c) => contaOcorreNoMes(c, a, m) && !(c.recorrencia === "unica" && pagaContaAlgumaVez.has(c.id)))
+    .reduce((s, c) => s + (c.valor_estimado_centavos ?? 0), 0);
 
   // Projeção de caixa: parte do saldo de hoje e rola mês a mês até o mês visto,
   // somando a renda e descontando faturas/contas de cada mês. Pro passado, mostra
@@ -118,7 +126,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
       const ehAtualLoop = i === idxAtual;
       const entrada = ehAtualLoop ? aReceberAtual : rendaMensal;
       const saidaFaturas = ehAtualLoop ? faturasAbertasAteAtual : (faturaAbertaPorComp[chaveMes(y, mo)] ?? 0);
-      const saidaContas = ehAtualLoop ? contasPendentesAtual : totalContasAtivas;
+      const saidaContas = ehAtualLoop ? contasPendentesAtual : contasDoMes(y, mo);
       running += entrada - saidaFaturas - saidaContas;
     }
     saldoRef = running;

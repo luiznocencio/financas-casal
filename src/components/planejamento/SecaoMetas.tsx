@@ -12,12 +12,14 @@ import { Confetti } from "@phosphor-icons/react/dist/ssr";
 
 export async function SecaoMetas() {
   const supabase = await createServerSupabase();
-  const [goalsRes, aportesRes] = await Promise.all([
+  const [goalsRes, aportesRes, contasRes] = await Promise.all([
     supabase.from("goals").select("id, nome, valor_alvo_centavos, data_alvo").order("created_at"),
     supabase.from("goal_contributions").select("goal_id, valor_centavos"),
+    supabase.from("accounts").select("id, nome, titular").order("nome"),
   ]);
-  const erro = goalsRes.error ?? aportesRes.error;
+  const erro = goalsRes.error ?? aportesRes.error ?? contasRes.error;
   if (erro) throw new Error(`Falha ao carregar as metas: ${erro.message}`);
+  const contas = contasRes.data ?? [];
 
   const goals = goalsRes.data ?? [];
   const aportesPorGoal: Record<string, { valor_centavos: number }[]> = {};
@@ -62,7 +64,7 @@ export async function SecaoMetas() {
                     <span>{m.concluida ? <Confetti size={16} weight="fill" color="var(--positivo)" /> : <>Faltam <Money centavos={m.restanteCentavos} tamanho="sm" /></>}</span>
                   </div>
                   <div className="mt-auto flex flex-wrap items-center gap-3 pt-1">
-                    <AporteForm goalId={g.id} />
+                    <AporteForm goalId={g.id} contas={contas} />
                     <EditarMeta goalId={g.id} nome={g.nome} />
                     <RemoverMeta goalId={g.id} />
                   </div>

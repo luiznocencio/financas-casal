@@ -4,10 +4,14 @@ import { useRouter } from "next/navigation";
 import { reaisParaCentavos } from "@/lib/financeiro/dinheiro";
 import { Button } from "@/components/ui/Button";
 
-export function AporteForm({ goalId }: { goalId: string }) {
+type Conta = { id: string; nome: string; titular?: string | null };
+const rotulo = (c: Conta) => (c.titular ? `${c.nome} · ${c.titular}` : c.nome);
+
+export function AporteForm({ goalId, contas }: { goalId: string; contas: Conta[] }) {
   const router = useRouter();
   const [aberto, setAberto] = useState(false);
   const [valor, setValor] = useState("");
+  const [contaId, setContaId] = useState(contas[0]?.id ?? "");
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState(false);
 
@@ -16,7 +20,7 @@ export function AporteForm({ goalId }: { goalId: string }) {
     setSalvando(true);
     const res = await fetch("/api/metas/aporte", {
       method: "POST",
-      body: JSON.stringify({ goal_id: goalId, valor_centavos: reaisParaCentavos(valor) }),
+      body: JSON.stringify({ goal_id: goalId, valor_centavos: reaisParaCentavos(valor), account_id: contaId || null }),
     });
     setSalvando(false);
     if (!res.ok) { setErro(true); return; }
@@ -26,11 +30,22 @@ export function AporteForm({ goalId }: { goalId: string }) {
   if (!aberto) {
     return <Button variant="ghost" onClick={() => setAberto(true)}>+ Aporte</Button>;
   }
+  const campo: React.CSSProperties = {
+    padding: "8px 10px", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)",
+    background: "var(--surface)", color: "var(--text)",
+  };
   return (
-    <span style={{ display: "inline-flex", gap: 6, alignItems: "center" }}>
+    <span style={{ display: "inline-flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
       <input inputMode="decimal" autoFocus value={valor} onChange={(e) => setValor(e.target.value)} placeholder="R$"
         className="mono"
-        style={{ width: 96, padding: "8px 10px", borderRadius: "var(--radius-sm)", border: `1px solid ${erro ? "var(--negativo)" : "var(--border)"}`, background: "var(--surface)", color: "var(--text)" }} />
+        style={{ ...campo, width: 96, borderColor: erro ? "var(--negativo)" : "var(--border)" }} />
+      {contas.length > 0 && (
+        <select value={contaId} onChange={(e) => setContaId(e.target.value)} style={{ ...campo, fontSize: "0.85rem" }}
+          title="De qual conta sai o dinheiro guardado">
+          {contas.map((c) => <option key={c.id} value={c.id}>{rotulo(c)}</option>)}
+          <option value="">não debitar</option>
+        </select>
+      )}
       <Button variant="primary" onClick={salvar} disabled={salvando}>Guardar</Button>
     </span>
   );

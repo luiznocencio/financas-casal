@@ -1,6 +1,7 @@
 import { createServerSupabase } from "@/lib/supabase/server";
 import { partesNoFuso, ultimoDiaDoMes } from "@/lib/financeiro/fechamento";
 import { proximoVencimento } from "@/lib/financeiro/vencimento";
+import { contaVisivelNoMes } from "@/lib/financeiro/contas";
 import { Money } from "@/components/ui/Money";
 import { Card } from "@/components/ui/Card";
 import { CategoriaTag } from "@/components/ui/CategoriaTag";
@@ -21,8 +22,8 @@ export async function SecaoContasPagar() {
     supabase.from("categories").select("id, nome, cor").eq("tipo", "despesa").order("nome"),
     supabase.from("accounts").select("id, nome, titular").order("nome"),
     supabase.from("members").select("nome"),
-    supabase.from("transactions").select("conta_pagar_id, valor_centavos")
-      .not("conta_pagar_id", "is", null).gte("data_compra", ini).lte("data_compra", fim),
+    supabase.from("transactions").select("conta_pagar_id, valor_centavos, data_compra")
+      .not("conta_pagar_id", "is", null),
   ]);
   const erro = cpRes.error ?? catsRes.error ?? contasRes.error ?? membrosRes.error ?? pagasRes.error;
   if (erro) throw new Error(`Falha ao carregar as contas a pagar: ${erro.message}`);
@@ -33,11 +34,19 @@ export async function SecaoContasPagar() {
   const membros = (membrosRes.data ?? []).map((m) => m.nome);
 
   const catById = new Map(cats.map((c) => [c.id, c]));
-  const pagoNoMes = new Map<string, number>(); // conta_pagar_id -> valor pago
-  for (const t of pagasRes.data ?? []) if (t.conta_pagar_id) pagoNoMes.set(t.conta_pagar_id, t.valor_centavos);
+  const pagoNoMes = new Map<string, number>(); // conta_pagar_id -> valor pago neste mês
+  const pagaAlgumaVez = new Set<string>();      // conta_pagar_id -> já paga em qualquer mês
+  for (const t of pagasRes.data ?? []) {
+    if (!t.conta_pagar_id) continue;
+    pagaAlgumaVez.add(t.conta_pagar_id);
+    if (t.data_compra >= ini && t.data_compra <= fim) pagoNoMes.set(t.conta_pagar_id, t.valor_centavos);
+  }
   const categoriaPadrao = cats.find((c) => c.nome === "Contas de casa")?.id ?? "";
 
-  const pendentes = contasPagar.filter((c) => !pagoNoMes.has(c.id));
+  // só as contas com cobrança devida neste mês (mensal respeita data_fim; única só no mês dela)
+  const visiveis = contasPagar.filter((c) =>
+    contaVisivelNoMes(c, ano, mes, pagaAlgumaVez.has(c.id), pagoNoMes.has(c.id)));
+  const pendentes = visiveis.filter((c) => !pagoNoMes.has(c.id));
   const totalEstimado = pendentes.reduce((s, c) => s + (c.valor_estimado_centavos ?? 0), 0);
 
   return (
@@ -49,12 +58,12 @@ export async function SecaoContasPagar() {
 
       <AddContaPagar categorias={cats} membros={membros} categoriaPadrao={categoriaPadrao} />
 
-      {contasPagar.length === 0 ? (
-        <Card><p className="text-sm text-[var(--muted)]">Nenhuma conta cadastrada. Adicione as fixas do mês (ex.: energia, água, internet).</p></Card>
+      {visiveis.length === 0 ? (
+        <Card><p className="text-sm text-[var(--muted)]">Nenhuma conta para este mês. Adicione as fixas do mês (ex.: energia, água, internet).</p></Card>
       ) : (
         <Card>
           <div className="flex flex-col divide-y divide-[var(--border)]">
-            {contasPagar.map((c) => {
+            {visiveis.map((c) => {
               const cat = c.categoria_id ? catById.get(c.categoria_id) : null;
               const pago = pagoNoMes.get(c.id);
               const jaPaga = pago != null;

@@ -5,7 +5,7 @@ import { centavosParaReais } from "@/lib/financeiro/dinheiro";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Spinner } from "@/components/ui/Spinner";
-import { Repeat } from "@phosphor-icons/react";
+import { Repeat, UploadSimple } from "@phosphor-icons/react";
 import { ordenarComSubcategorias } from "@/lib/ui/categorias";
 
 type Linha = {
@@ -29,12 +29,14 @@ export function Importador({
   const [linhas, setLinhas] = useState<Linha[] | null>(null);
   const [carregando, setCarregando] = useState(false);
   const [lendoPdf, setLendoPdf] = useState(false);
+  const [arqNome, setArqNome] = useState<string | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [resultado, setResultado] = useState<string | null>(null);
 
   async function lerArquivo(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
     if (!f) return;
+    setArqNome(f.name);
     const ehPdf = f.type === "application/pdf" || f.name.toLowerCase().endsWith(".pdf");
     if (!ehPdf) { f.text().then(setTexto); return; }
     setErro(null); setLendoPdf(true);
@@ -137,12 +139,16 @@ export function Importador({
           <textarea value={texto} onChange={(e) => setTexto(e.target.value)} rows={6}
             placeholder="Cole aqui o extrato/fatura (ou o conteúdo do CSV)..."
             className="rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--surface)] p-2 font-mono text-sm text-[var(--text)]" />
-          <div className="flex items-center gap-3">
-            <input type="file" accept=".csv,.txt,.ofx,.pdf,text/plain,application/pdf" onChange={lerArquivo} disabled={lendoPdf} className="text-sm text-[var(--muted)]" />
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text)] hover:border-[var(--accent)]">
+              <UploadSimple size={15} /> Escolher arquivo
+              <input type="file" accept=".csv,.txt,.ofx,.pdf,text/plain,application/pdf" onChange={lerArquivo} disabled={lendoPdf} className="hidden" />
+            </label>
+            {arqNome && !lendoPdf && <span className="min-w-0 truncate text-xs text-[var(--muted)]">{arqNome}</span>}
             {lendoPdf && (
               <span className="flex items-center gap-2 text-sm text-[var(--muted)]"><Spinner size={14} /> Lendo PDF...</span>
             )}
-            <Button variant="primary" onClick={analisar} disabled={carregando || lendoPdf || !texto}>
+            <Button variant="primary" onClick={analisar} disabled={carregando || lendoPdf || !texto} style={{ marginLeft: "auto" }}>
               <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
                 {carregando && <Spinner size={14} />}
                 {carregando ? "Analisando..." : "Analisar"}

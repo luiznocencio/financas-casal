@@ -3,6 +3,7 @@ import { timingSafeEqual } from "node:crypto";
 import { createServiceSupabase } from "@/lib/supabase/service";
 import { enviarPush } from "@/lib/push/webpush";
 import { faturaFechaNaData, partesNoFuso, diaSeguinte, ultimoDiaDoMes } from "@/lib/financeiro/fechamento";
+import { contaOcorreNoMes } from "@/lib/financeiro/contas";
 
 const pad = (n: number) => String(n).padStart(2, "0");
 
@@ -41,7 +42,7 @@ export async function GET(req: Request) {
   const [cardsRes, subsRes, contasRes, pagasRes] = await Promise.all([
     supabase.from("cards").select("id, nome, dia_fechamento, household_id"),
     supabase.from("push_subscriptions").select("household_id, endpoint, p256dh, auth"),
-    supabase.from("contas_pagar").select("id, descricao, dia_vencimento, household_id").eq("ativo", true),
+    supabase.from("contas_pagar").select("id, descricao, dia_vencimento, household_id, recorrencia, data_fim, created_at").eq("ativo", true),
     supabase.from("transactions").select("conta_pagar_id").not("conta_pagar_id", "is", null)
       .gte("data_compra", iniMes).lte("data_compra", fimMes),
   ]);
@@ -61,7 +62,9 @@ export async function GET(req: Request) {
   // contas a pagar que vencem AMANHÃ (um dia de antecedência) e ainda não foram pagas
   const pagasMes = new Set((pagasRes.data ?? []).map((t) => t.conta_pagar_id));
   const vencendoAmanha = (contasRes.data ?? []).filter((c) =>
-    !pagasMes.has(c.id) && Math.min(c.dia_vencimento, ultimoDiaDoMes(amanha.ano, amanha.mes)) === amanha.dia,
+    !pagasMes.has(c.id)
+    && Math.min(c.dia_vencimento, ultimoDiaDoMes(amanha.ano, amanha.mes)) === amanha.dia
+    && contaOcorreNoMes(c, amanha.ano, amanha.mes),
   );
 
   // teste: 1 notificação por dispositivo. real: 1 por (cartão que fecha amanhã × dispositivo).
