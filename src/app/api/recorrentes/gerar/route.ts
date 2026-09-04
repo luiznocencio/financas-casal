@@ -20,25 +20,36 @@ export async function POST() {
   const ini = `${ano}-${pad(mes)}-01`;
   const fim = `${ano}-${pad(mes)}-${pad(ultimo)}`;
 
-  const [recsRes, existRes] = await Promise.all([
+  // faturas desta competência (pra deduplicar contra o gasto do cartão, que tem a
+  // data real da compra — ex.: agosto — mas cai na fatura deste mês)
+  const { data: invs } = await supabase.from("invoices").select("id").eq("competencia_ano", ano).eq("competencia_mes", mes);
+  const invIds = (invs ?? []).map((i) => i.id);
+
+  const cols = "recorrente_id, descricao, valor_centavos, card_id, account_id";
+  const [recsRes, contasEx, cartaoEx] = await Promise.all([
     supabase.from("recorrentes").select("*").eq("ativo", true),
-    // tudo que já foi lançado neste mês (pra não duplicar: nem o próprio fixo, nem um lançamento manual equivalente)
-    supabase.from("transactions").select("recorrente_id, descricao, valor_centavos, card_id, account_id")
-      .gte("data_compra", ini).lte("data_compra", fim),
+    // conta/pix: lançamentos do mês pela data
+    supabase.from("transactions").select(cols).not("account_id", "is", null).gte("data_compra", ini).lte("data_compra", fim),
+    // cartão: lançamentos que caem na fatura desta competência
+    invIds.length ? supabase.from("transactions").select(cols).in("invoice_id", invIds) : Promise.resolve({ data: [], error: null }),
   ]);
-  if (recsRes.error || existRes.error) {
-    return NextResponse.json({ error: recsRes.error?.message ?? existRes.error?.message }, { status: 500 });
+  if (recsRes.error || contasEx.error || cartaoEx.error) {
+    return NextResponse.json({ error: recsRes.error?.message ?? contasEx.error?.message ?? cartaoEx.error?.message }, { status: 500 });
   }
 
-  const existentes = existRes.data ?? [];
+  const existentes = [...(contasEx.data ?? []), ...(cartaoEx.data ?? [])];
   const feitos = new Set(existentes.filter((t) => t.recorrente_id != null).map((t) => t.recorrente_id));
-  // já existe um lançamento manual equivalente? (mesma origem + valor + descrição)
-  function temManualEquivalente(r: Recorrente): boolean {
+  // casa descrições sendo tolerante (ex.: "Netflix" x "NETFLIX.COM")
+  const casaDescricao = (a: string, b: string) => {
+    const x = normalizeDescricao(a), y = normalizeDescricao(b);
+    return !!x && !!y && (x === y || x.includes(y) || y.includes(x));
+  };
+  // já existe um lançamento equivalente (mesma origem + valor + descrição parecida)?
+  function temEquivalente(r: Recorrente): boolean {
     return existentes.some((t) =>
-      t.recorrente_id == null &&
       t.valor_centavos === r.valor_centavos &&
       (r.card_id ? t.card_id === r.card_id : t.account_id === r.account_id) &&
-      normalizeDescricao(t.descricao ?? "") === normalizeDescricao(r.descricao),
+      casaDescricao(t.descricao ?? "", r.descricao),
     );
   }
 
@@ -47,7 +58,7 @@ export async function POST() {
   let pulados = 0;
   const falhas: string[] = [];
   for (const r of recs) {
-    if (feitos.has(r.id) || temManualEquivalente(r)) { pulados++; continue; }
+    if (feitos.has(r.id) || temEquivalente(r)) { pulados++; continue; }
     const dia = Math.min(r.dia, ultimo);
     const data = `${ano}-${pad(mes)}-${pad(dia)}`;
     if (r.data_fim && data > r.data_fim) { pulados++; continue; } // fixo já encerrado
