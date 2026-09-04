@@ -3,7 +3,7 @@ import { createServerSupabase } from "@/lib/supabase/server";
 import { getMembroAtual } from "@/lib/auth/household";
 import { persistirLancamento } from "@/lib/financeiro/persistir";
 import { partesNoFuso, ultimoDiaDoMes } from "@/lib/financeiro/fechamento";
-import { normalizeDescricao } from "@/lib/financeiro/descricao";
+import { recorrenteJaLancado } from "@/lib/financeiro/recorrentes";
 import type { Recorrente } from "@/lib/db/tipos";
 
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -38,27 +38,13 @@ export async function POST() {
   }
 
   const existentes = [...(contasEx.data ?? []), ...(cartaoEx.data ?? [])];
-  const feitos = new Set(existentes.filter((t) => t.recorrente_id != null).map((t) => t.recorrente_id));
-  // casa descrições sendo tolerante (ex.: "Netflix" x "NETFLIX.COM")
-  const casaDescricao = (a: string, b: string) => {
-    const x = normalizeDescricao(a), y = normalizeDescricao(b);
-    return !!x && !!y && (x === y || x.includes(y) || y.includes(x));
-  };
-  // já existe um lançamento equivalente (mesma origem + valor + descrição parecida)?
-  function temEquivalente(r: Recorrente): boolean {
-    return existentes.some((t) =>
-      t.valor_centavos === r.valor_centavos &&
-      (r.card_id ? t.card_id === r.card_id : t.account_id === r.account_id) &&
-      casaDescricao(t.descricao ?? "", r.descricao),
-    );
-  }
 
   const recs = (recsRes.data ?? []) as Recorrente[];
   let criadas = 0;
   let pulados = 0;
   const falhas: string[] = [];
   for (const r of recs) {
-    if (feitos.has(r.id) || temEquivalente(r)) { pulados++; continue; }
+    if (recorrenteJaLancado(r, existentes)) { pulados++; continue; }
     const dia = Math.min(r.dia, ultimo);
     const data = `${ano}-${pad(mes)}-${pad(dia)}`;
     if (r.data_fim && data > r.data_fim) { pulados++; continue; } // fixo já encerrado
@@ -73,7 +59,8 @@ export async function POST() {
       },
     );
     if (error) falhas.push(r.descricao);
-    else { criadas++; feitos.add(r.id); }
+    // registra o recém-criado pra não duplicar um equivalente no mesmo clique
+    else { criadas++; existentes.push({ recorrente_id: r.id, descricao: r.descricao, valor_centavos: r.valor_centavos, card_id: r.card_id, account_id: r.account_id }); }
   }
   return NextResponse.json({ criadas, pulados, falhas, mes, ano });
 }
