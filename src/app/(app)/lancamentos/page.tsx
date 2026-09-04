@@ -2,11 +2,12 @@ import Link from "next/link";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { Card } from "@/components/ui/Card";
 import { LinhaEditavel } from "@/components/lancamentos/LinhaEditavel";
+import { FiltrosExtrato } from "@/components/lancamentos/FiltrosExtrato";
 
 export default async function Lancamentos({
   searchParams,
 }: {
-  searchParams: Promise<{ pessoa?: string; card?: string; categoria?: string; invoice?: string }>;
+  searchParams: Promise<{ pessoa?: string; card?: string; categoria?: string; invoice?: string; tipo?: string; origem?: string }>;
 }) {
   const sp = await searchParams;
   const supabase = await createServerSupabase();
@@ -20,6 +21,9 @@ export default async function Lancamentos({
   if (sp.card) q = q.eq("card_id", sp.card);
   if (sp.categoria) q = q.eq("categoria_id", sp.categoria);
   if (sp.invoice) q = q.eq("invoice_id", sp.invoice);
+  if (sp.tipo === "despesa" || sp.tipo === "receita") q = q.eq("tipo", sp.tipo);
+  if (sp.origem === "cartao") q = q.not("card_id", "is", null);
+  if (sp.origem === "pix") q = q.not("account_id", "is", null);
   const [txsRes, membrosRes, categoriasRes, cardsRes] = await Promise.all([
     q,
     supabase.from("members").select("nome"),
@@ -32,15 +36,7 @@ export default async function Lancamentos({
   const membros = (membrosRes.data ?? []).map((m) => m.nome);
   const categorias = categoriasRes.data ?? [];
   const cartoes = cardsRes.data ?? [];
-
-  const nomeCategoria = categorias.find((c) => c.id === sp.categoria)?.nome;
-  const nomeCartao = cartoes.find((c) => c.id === sp.card)?.nome;
-  const filtrosAtivos = [
-    sp.pessoa ? { chave: "pessoa", rotulo: `Pessoa: ${sp.pessoa}` } : null,
-    sp.card ? { chave: "card", rotulo: `Cartão: ${nomeCartao ?? "selecionado"}` } : null,
-    sp.categoria ? { chave: "categoria", rotulo: `Categoria: ${nomeCategoria ?? "selecionada"}` } : null,
-    sp.invoice ? { chave: "invoice", rotulo: "Fatura selecionada" } : null,
-  ].filter((f): f is { chave: string; rotulo: string } => f !== null);
+  const temFiltro = !!(sp.pessoa || sp.card || sp.categoria || sp.invoice || sp.tipo || sp.origem);
 
   return (
     <main className="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-10 sm:px-6">
@@ -57,27 +53,12 @@ export default async function Lancamentos({
         </p>
       </header>
 
-      {filtrosAtivos.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2">
-          {filtrosAtivos.map((f) => (
-            <span
-              key={f.chave}
-              className="rounded-full px-3 py-1 text-xs font-medium"
-              style={{ background: "var(--accent-weak)", color: "var(--accent)" }}
-            >
-              {f.rotulo}
-            </span>
-          ))}
-          <Link href="/lancamentos" className="text-xs text-[var(--accent)] hover:underline">
-            Limpar filtros
-          </Link>
-        </div>
-      )}
+      <FiltrosExtrato categorias={categorias} cartoes={cartoes} membros={membros} />
 
       {(txs ?? []).length === 0 ? (
         <Card>
           <p className="text-sm text-[var(--muted)]">
-            Nenhum lançamento encontrado{filtrosAtivos.length > 0 ? " para esse filtro" : ""}.
+            Nenhum lançamento encontrado{temFiltro ? " para esse filtro" : ""}.
           </p>
         </Card>
       ) : (
