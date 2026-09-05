@@ -8,6 +8,7 @@ export type ResultadoPdf =
 type ItemTexto = { str?: string; transform?: number[] };
 
 const RE_DATA = /^\d{2}\/\d{2}$/;
+const RE_VALOR = /\d,\d{2}/; // um valor em reais (…,dd) já apareceu na transação
 
 // Reconstrói as linhas de uma página pela posição (y) dos itens, ordenando por x.
 // Faturas vêm em COLUNAS (2+ lançamentos lado a lado); cada lançamento começa com
@@ -27,7 +28,9 @@ function linhasDaPagina(items: ItemTexto[]): string {
     let atual: string[] = [];
     const flush = () => { const s = atual.join(" ").replace(/\s{2,}/g, " ").trim(); if (s) out.push(s); atual = []; };
     for (const it of ordenados) {
-      if (RE_DATA.test(it.str.trim()) && atual.length) flush(); // nova transação começa na data
+      // nova transação começa numa data — mas só se a atual já tem um valor (senão
+      // um "05/06" de parcela ou "12/24" na descrição quebraria a linha no meio)
+      if (RE_DATA.test(it.str.trim()) && atual.some((s) => RE_VALOR.test(s))) flush();
       atual.push(it.str);
     }
     flush();

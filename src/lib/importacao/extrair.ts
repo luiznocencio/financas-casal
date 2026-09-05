@@ -48,7 +48,8 @@ export function detectarTotalFatura(texto: string): number | null {
     new RegExp(`total\\s+da\\s+sua\\s+fatura[^\\d\\n]{0,25}${num}`, "i"),
     new RegExp(`total\\s+dos\\s+lan[^\\n]{0,20}atuais[^\\d\\n]{0,25}${num}`, "i"),
     new RegExp(`valor\\s+total\\s+da\\s+fatura[^\\d\\n]{0,25}${num}`, "i"),
-    new RegExp(`total\\s+da\\s+fatura[^\\d\\n]{0,25}${num}`, "i"),
+    // "da fatura" mas NÃO "da fatura anterior" (essa é a fatura passada)
+    new RegExp(`total\\s+da\\s+fatura(?!\\s+anterior)[^\\d\\n]{0,25}${num}`, "i"),
   ];
   for (const re of padroes) {
     const m = texto.match(re);
