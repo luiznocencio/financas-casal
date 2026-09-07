@@ -37,12 +37,17 @@ export async function POST(req: Request) {
 
   const supabase = await createServerSupabase();
 
-  // lançamentos já existentes nessa origem, p/ pular duplicados (data + valor)
+  // lançamentos já existentes nessa origem, p/ pular duplicados (data + valor).
+  // parceladas ficam FORA desse índice: todas as parcelas de uma compra têm a
+  // mesma data e o mesmo valor, então elas seriam falsos duplicados umas das
+  // outras — a dedup de parcela é feita por assinatura+número (mais abaixo).
   const origemCol = origem.card_id ? "card_id" : "account_id";
   const origemId = (origem.card_id ?? origem.account_id) as string;
   const { data: existentes } = await supabase
-    .from("transactions").select("data_compra, valor_centavos").eq(origemCol, origemId);
-  const chaves = new Set((existentes ?? []).map((e) => `${e.data_compra}|${e.valor_centavos}`));
+    .from("transactions").select("data_compra, valor_centavos, total_parcelas").eq(origemCol, origemId);
+  const chaves = new Set(
+    (existentes ?? []).filter((e) => (e.total_parcelas ?? 1) <= 1).map((e) => `${e.data_compra}|${e.valor_centavos}`),
+  );
 
   // gastos fixos já materializados na casa toda (qualquer origem) — um fixo já
   // lançado noutro cartão/conta também é duplicado. Consumido no máximo 1x por tx
@@ -100,23 +105,29 @@ export async function POST(req: Request) {
       falhas.push(it.descricao || "(sem descrição)");
       continue;
     }
-    const chave = `${it.data}|${it.valor_centavos}`;
-    if (chaves.has(chave)) { duplicadas++; continue; } // já existe → pula
-
-    // fixo já materializado (qualquer origem): mesmo valor+tipo e ( descrição
-    // normalizada igual OU dentro de 27 dias ) → pula sem recriar
-    const idxRec = poolRecorrentes.findIndex((r) =>
-      !r.usado && r.valor_centavos === it.valor_centavos && r.tipo === it.tipo &&
-      (Math.abs(diasMs(r.data_compra) - diasMs(it.data)) <= 27 * DIA_MS ||
-        (normalizeDescricao(r.descricao) === normalizeDescricao(it.descricao) && r.data_compra.slice(0, 7) === it.data.slice(0, 7))));
-    if (idxRec >= 0) { poolRecorrentes[idxRec].usado = true; duplicadas++; continue; }
-
     // parcela: "k/M" na descrição tem prioridade sobre o total detectado pela IA
     const marca = lerParcela(it.descricao);
     const totalParcelas = origem.card_id ? Math.min(72, Math.max(1, marca?.total ?? it.total_parcelas ?? 1)) : 1;
+    const ehParcela = !!origem.card_id && totalParcelas > 1;
+
+    // dedup ingênuo (data+valor) e dedup de fixo valem só p/ NÃO-parceladas.
+    // uma parcela é a MESMA compra num mês diferente — não é duplicata: ela tem
+    // dedup própria por assinatura+número logo abaixo.
+    const chave = `${it.data}|${it.valor_centavos}`;
+    if (!ehParcela) {
+      if (chaves.has(chave)) { duplicadas++; continue; } // já existe → pula
+
+      // fixo já materializado (qualquer origem): mesmo valor+tipo e ( descrição
+      // normalizada igual OU dentro de 27 dias ) → pula sem recriar
+      const idxRec = poolRecorrentes.findIndex((r) =>
+        !r.usado && r.valor_centavos === it.valor_centavos && r.tipo === it.tipo &&
+        (Math.abs(diasMs(r.data_compra) - diasMs(it.data)) <= 27 * DIA_MS ||
+          (normalizeDescricao(r.descricao) === normalizeDescricao(it.descricao) && r.data_compra.slice(0, 7) === it.data.slice(0, 7))));
+      if (idxRec >= 0) { poolRecorrentes[idxRec].usado = true; duplicadas++; continue; }
+    }
 
     let parcelaInfo: { grupo_parcela: string | null; parcela_n: number; total_parcelas: number } | null = null;
-    if (origem.card_id && totalParcelas > 1) {
+    if (ehParcela && origem.card_id) {
       const parcelaN = marca?.parcela_n ?? 1;
       const assin = assinaturaParcela(origem.card_id, it.descricao, totalParcelas);
       // conciliação: essa parcela dessa compra já existe (lançada na mão ou reimport) → pula
@@ -154,7 +165,8 @@ export async function POST(req: Request) {
       supabase, { householdId: membro.household_id, criadoPor: membro.user_id, grupoImportacao, recorrenteId }, novo, diaFechamento, competencia, parcelaInfo,
     );
     if (error) falhas.push(it.descricao || "(sem descrição)");
-    else { criadas++; chaves.add(chave); } // evita duplicar dentro do próprio lote
+    // evita duplicar dentro do próprio lote (parcela já se protege via parcelasVistas)
+    else { criadas++; if (!ehParcela) chaves.add(chave); }
   }
   return NextResponse.json({ criadas, duplicadas, fixosCriados, falhas });
 }
