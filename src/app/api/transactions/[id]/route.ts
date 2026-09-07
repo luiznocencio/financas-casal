@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { getMembroAtual } from "@/lib/auth/household";
-import { normalizeDescricao } from "@/lib/financeiro/descricao";
+import { nomeBase, nomeComMarcador } from "@/lib/importacao/parcelas";
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const membro = await getMembroAtual();
@@ -24,25 +24,34 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   const { error: errUp } = await supabase.from("transactions").update(patchTx).eq("id", id);
   if (errUp) return NextResponse.json({ error: errUp.message }, { status: 500 });
 
-  // aprende a regra e aplica retroativamente
-  const chave = normalizeDescricao(atual.descricao ?? descricao ?? "");
+  // aprende a regra e aplica retroativamente. A chave é o NOME BASE (sem marcador
+  // de parcela e sem código de loja variável), pra pegar a mesma compra em faturas
+  // diferentes: renomear a parcela 9/10 aprende o nome pra 10/10 e futuras. A regra
+  // guarda nome E/OU categoria (renomear sem taggear, ou vice-versa).
+  const chave = nomeBase(atual.descricao ?? descricao ?? "");
   let aplicadas = 0;
-  if (categoria_id && chave) {
+  if ((categoria_id || descricao) && chave) {
+    // merge: não apaga o campo que não veio nesta edição
+    const { data: regraAtual } = await supabase
+      .from("category_rules").select("categoria_id, descricao_preferida")
+      .eq("household_id", membro.household_id).eq("chave", chave).maybeSingle();
+    const catRegra = categoria_id ?? regraAtual?.categoria_id ?? null;
+    const nomeRegra = descricao ?? regraAtual?.descricao_preferida ?? null;
     await supabase.from("category_rules").upsert(
-      { household_id: membro.household_id, chave, categoria_id, descricao_preferida: descricao },
+      { household_id: membro.household_id, chave, categoria_id: catRegra, descricao_preferida: nomeRegra },
       { onConflict: "household_id,chave" },
     );
-    // retroativo: todos os lançamentos do household que casam pela chave
+    // retroativo: todos os lançamentos do household que casam pelo nome base
     const { data: todos } = await supabase.from("transactions").select("id, descricao");
-    const idsCasando = (todos ?? [])
-      .filter((t) => t.id !== id && normalizeDescricao(t.descricao ?? "") === chave)
-      .map((t) => t.id);
-    if (idsCasando.length > 0) {
-      const patch: { categoria_id: string; descricao?: string } = { categoria_id };
-      if (descricao) patch.descricao = descricao;
-      await supabase.from("transactions").update(patch).in("id", idsCasando);
-      aplicadas = idsCasando.length;
+    const casando = (todos ?? []).filter((t) => t.id !== id && nomeBase(t.descricao ?? "") === chave);
+    for (const t of casando) {
+      const patch: { categoria_id?: string; descricao?: string } = {};
+      if (catRegra) patch.categoria_id = catRegra;
+      // preserva o marcador de cada parcela ("Reforma 9/10", "Reforma 10/10")
+      if (nomeRegra) patch.descricao = nomeComMarcador(nomeRegra, t.descricao ?? "");
+      if (Object.keys(patch).length) await supabase.from("transactions").update(patch).eq("id", t.id);
     }
+    aplicadas = casando.length;
   }
   return NextResponse.json({ ok: true, aplicadas });
 }

@@ -3,13 +3,14 @@ import { partesNoFuso } from "@/lib/financeiro/fechamento";
 import { Money } from "@/components/ui/Money";
 import { Card } from "@/components/ui/Card";
 import { agruparParcelas, type TxParcela } from "@/lib/importacao/parcelas";
+import { ParcelasLista } from "./ParcelasLista";
 
 export async function SecaoParcelas() {
   const supabase = await createServerSupabase();
   const { ano, mes } = partesNoFuso(new Date(), "America/Sao_Paulo");
   const [txsRes, cardsRes, invoicesRes] = await Promise.all([
     supabase.from("transactions")
-      .select("grupo_parcela, card_id, descricao, valor_centavos, total_parcelas, parcela_n, invoice_id")
+      .select("id, grupo_parcela, card_id, descricao, valor_centavos, total_parcelas, parcela_n, invoice_id")
       .gt("total_parcelas", 1).not("card_id", "is", null),
     supabase.from("cards").select("id, nome"),
     supabase.from("invoices").select("id, competencia_ano, competencia_mes"),
@@ -25,6 +26,7 @@ export async function SecaoParcelas() {
     return comp && comp.ano === ano && comp.mes === mes ? s + t.valor_centavos : s;
   }, 0);
   const txs: TxParcela[] = (txsRes.data ?? []).map((t) => ({
+    id: t.id,
     grupo_parcela: t.grupo_parcela,
     card_id: t.card_id,
     descricao: t.descricao,
@@ -58,32 +60,11 @@ export async function SecaoParcelas() {
         <Card><p className="text-sm text-[var(--muted)]">Nenhuma compra parcelada por enquanto. Elas aparecem aqui quando você importa uma fatura com parcelas (ex.: “3/12”) ou lança uma compra parcelada.</p></Card>
       ) : (
         <Card>
-          <div className="flex flex-col divide-y divide-[var(--border)]">
-            {compras.map((c) => {
-              const pct = c.total > 0 ? (c.ultima / c.total) * 100 : 0;
-              return (
-                <div key={c.chave} className="flex flex-col gap-2 py-3">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div className="flex min-w-0 flex-col gap-0.5">
-                      <span className="break-words font-medium text-[var(--text)]">{c.descricao}</span>
-                      <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--muted)]">
-                        <span>{c.cartaoNome}</span>
-                        <span>· <Money centavos={c.valorParcelaCentavos} tamanho="sm" />/mês</span>
-                        {c.quitada
-                          ? <span className="text-[var(--positivo)]">· quitada</span>
-                          : <span className="text-[var(--alerta)]">· faltam {c.faltam}</span>}
-                      </div>
-                    </div>
-                    <span className="mono text-sm text-[var(--muted)]">{c.ultima}/{c.total}</span>
-                  </div>
-                  <div className="h-1.5 overflow-hidden rounded-full bg-[var(--surface-2)]">
-                    <div className="h-full rounded-full"
-                      style={{ width: `${pct}%`, background: c.quitada ? "var(--positivo)" : "var(--accent)" }} />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+          <ParcelasLista compras={compras.map((c) => ({
+            chave: c.chave, descricao: c.descricao, cartaoNome: c.cartaoNome,
+            valorParcelaCentavos: c.valorParcelaCentavos, total: c.total, ultima: c.ultima,
+            faltam: c.faltam, quitada: c.quitada, txIds: c.txIds,
+          }))} />
         </Card>
       )}
     </div>

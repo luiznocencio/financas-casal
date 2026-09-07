@@ -1,15 +1,27 @@
 import { describe, it, expect } from "vitest";
-import { lerParcela, baseDescricao, assinaturaParcela, agruparParcelas, type TxParcela } from "./parcelas";
+import { lerParcela, baseDescricao, nomeBase, assinaturaParcela, agruparParcelas, mesmaCompra, type TxParcela } from "./parcelas";
 
 describe("lerParcela", () => {
   it("lê k/M válido", () => {
     expect(lerParcela("TENIS NIKE 03/12")).toEqual({ parcela_n: 3, total: 12 });
     expect(lerParcela("Compra 1 / 10")).toEqual({ parcela_n: 1, total: 10 });
   });
+  it("lê marcador colado no texto (banco)", () => {
+    expect(lerParcela("Pague menos 01602/04")).toEqual({ parcela_n: 2, total: 4 });
+    expect(lerParcela("Zp*sena representa03/10")).toEqual({ parcela_n: 3, total: 10 });
+    expect(lerParcela("Unidas locadora sa02/03")).toEqual({ parcela_n: 2, total: 3 });
+  });
   it("ignora quando não é parcela", () => {
     expect(lerParcela("Mercado")).toBeNull();
     expect(lerParcela("Banana 5/2")).toBeNull(); // n > total
     expect(lerParcela("Item 1/1")).toBeNull(); // total < 2
+  });
+});
+
+describe("nomeBase", () => {
+  it("casa variações do banco pro mesmo nome base", () => {
+    expect(nomeBase("PAGUE MENOS 016 01/04")).toBe(nomeBase("Pague menos 01602/04"));
+    expect(nomeBase("Amazon - Parcela 2/2")).toBe("amazon");
   });
 });
 
@@ -72,5 +84,40 @@ describe("agruparParcelas", () => {
     expect(compras).toHaveLength(1);
     expect(compras[0].quitada).toBe(true);
     expect(compras[0].faltam).toBe(0);
+  });
+
+  it("funde grupos distintos da MESMA compra (texto do banco variou)", () => {
+    // dois grupo_parcela diferentes, nome base prefixo, mesmo total/valor/cartão
+    const txs = [
+      mk({ grupo_parcela: "g1", card_id: "c1", descricao: "UNIDAS LOCADORA 01/03", total_parcelas: 3, parcela_n: 1, valor_centavos: 12022, id: "a" }),
+      mk({ grupo_parcela: "g2", card_id: "c1", descricao: "Unidas locadora sa02/03", total_parcelas: 3, parcela_n: 2, valor_centavos: 12022, id: "b" }),
+    ];
+    const compras = agruparParcelas(txs);
+    expect(compras).toHaveLength(1);
+    expect(compras[0].ultima).toBe(2);
+    expect(compras[0].faltam).toBe(1);
+    expect(compras[0].txIds.sort()).toEqual(["a", "b"]);
+  });
+
+  it("NÃO funde compras diferentes (total/valor distintos)", () => {
+    const txs = [
+      mk({ grupo_parcela: "g1", card_id: "c1", descricao: "Amazon 2/2", total_parcelas: 2, parcela_n: 2, valor_centavos: 5894 }),
+      mk({ grupo_parcela: "g2", card_id: "c1", descricao: "Amazon 3/5", total_parcelas: 5, parcela_n: 3, valor_centavos: 8922 }),
+    ];
+    expect(agruparParcelas(txs)).toHaveLength(2);
+  });
+});
+
+describe("mesmaCompra", () => {
+  const base = { chave: "", cartaoNome: "x", ultima: 1, faltam: 1, quitada: false, txIds: [] as string[], descricao: "" };
+  it("prefixo do nome base, mesmo cartão/total/valor", () => {
+    const a = { ...base, cardId: "c1", total: 3, valorParcelaCentavos: 100, nomeBase: "unidas locadora" };
+    const b = { ...base, cardId: "c1", total: 3, valorParcelaCentavos: 100, nomeBase: "unidas locadora sa" };
+    expect(mesmaCompra(a, b)).toBe(true);
+  });
+  it("nomes sem prefixo comum não casam", () => {
+    const a = { ...base, cardId: "c1", total: 10, valorParcelaCentavos: 40000, nomeBase: "maquineta sena" };
+    const b = { ...base, cardId: "c1", total: 10, valorParcelaCentavos: 40000, nomeBase: "zp*sena representa" };
+    expect(mesmaCompra(a, b)).toBe(false);
   });
 });

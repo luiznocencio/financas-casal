@@ -4,7 +4,7 @@ import { marcarDuplicados } from "@/lib/importacao/duplicados";
 import { chamarModeloJson } from "@/lib/ai/openai";
 import { getMembroAtual } from "@/lib/auth/household";
 import { createServerSupabase } from "@/lib/supabase/server";
-import { normalizeDescricao } from "@/lib/financeiro/descricao";
+import { nomeBase, nomeComMarcador } from "@/lib/importacao/parcelas";
 import { ultimoDiaDoMes } from "@/lib/financeiro/fechamento";
 
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -28,17 +28,15 @@ export async function POST(req: Request) {
 
     const supabase = await createServerSupabase();
 
-    // aplica regras aprendidas (casamento exato normalizado)
+    // aplica regras aprendidas (casamento por NOME BASE: ignora marcador de
+    // parcela e código de loja, então a regra vale pra mesma compra em qualquer mês)
     const { data: regras } = await supabase.from("category_rules").select("chave, categoria_id, descricao_preferida");
     const porChave = new Map((regras ?? []).map((r) => [r.chave, r]));
     const comRegra = linhas.map((l) => {
-      const regra = porChave.get(normalizeDescricao(l.descricao));
+      const regra = porChave.get(nomeBase(l.descricao));
       if (!regra) return { ...l, categoria_id: null as string | null };
-      return {
-        ...l,
-        descricao: regra.descricao_preferida || l.descricao,
-        categoria_id: regra.categoria_id as string | null,
-      };
+      const descricao = regra.descricao_preferida ? nomeComMarcador(regra.descricao_preferida, l.descricao) : l.descricao;
+      return { ...l, descricao, categoria_id: (regra.categoria_id ?? null) as string | null };
     });
 
     // marca o que já existe (não duplicar fatura x lançamento manual). Combina
