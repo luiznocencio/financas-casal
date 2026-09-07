@@ -8,11 +8,13 @@ describe("fechamentoDoVencimento", () => {
     expect(fechamentoDoVencimento(17, 7)).toBe(10);
     expect(fechamentoDoVencimento(10, 7)).toBe(3);
   });
-  it("nunca abaixo de 1", () => {
-    expect(fechamentoDoVencimento(5, 7)).toBe(1);
+  it("vencimento cedo: fecha no mês anterior (envolve pro fim do mês)", () => {
+    expect(fechamentoDoVencimento(6, 8)).toBe(28); // venc 6, 8 antes → dia 28 (mês anterior)
+    expect(fechamentoDoVencimento(7, 7)).toBe(30); // venc 7, 7 antes → fecha no último dia
+    expect(fechamentoDoVencimento(5, 7)).toBe(28); // 5 - 7 = -2 → 28
   });
-  it("nunca acima de 28 (seguro em mês curto)", () => {
-    expect(fechamentoDoVencimento(31, 0)).toBe(28);
+  it("teto de 30 (encaixe de mês curto é feito no uso)", () => {
+    expect(fechamentoDoVencimento(31, 0)).toBe(30);
   });
 });
 

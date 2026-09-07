@@ -2,10 +2,15 @@
 // dia_fechamento é um dia do mês (1..31); em meses curtos ele "encosta" no
 // último dia (ex.: fechamento 31 em fevereiro fecha no dia 28/29).
 
-// Fechamento derivado do vencimento: "fecha N dias antes". Limitado a 1..28 pra
-// não estourar em mês curto nem ficar inválido.
+// Fechamento derivado do vencimento: "fecha N dias antes". Quando o vencimento é
+// cedo no mês (ex.: vence dia 6, fecha 8 antes), o fechamento cai no MÊS ANTERIOR
+// — então o dia dá negativo e a gente "envolve" pro fim do mês (referência de 30
+// dias; o encaixe em mês curto é feito no uso, via diaDeFechamentoNoMes). Sem
+// isso, o valor grudava no dia 1 e jogava todas as compras pra fatura seguinte.
 export function fechamentoDoVencimento(diaVencimento: number, diasAntes: number): number {
-  return Math.min(28, Math.max(1, Math.round(diaVencimento) - Math.round(diasAntes)));
+  let dia = Math.round(diaVencimento) - Math.round(diasAntes);
+  if (dia < 1) dia += 30; // fecha no mês anterior: 6 - 8 = -2 → dia 28
+  return Math.min(30, Math.max(1, dia));
 }
 
 export function ultimoDiaDoMes(ano: number, mes: number): number {
