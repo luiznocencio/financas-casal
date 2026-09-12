@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { Card, Account, Category } from "@/lib/db/tipos";
 import { reaisParaCentavos } from "@/lib/financeiro/dinheiro";
 import { Button } from "@/components/ui/Button";
@@ -52,6 +52,9 @@ export function FormularioRapido({
   const hojeISO = new Date().toISOString().slice(0, 10);
   const [data, setData] = useState(inicial?.data ?? hojeISO);
   const [erro, setErro] = useState<string | null>(null);
+  const [salvando, setSalvando] = useState(false);
+  // trava síncrona: cliques rápidos não passam antes do estado re-renderizar
+  const enviando = useRef(false);
 
   function trocarTipo(t: TipoOrigem) {
     setTipoOrigem(t);
@@ -72,8 +75,11 @@ export function FormularioRapido({
   }
 
   async function salvar() {
+    if (enviando.current) return; // já está salvando: ignora clique repetido
     setErro(null);
     if (!origemId) { setErro("Escolha o cartão/conta."); return; }
+    enviando.current = true;
+    setSalvando(true);
     const body = {
       tipo, valor_centavos: centavos,
       data_compra: data,
@@ -83,12 +89,16 @@ export function FormularioRapido({
       total_parcelas: tipoOrigem === "card" ? parcelas : 1,
       descricao: descricao.trim() || null,
     };
-    const res = await fetch("/api/transactions", { method: "POST", body: JSON.stringify(body) });
-    if (!res.ok) {
+    try {
+      const res = await fetch("/api/transactions", { method: "POST", body: JSON.stringify(body) });
+      if (!res.ok) { setErro("Não foi possível salvar. Tente novamente."); return; }
+      onCriado();
+    } catch {
       setErro("Não foi possível salvar. Tente novamente.");
-      return;
+    } finally {
+      enviando.current = false;
+      setSalvando(false);
     }
-    onCriado();
   }
 
   const selectStyle: React.CSSProperties = {
@@ -164,7 +174,9 @@ export function FormularioRapido({
       </div>
 
       {erro && <p style={{ color: "var(--negativo)", margin: 0, fontSize: "0.85rem" }}>{erro}</p>}
-      <Button variant="primary" onClick={salvar} style={{ width: "100%" }}>Salvar</Button>
+      <Button variant="primary" onClick={salvar} disabled={salvando} aria-busy={salvando} style={{ width: "100%" }}>
+        {salvando ? "Salvando…" : "Salvar"}
+      </Button>
     </div>
   );
 }

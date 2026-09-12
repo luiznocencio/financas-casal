@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Sparkle } from "@phosphor-icons/react";
 import type { Card, Account, Category } from "@/lib/db/tipos";
@@ -19,6 +19,8 @@ export function QuickAdd({
   const [sugestao, setSugestao] = useState<SugestaoLancamento | null>(null);
   const [modoForm, setModoForm] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+  const [confirmando, setConfirmando] = useState(false);
+  const confirmandoRef = useRef(false); // trava síncrona contra duplo clique
 
   function fechar() {
     setAberto(false); setTexto(""); setSugestao(null); setModoForm(false); setErro(null);
@@ -41,24 +43,30 @@ export function QuickAdd({
   }
 
   async function confirmar() {
-    if (!sugestao) return;
+    if (!sugestao || confirmandoRef.current) return; // ignora clique repetido
     setErro(null);
-    const res = await fetch("/api/transactions", {
-      method: "POST",
-      body: JSON.stringify({
-        tipo: sugestao.tipo, valor_centavos: sugestao.valor_centavos,
-        data_compra: new Date().toISOString().slice(0, 10),
-        categoria_id: sugestao.categoria_id, pessoa: sugestao.pessoa,
-        account_id: sugestao.account_id, card_id: sugestao.card_id,
-        total_parcelas: sugestao.total_parcelas, descricao: sugestao.descricao,
-        origem_ia: true,
-      }),
-    });
-    if (!res.ok) {
+    confirmandoRef.current = true;
+    setConfirmando(true);
+    try {
+      const res = await fetch("/api/transactions", {
+        method: "POST",
+        body: JSON.stringify({
+          tipo: sugestao.tipo, valor_centavos: sugestao.valor_centavos,
+          data_compra: new Date().toISOString().slice(0, 10),
+          categoria_id: sugestao.categoria_id, pessoa: sugestao.pessoa,
+          account_id: sugestao.account_id, card_id: sugestao.card_id,
+          total_parcelas: sugestao.total_parcelas, descricao: sugestao.descricao,
+          origem_ia: true,
+        }),
+      });
+      if (!res.ok) { setErro("Não foi possível salvar. Tente novamente."); return; }
+      recarregar();
+    } catch {
       setErro("Não foi possível salvar. Tente novamente.");
-      return;
+    } finally {
+      confirmandoRef.current = false;
+      setConfirmando(false);
     }
-    recarregar();
   }
 
   return (
@@ -128,8 +136,12 @@ export function QuickAdd({
                 </div>
                 {erro && <p style={{ color: "var(--negativo)", margin: 0, fontSize: "0.9rem" }}>{erro}</p>}
                 <div style={{ display: "flex", gap: 8 }}>
-                  <Button variant="primary" tamanho="lg" onClick={confirmar} style={{ flex: 1 }}>Confirmar</Button>
-                  <Button variant="ghost" tamanho="lg" onClick={() => setModoForm(true)}>Ajustar</Button>
+                  <Button variant="primary" tamanho="lg" onClick={confirmar} disabled={confirmando} aria-busy={confirmando} style={{ flex: 1 }}>
+                    <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+                      {confirmando ? (<><Spinner size={14} /> Salvando...</>) : "Confirmar"}
+                    </span>
+                  </Button>
+                  <Button variant="ghost" tamanho="lg" onClick={() => setModoForm(true)} disabled={confirmando}>Ajustar</Button>
                 </div>
               </div>
             )}
