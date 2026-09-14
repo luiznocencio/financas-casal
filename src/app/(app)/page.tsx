@@ -247,7 +247,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
           ) : (
             <div className="flex flex-col gap-4">
               {topCategorias.map(([id, valor]) => (
-                <Link key={id} href={`/lancamentos?categoria=${id}`}
+                <Link key={id} href={`/lancamentos?categoria=${id}&mes=${ref.ano}-${pad(ref.mes)}`}
                   className="-mx-2 flex flex-col gap-1.5 rounded-[var(--radius-sm)] px-2 py-1 transition-colors hover:bg-[var(--surface-2)]">
                   <div className="flex items-center justify-between gap-2 text-sm">
                     <CategoriaTag nome={nomeCat(id)} cor={corCat(id)} />

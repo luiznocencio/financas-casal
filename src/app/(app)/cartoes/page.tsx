@@ -9,7 +9,7 @@ import { FaturaBotao } from "@/components/cartoes/FaturaBotao";
 import { AddCartaoForm } from "@/components/cartoes/AddCartaoForm";
 import { EditarCartao } from "@/components/cartoes/EditarCartao";
 import { AtivarNotificacoes } from "@/components/pwa/AtivarNotificacoes";
-import { CreditCard as CreditCardIcon, Receipt } from "@phosphor-icons/react/dist/ssr";
+import { CreditCard as CreditCardIcon, Receipt, Star } from "@phosphor-icons/react/dist/ssr";
 
 const MESES = [
   "jan", "fev", "mar", "abr", "mai", "jun",
@@ -76,6 +76,12 @@ export default async function CartoesPage() {
                     className="flex items-center gap-1.5 break-words font-semibold text-[var(--text)] hover:text-[var(--accent)]">
                     <CreditCardIcon size={16} />
                     {card.nome}
+                    {card.principal && (
+                      <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[0.7rem] font-medium"
+                        style={{ background: "var(--accent-weak)", color: "var(--accent)" }}>
+                        <Star size={11} weight="fill" /> Principal
+                      </span>
+                    )}
                   </Link>
                   {card.titular && (
                     <span className="mt-0.5 inline-flex w-fit items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium text-[var(--text)]"

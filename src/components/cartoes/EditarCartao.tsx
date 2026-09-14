@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { PencilSimple, Trash } from "@phosphor-icons/react";
+import { PencilSimple, Trash, Star } from "@phosphor-icons/react";
 import { MoneyField } from "@/components/ui/MoneyField";
 import { Field } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
@@ -52,6 +52,19 @@ export function EditarCartao({ card, membros }: { card: Card; membros: string[] 
     router.refresh();
   }
 
+  const [marcando, setMarcando] = useState(false);
+  async function alternarPrincipal() {
+    setErro(null);
+    setMarcando(true);
+    // desmarcar não faz sentido prático (fica sem principal); só permite marcar
+    const res = await fetch(`/api/cards/${card.id}`, {
+      method: "PATCH", body: JSON.stringify({ principal: !card.principal }),
+    });
+    setMarcando(false);
+    if (!res.ok) { setErro("Não foi possível definir o cartão principal."); return; }
+    router.refresh();
+  }
+
   if (editando) {
     return (
       <div style={{ display: "grid", gap: 12 }}>
@@ -90,7 +103,13 @@ export function EditarCartao({ card, membros }: { card: Card; membros: string[] 
   }
 
   return (
-    <div style={{ display: "flex", gap: 8 }}>
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+      <Button variant={card.principal ? "primary" : "ghost"} onClick={alternarPrincipal} disabled={marcando || card.principal}
+        title={card.principal ? "Este é o cartão principal" : "Usar como cartão principal no lançamento"}>
+        <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <Star size={14} weight={card.principal ? "fill" : "regular"} /> {card.principal ? "Principal" : "Tornar principal"}
+        </span>
+      </Button>
       <Button variant="ghost" onClick={() => setEditando(true)}>
         <span style={{ display: "flex", alignItems: "center", gap: 6 }}><PencilSimple size={14} /> Editar</span>
       </Button>

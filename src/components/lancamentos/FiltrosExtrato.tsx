@@ -23,8 +23,12 @@ export function FiltrosExtrato({
   const card = sp.get("card") ?? "";
   const de = sp.get("de") ?? "";
   const ate = sp.get("ate") ?? "";
+  const mes = sp.get("mes") ?? "";
   const [busca, setBusca] = useState(sp.get("busca") ?? "");
-  const temFiltro = !!(tipo || origem || categoria || pessoa || card || de || ate || sp.get("busca") || sp.get("invoice"));
+  const temFiltro = !!(tipo || origem || categoria || pessoa || card || de || ate || mes || sp.get("busca") || sp.get("invoice"));
+
+  const MESES = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
+  const mesLabel = /^\d{4}-\d{2}$/.test(mes) ? `${MESES[Number(mes.slice(5, 7)) - 1]} ${mes.slice(0, 4)}` : "";
 
   function irPara(mut: (p: URLSearchParams) => void) {
     const p = new URLSearchParams(sp.toString());
@@ -60,6 +64,14 @@ export function FiltrosExtrato({
 
   return (
     <div className="flex flex-col gap-2">
+      {mesLabel && (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs text-[var(--muted)]">Mês:</span>
+          <button onClick={() => setParam("mes", "")} style={{ ...chip(true), display: "inline-flex", alignItems: "center", gap: 6 }}>
+            <span className="capitalize">{mesLabel}</span> ✕
+          </button>
+        </div>
+      )}
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-xs text-[var(--muted)]">Tipo:</span>
         <button onClick={() => setParam("tipo", "")} style={chip(!tipo)}>Todos</button>

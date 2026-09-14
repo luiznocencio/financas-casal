@@ -22,6 +22,12 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   if ("titular" in b) patch.titular = b.titular || null;
   if ("bandeira" in b) patch.bandeira = b.bandeira || null;
   const supabase = await createServerSupabase();
+  // cartão principal: só um por lar. Ao marcar este, zera os demais (RLS já limita
+  // ao household), senão o índice único estoura.
+  if (typeof b.principal === "boolean") {
+    if (b.principal) await supabase.from("cards").update({ principal: false }).neq("id", id);
+    patch.principal = b.principal;
+  }
   const { error } = await supabase.from("cards").update(patch).eq("id", id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ ok: true });

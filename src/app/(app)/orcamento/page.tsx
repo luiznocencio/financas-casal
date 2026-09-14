@@ -10,6 +10,7 @@ import { EditarCategoria } from "@/components/orcamento/EditarCategoria";
 import { AddCategoriaForm } from "@/components/orcamento/AddCategoriaForm";
 import { AddSubcategoria } from "@/components/orcamento/AddSubcategoria";
 import { CategoriaPonto } from "@/components/ui/CategoriaTag";
+import { BarraOrcamento } from "@/components/orcamento/BarraOrcamento";
 
 export default async function OrcamentoPage() {
   const supabase = await createServerSupabase();
@@ -17,14 +18,15 @@ export default async function OrcamentoPage() {
   const ano = agora.getFullYear();
   const mes = agora.getMonth() + 1;
 
-  const [membrosRes, catsRes, budgetsRes, txsRes, contasRes] = await Promise.all([
+  const [membrosRes, catsRes, budgetsRes, txsRes, contasRes, invoicesRes] = await Promise.all([
     supabase.from("members").select("user_id, nome, renda_mensal_centavos, ajuda_custo_centavos, salario_account_id, ajuda_custo_account_id").order("papel"),
     supabase.from("categories").select("id, nome, cor, parent_id").eq("tipo", "despesa").order("nome"),
     supabase.from("budgets").select("categoria_id, valor_centavos"),
-    supabase.from("transactions").select("categoria_id, tipo, pessoa, valor_centavos, data_compra"),
+    supabase.from("transactions").select("categoria_id, tipo, pessoa, valor_centavos, data_compra, card_id, invoice_id"),
     supabase.from("accounts").select("id, nome, titular").order("nome"),
+    supabase.from("invoices").select("id, competencia_ano, competencia_mes"),
   ]);
-  const erro = membrosRes.error ?? catsRes.error ?? budgetsRes.error ?? txsRes.error ?? contasRes.error;
+  const erro = membrosRes.error ?? catsRes.error ?? budgetsRes.error ?? txsRes.error ?? contasRes.error ?? invoicesRes.error;
   if (erro) throw new Error(`Falha ao carregar o orçamento: ${erro.message}`);
 
   const membros = membrosRes.data ?? [];
@@ -39,8 +41,16 @@ export default async function OrcamentoPage() {
   for (const c of cats) if (c.parent_id) (filhosPorMae.get(c.parent_id) ?? filhosPorMae.set(c.parent_id, []).get(c.parent_id)!).push(c);
   const paiDe = new Map(cats.filter((c) => c.parent_id).map((c) => [c.id, c.parent_id as string]));
 
+  // gasto no cartão conta no mês da FATURA (competência), não da data da compra —
+  // inclui cartões que fecham ainda no mês anterior. Mesma regra do dashboard.
+  const compPorInvoice = new Map((invoicesRes.data ?? []).map((i) => [i.id, { ano: i.competencia_ano, mes: i.competencia_mes }]));
+  const txsRef = (txsRes.data ?? []).map((t) =>
+    t.card_id && t.invoice_id && compPorInvoice.has(t.invoice_id)
+      ? { ...t, competencia: compPorInvoice.get(t.invoice_id) }
+      : t);
+
   // reusa a agregação do mês (mesma regra do dashboard)
-  const rd = resumoDoMes(txsRes.data ?? [], { ano, mes });
+  const rd = resumoDoMes(txsRef, { ano, mes });
   const gastoPorCategoria = rd.porCategoria; // despesas do mês por categoria (filho fica no filho)
   const gastoTotalMes = rd.totalDespesas;    // total de despesas do mês (todas as categorias)
 
@@ -54,6 +64,8 @@ export default async function OrcamentoPage() {
   const resumo = resumoOrcamento({ rendaCentavos: renda, budgets, gastoPorCategoria: gastoRollup });
   const valorPorCat = new Map(budgets.map((b) => [b.categoria_id, b.valor_centavos]));
   const itemPorCat = new Map(resumo.itens.map((i) => [i.categoria_id, i]));
+  // ao filtrar uma categoria no extrato, leva o mês corrente (competência) junto
+  const mesParam = `${ano}-${String(mes).padStart(2, "0")}`;
 
   return (
     <main className="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-10 sm:px-6">
@@ -83,31 +95,23 @@ export default async function OrcamentoPage() {
           const item = itemPorCat.get(c.id);
           const limite = item?.limiteCentavos ?? 0;
           const gasto = gastoRollup[c.id] ?? 0;
-          const usado = item?.pctUsado ?? 0;
-          const cor = usado > 100 ? "var(--negativo)" : usado > 85 ? "var(--alerta)" : c.cor;
           const filhos = filhosPorMae.get(c.id) ?? [];
           return (
             <Card key={c.id}>
               <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
-                <Link href={`/lancamentos?categoria=${c.id}`}
+                <Link href={`/lancamentos?categoria=${c.id}&mes=${mesParam}`}
                   className="flex min-w-0 items-center gap-2 break-words font-medium text-[var(--text)] hover:text-[var(--accent)]">
                   <CategoriaPonto cor={c.cor} />{c.nome}
                 </Link>
                 <PercentualEditor categoriaId={c.id} valorCentavos={valorPorCat.get(c.id) ?? 0} />
               </div>
-              <div className="h-2 overflow-hidden rounded-full bg-[var(--surface-2)]">
-                <div className="h-full rounded-full" style={{ width: `${Math.min(100, usado)}%`, background: cor }} />
-              </div>
-              <div className="mt-2 flex justify-between text-sm text-[var(--muted)]">
-                <span>Gasto <Money centavos={gasto} tamanho="sm" /> de <Money centavos={limite} tamanho="sm" /></span>
-                <span>{limite > 0 ? <>Resta <Money centavos={limite - gasto} tamanho="sm" sinal /></> : "sem limite"}</span>
-              </div>
+              <BarraOrcamento gastoCentavos={gasto} limiteCentavos={limite} cor={c.cor} />
 
               {filhos.length > 0 && (
                 <div className="mt-3 flex flex-col gap-1.5 border-t border-[var(--border)] pt-3">
                   {filhos.map((f) => (
                     <div key={f.id} className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-[var(--muted)]">
-                      <Link href={`/lancamentos?categoria=${f.id}`}
+                      <Link href={`/lancamentos?categoria=${f.id}&mes=${mesParam}`}
                         className="flex min-w-0 flex-1 items-center gap-2 break-words hover:text-[var(--accent)]">
                         <CategoriaPonto cor={f.cor} />{f.nome}
                       </Link>
