@@ -28,15 +28,38 @@ export async function POST(req: Request) {
 
     const supabase = await createServerSupabase();
 
-    // aplica regras aprendidas (casamento por NOME BASE: ignora marcador de
-    // parcela e código de loja, então a regra vale pra mesma compra em qualquer mês)
+    // regras aprendidas (casamento por NOME BASE: ignora marcador de parcela e
+    // código de loja, então a regra vale pra mesma compra em qualquer mês)
     const { data: regras } = await supabase.from("category_rules").select("chave, categoria_id, descricao_preferida");
     const porChave = new Map((regras ?? []).map((r) => [r.chave, r]));
+
+    // gastos fixos deste cartão: casa por nome base pra pré-marcar "fixo" e sugerir
+    // a categoria do próprio fixo, sem o usuário precisar marcar na mão.
+    const fixoPorBase = new Map<string, string | null>();
+    if (origem.card_id) {
+      const { data: recs } = await supabase.from("recorrentes").select("descricao, categoria_id").eq("card_id", origem.card_id);
+      for (const r of recs ?? []) if (r.descricao) fixoPorBase.set(nomeBase(r.descricao), r.categoria_id ?? null);
+    }
+
+    // categoria já usada antes pra essa compra (qualquer origem, mais recente) —
+    // reconhece o que foi categorizado num import anterior mesmo sem virar regra.
+    const { data: categorizadas } = await supabase
+      .from("transactions").select("descricao, categoria_id, data_compra")
+      .not("categoria_id", "is", null).order("data_compra", { ascending: false });
+    const catPorBase = new Map<string, string>();
+    for (const t of categorizadas ?? []) {
+      const b = nomeBase(t.descricao ?? "");
+      if (b && !catPorBase.has(b)) catPorBase.set(b, t.categoria_id); // 1ª ocorrência = mais recente
+    }
+
     const comRegra = linhas.map((l) => {
-      const regra = porChave.get(nomeBase(l.descricao));
-      if (!regra) return { ...l, categoria_id: null as string | null };
-      const descricao = regra.descricao_preferida ? nomeComMarcador(regra.descricao_preferida, l.descricao) : l.descricao;
-      return { ...l, descricao, categoria_id: (regra.categoria_id ?? null) as string | null };
+      const base = nomeBase(l.descricao);
+      const regra = porChave.get(base);
+      const descricao = regra?.descricao_preferida ? nomeComMarcador(regra.descricao_preferida, l.descricao) : l.descricao;
+      const ehFixo = fixoPorBase.has(base);
+      // categoria: regra > categoria do gasto fixo > categoria usada antes
+      const categoria_id = (regra?.categoria_id ?? fixoPorBase.get(base) ?? catPorBase.get(base) ?? null) as string | null;
+      return { ...l, descricao, categoria_id, fixo: ehFixo };
     });
 
     // marca o que já existe (não duplicar fatura x lançamento manual). Combina
