@@ -73,17 +73,22 @@ export async function POST(req: Request) {
 
   // compras parceladas já existentes neste cartão: pra ligar a fatura seguinte à
   // mesma compra (mesmo grupo) e não duplicar uma parcela já lançada (conciliação).
-  // { assinatura -> grupo_parcela }, e set de parcelas já vistas "assinatura#n".
-  const grupoPorAssinatura = new Map<string, string>();
+  // A identidade da compra inclui o VALOR da parcela além da assinatura, pra
+  // distinguir duas compras no mesmo lugar/total/parcela mas com valores diferentes
+  // (ex.: duas compras na Carajás no mesmo dia). { idCompra -> grupo_parcela } e
+  // set de parcelas já vistas "idCompra#n".
+  const grupoPorCompra = new Map<string, string>();
   const parcelasVistas = new Set<string>();
+  const idCompra = (descricao: string, total: number, valor: number) =>
+    `${assinaturaParcela(origem.card_id as string, descricao, total)}|${valor}`;
   if (origem.card_id) {
     const { data: parc } = await supabase.from("transactions")
-      .select("grupo_parcela, descricao, total_parcelas, parcela_n")
+      .select("grupo_parcela, descricao, total_parcelas, parcela_n, valor_centavos")
       .eq("card_id", origem.card_id).gt("total_parcelas", 1);
     for (const p of parc ?? []) {
-      const assin = assinaturaParcela(origem.card_id, p.descricao ?? "", p.total_parcelas);
-      if (p.grupo_parcela && !grupoPorAssinatura.has(assin)) grupoPorAssinatura.set(assin, p.grupo_parcela);
-      parcelasVistas.add(`${assin}#${p.parcela_n}`);
+      const idC = idCompra(p.descricao ?? "", p.total_parcelas, p.valor_centavos);
+      if (p.grupo_parcela && !grupoPorCompra.has(idC)) grupoPorCompra.set(idC, p.grupo_parcela);
+      parcelasVistas.add(`${idC}#${p.parcela_n}`);
     }
   }
 
@@ -129,12 +134,12 @@ export async function POST(req: Request) {
     let parcelaInfo: { grupo_parcela: string | null; parcela_n: number; total_parcelas: number } | null = null;
     if (ehParcela && origem.card_id) {
       const parcelaN = marca?.parcela_n ?? 1;
-      const assin = assinaturaParcela(origem.card_id, it.descricao, totalParcelas);
-      // conciliação: essa parcela dessa compra já existe (lançada na mão ou reimport) → pula
-      if (parcelasVistas.has(`${assin}#${parcelaN}`)) { duplicadas++; continue; }
-      const grupo = grupoPorAssinatura.get(assin) ?? crypto.randomUUID();
-      grupoPorAssinatura.set(assin, grupo);
-      parcelasVistas.add(`${assin}#${parcelaN}`);
+      const idC = idCompra(it.descricao, totalParcelas, it.valor_centavos);
+      // conciliação: essa parcela dessa compra (mesmo valor) já existe → pula
+      if (parcelasVistas.has(`${idC}#${parcelaN}`)) { duplicadas++; continue; }
+      const grupo = grupoPorCompra.get(idC) ?? crypto.randomUUID();
+      grupoPorCompra.set(idC, grupo);
+      parcelasVistas.add(`${idC}#${parcelaN}`);
       parcelaInfo = { grupo_parcela: grupo, parcela_n: parcelaN, total_parcelas: totalParcelas };
     }
 
