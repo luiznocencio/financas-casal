@@ -25,4 +25,14 @@ describe("planejarLinhas", () => {
     expect(linhas[2].invoiceCompetencia).toEqual({ ano: 2026, mes: 5 });
     expect(linhas.reduce((s, l) => s + l.valor_centavos, 0)).toBe(9000);
   });
+
+  it("com vencimento, as parcelas usam o mês de pagamento (fecha 10, vence 5 -> +1 mês)", () => {
+    const linhas = planejarLinhas({
+      tipo: "despesa", valor_centavos: 9000, data_compra: "2026-03-05",
+      categoria_id: null, pessoa: "Ana", account_id: null, card_id: "card1",
+      total_parcelas: 3, descricao: "tênis",
+    }, 10 /* fechamento */, 5 /* vencimento < fechamento => vence no mês seguinte */);
+    expect(linhas[0].invoiceCompetencia).toEqual({ ano: 2026, mes: 4 });
+    expect(linhas[2].invoiceCompetencia).toEqual({ ano: 2026, mes: 6 });
+  });
 });

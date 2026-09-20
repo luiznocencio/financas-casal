@@ -15,15 +15,22 @@ export async function persistirLancamento(
   // pra acompanhar quantas faltam entre faturas. Só usado com competenciaForcada.
   parcelaInfo?: { grupo_parcela: string | null; parcela_n: number; total_parcelas: number } | null,
 ): Promise<{ error: string | null }> {
-  // dia de fechamento do cartão (só precisa quando vamos calcular a competência)
+  // fechamento + vencimento do cartão (só precisa ao calcular a competência). A
+  // competência é o mês de PAGAMENTO (vencimento) — mesma régua das faturas
+  // importadas, pra manual e importado ficarem consistentes.
   let diaFechamento: number | null = null;
+  let diaVencimento: number | null = null;
   if (l.card_id && !competenciaForcada) {
     if (diaFechamentoConhecido !== undefined) {
       diaFechamento = diaFechamentoConhecido;
+      // vencimento não vem por esse ramo hoje; busca pra não cair no fallback
+      const { data: card } = await supabase.from("cards").select("dia_vencimento").eq("id", l.card_id).maybeSingle();
+      diaVencimento = card?.dia_vencimento ?? null;
     } else {
-      const { data: card } = await supabase.from("cards").select("dia_fechamento").eq("id", l.card_id).single();
+      const { data: card } = await supabase.from("cards").select("dia_fechamento, dia_vencimento").eq("id", l.card_id).single();
       if (!card) return { error: "cartão inexistente" };
       diaFechamento = card.dia_fechamento;
+      diaVencimento = card.dia_vencimento;
     }
   }
   if (l.account_id) {
@@ -42,7 +49,7 @@ export async function persistirLancamento(
         descricao: l.descricao ?? null,
         invoiceCompetencia: { ano: competenciaForcada.ano, mes: competenciaForcada.mes },
       }]
-    : planejarLinhas(l, diaFechamento);
+    : planejarLinhas(l, diaFechamento, diaVencimento);
 
   const invoiceIdPorComp = new Map<string, string>();
   for (const linha of linhas) {

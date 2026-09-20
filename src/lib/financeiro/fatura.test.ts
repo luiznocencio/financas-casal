@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { competenciaDaCompra, proximaCompetencia } from "./fatura";
+import { competenciaDaCompra, competenciaDePagamento, proximaCompetencia } from "./fatura";
 
 describe("competenciaDaCompra", () => {
   const fechamento = 10;
@@ -21,6 +21,20 @@ describe("competenciaDaCompra", () => {
   });
   it("virada de ano: dezembro depois do fechamento -> janeiro do ano seguinte", () => {
     expect(competenciaDaCompra(new Date(2026, 11, 20), fechamento)).toEqual({ ano: 2027, mes: 1 });
+  });
+});
+
+describe("competenciaDePagamento (mês do vencimento)", () => {
+  // compra na fatura ABERTA (pelo fechamento) e rotulada pelo mês em que VENCE
+  it("vencimento depois do fechamento: vence no mesmo mês do fechamento", () => {
+    // fecha 4, vence 10 (ex.: Itaú). Compra 15/set -> fatura fecha em out -> vence 10/out
+    expect(competenciaDePagamento(new Date(2026, 8, 15), 4, 10)).toEqual({ ano: 2026, mes: 10 });
+  });
+  it("fecha no fim, vence no começo: vence no mês seguinte ao fechamento", () => {
+    // fecha 28, vence 6 (ex.: Nubank). Compra 15/set -> fatura fecha 28/set -> vence 6/out
+    expect(competenciaDePagamento(new Date(2026, 8, 15), 28, 6)).toEqual({ ano: 2026, mes: 10 });
+    // compra 30/set (após o fechamento) -> fatura fecha 28/out -> vence 6/nov
+    expect(competenciaDePagamento(new Date(2026, 8, 30), 28, 6)).toEqual({ ano: 2026, mes: 11 });
   });
 });
 

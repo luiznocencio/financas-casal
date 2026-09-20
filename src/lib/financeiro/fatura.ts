@@ -18,3 +18,14 @@ export function competenciaDaCompra(dataCompra: Date, diaFechamento: number): Co
   const fechamentoEfetivo = Math.min(diaFechamento, ultimoDiaDoMes(base.ano, base.mes));
   return dataCompra.getDate() < fechamentoEfetivo ? base : proximaCompetencia(base);
 }
+
+/**
+ * Competência de PAGAMENTO: o mês em que a fatura da compra VENCE (é paga). É a
+ * régua que o casal usa ("penso na fatura pelo mês em que pago"). Parte do mês de
+ * fechamento e, se o vencimento cai depois do fechamento, vence no mesmo mês;
+ * senão (fecha no fim do mês, vence no começo do outro) vence no mês seguinte.
+ */
+export function competenciaDePagamento(dataCompra: Date, diaFechamento: number, diaVencimento: number): Competencia {
+  const fecha = competenciaDaCompra(dataCompra, diaFechamento);
+  return diaVencimento > diaFechamento ? fecha : proximaCompetencia(fecha);
+}
