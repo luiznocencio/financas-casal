@@ -1,8 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // pdfjs-dist não deve ser empacotado (usa ESM/dyn imports; roda no runtime node)
-  serverExternalPackages: ["pdfjs-dist"],
+  // pdfjs-dist e xlsx não devem ser empacotados (dyn imports internos; rodam no
+  // runtime node) — resolvidos de node_modules em tempo de execução
+  serverExternalPackages: ["pdfjs-dist", "xlsx"],
   // o worker do pdfjs é carregado por import dinâmico (string) e não é rastreado
   // automaticamente — força a inclusão no bundle da função de importar PDF
   outputFileTracingIncludes: {

@@ -31,7 +31,7 @@ export function Importador({
   const [linhas, setLinhas] = useState<Linha[] | null>(null);
   const [totalFatura, setTotalFatura] = useState<number | null>(null);
   const [carregando, setCarregando] = useState(false);
-  const [lendoPdf, setLendoPdf] = useState(false);
+  const [lendoArquivo, setLendoArquivo] = useState(false);
   const [arqNome, setArqNome] = useState<string | null>(null);
   const [arquivoPdf, setArquivoPdf] = useState<File | null>(null);
   const [senhaPdf, setSenhaPdf] = useState("");
@@ -44,15 +44,17 @@ export function Importador({
     if (!f) return;
     setArqNome(f.name);
     setPrecisaSenha(false); setSenhaPdf(""); setArquivoPdf(null);
-    const ehPdf = f.type === "application/pdf" || f.name.toLowerCase().endsWith(".pdf");
-    if (!ehPdf) { f.text().then(setTexto); return; }
-    setArquivoPdf(f);
-    await lerPdf(f);
+    const nome = f.name.toLowerCase();
+    const ehPdf = f.type === "application/pdf" || nome.endsWith(".pdf");
+    const ehPlanilha = /\.(xlsx?|ods)$/.test(nome) || f.type.includes("spreadsheet") || f.type.includes("ms-excel");
+    if (ehPdf) { setArquivoPdf(f); await lerPdf(f); return; }
+    if (ehPlanilha) { await lerPlanilha(f); return; }
+    f.text().then(setTexto); // csv/txt/ofx: texto puro no cliente
   }
 
   // lê o PDF no servidor; se for protegido, pede a senha e tenta de novo com ela
   async function lerPdf(f: File, senha?: string) {
-    setErro(null); setLendoPdf(true);
+    setErro(null); setLendoArquivo(true);
     try {
       const fd = new FormData();
       fd.append("arquivo", f);
@@ -68,7 +70,23 @@ export function Importador({
     } catch {
       setErro("Falha ao ler o PDF.");
     } finally {
-      setLendoPdf(false);
+      setLendoArquivo(false);
+    }
+  }
+
+  // lê a planilha (.xls/.xlsx/.ods) no servidor e devolve o texto (CSV) pra análise
+  async function lerPlanilha(f: File) {
+    setErro(null); setLendoArquivo(true);
+    try {
+      const fd = new FormData();
+      fd.append("arquivo", f);
+      const r = await fetch("/api/importar/planilha", { method: "POST", body: fd }).then((x) => x.json());
+      if (!r.ok) { setErro(r.detalhe ? `Não consegui ler a planilha: ${r.detalhe}` : "Não consegui ler essa planilha."); return; }
+      setTexto(r.texto);
+    } catch {
+      setErro("Falha ao ler a planilha.");
+    } finally {
+      setLendoArquivo(false);
     }
   }
 
@@ -174,13 +192,15 @@ export function Importador({
           <div className="flex flex-wrap items-center gap-2">
             <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text)] hover:border-[var(--accent)]">
               <UploadSimple size={15} /> Escolher arquivo
-              <input type="file" accept=".csv,.txt,.ofx,.pdf,text/plain,application/pdf" onChange={lerArquivo} disabled={lendoPdf} className="hidden" />
+              <input type="file"
+                accept=".csv,.txt,.ofx,.pdf,.xls,.xlsx,.ods,text/plain,application/pdf,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                onChange={lerArquivo} disabled={lendoArquivo} className="hidden" />
             </label>
-            {arqNome && !lendoPdf && <span className="min-w-0 truncate text-xs text-[var(--muted)]">{arqNome}</span>}
-            {lendoPdf && (
-              <span className="flex items-center gap-2 text-sm text-[var(--muted)]"><Spinner size={14} /> Lendo PDF...</span>
+            {arqNome && !lendoArquivo && <span className="min-w-0 truncate text-xs text-[var(--muted)]">{arqNome}</span>}
+            {lendoArquivo && (
+              <span className="flex items-center gap-2 text-sm text-[var(--muted)]"><Spinner size={14} /> Lendo arquivo...</span>
             )}
-            <Button variant="primary" onClick={analisar} disabled={carregando || lendoPdf || !texto} style={{ marginLeft: "auto" }}>
+            <Button variant="primary" onClick={analisar} disabled={carregando || lendoArquivo || !texto} style={{ marginLeft: "auto" }}>
               <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
                 {carregando && <Spinner size={14} />}
                 {carregando ? "Analisando..." : "Analisar"}
@@ -193,7 +213,7 @@ export function Importador({
                 onKeyDown={(e) => { if (e.key === "Enter" && senhaPdf) lerPdf(arquivoPdf, senhaPdf); }}
                 placeholder="Senha do PDF" autoFocus
                 className="rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text)]" />
-              <Button variant="primary" onClick={() => lerPdf(arquivoPdf, senhaPdf)} disabled={lendoPdf || !senhaPdf}>
+              <Button variant="primary" onClick={() => lerPdf(arquivoPdf, senhaPdf)} disabled={lendoArquivo || !senhaPdf}>
                 Abrir com senha
               </Button>
               <span className="text-xs text-[var(--muted)]">A senha da fatura do Itaú costuma ser os dígitos do CPF do titular.</span>
