@@ -58,13 +58,13 @@ export default async function Lancamentos({
   if (sp.origem === "pix") q = q.not("account_id", "is", null);
   if (sp.de) q = q.gte("data_compra", sp.de);
   if (sp.ate) q = q.lte("data_compra", sp.ate);
-  // mês (competência): cartão pela fatura do mês, conta/pix pela data no mês
+  // mês do CONSUMO: à vista (pix e cartão) pela data; parcela pela fatura do mês
   if (mesValido) {
     const ini = `${mesValido.ano}-${pad(mesValido.mes)}-01`;
     const fim = `${mesValido.ano}-${pad(mesValido.mes)}-${pad(ultimoDiaDoMes(mesValido.ano, mesValido.mes))}`;
     const invIds = invoices.filter((i) => i.competencia_ano === mesValido.ano && i.competencia_mes === mesValido.mes).map((i) => i.id);
-    const partes = [`and(card_id.is.null,data_compra.gte.${ini},data_compra.lte.${fim})`];
-    if (invIds.length) partes.push(`and(card_id.not.is.null,invoice_id.in.(${invIds.join(",")}))`);
+    const partes = [`and(total_parcelas.lte.1,data_compra.gte.${ini},data_compra.lte.${fim})`];
+    if (invIds.length) partes.push(`and(total_parcelas.gt.1,invoice_id.in.(${invIds.join(",")}))`);
     q = q.or(partes.join(","));
   }
   if (sp.busca?.trim()) q = q.ilike("descricao", `%${sp.busca.trim()}%`);
@@ -99,11 +99,12 @@ export default async function Lancamentos({
     const bm = mesValido ?? { ano: agora.getFullYear(), mes: agora.getMonth() + 1 };
     const { data: txsCat } = await supabase
       .from("transactions")
-      .select("categoria_id, tipo, pessoa, valor_centavos, data_compra, card_id, invoice_id")
+      .select("categoria_id, tipo, pessoa, valor_centavos, data_compra, card_id, invoice_id, total_parcelas")
       .in("categoria_id", rollupIds);
     const compPorInvoice = new Map(invoices.map((i) => [i.id, { ano: i.competencia_ano, mes: i.competencia_mes }]));
+    // consumo: à vista pela data; parcela pela competência
     const txsRef = (txsCat ?? []).map((t) =>
-      t.card_id && t.invoice_id && compPorInvoice.has(t.invoice_id) ? { ...t, competencia: compPorInvoice.get(t.invoice_id) } : t);
+      t.card_id && t.total_parcelas > 1 && t.invoice_id && compPorInvoice.has(t.invoice_id) ? { ...t, competencia: compPorInvoice.get(t.invoice_id) } : t);
     const rd = resumoDoMes(txsRef, bm);
     const gasto = rollupIds.reduce((s, id) => s + (rd.porCategoria[id] ?? 0), 0);
     const limite = budgets.find((b) => b.categoria_id === mae.id)?.valor_centavos ?? 0;

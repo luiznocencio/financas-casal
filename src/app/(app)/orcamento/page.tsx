@@ -22,7 +22,7 @@ export default async function OrcamentoPage() {
     supabase.from("members").select("user_id, nome, renda_mensal_centavos, ajuda_custo_centavos, salario_account_id, ajuda_custo_account_id").order("papel"),
     supabase.from("categories").select("id, nome, cor, parent_id").eq("tipo", "despesa").order("nome"),
     supabase.from("budgets").select("categoria_id, valor_centavos"),
-    supabase.from("transactions").select("categoria_id, tipo, pessoa, valor_centavos, data_compra, card_id, invoice_id"),
+    supabase.from("transactions").select("categoria_id, tipo, pessoa, valor_centavos, data_compra, card_id, invoice_id, total_parcelas"),
     supabase.from("accounts").select("id, nome, titular").order("nome"),
     supabase.from("invoices").select("id, competencia_ano, competencia_mes"),
   ]);
@@ -41,11 +41,11 @@ export default async function OrcamentoPage() {
   for (const c of cats) if (c.parent_id) (filhosPorMae.get(c.parent_id) ?? filhosPorMae.set(c.parent_id, []).get(c.parent_id)!).push(c);
   const paiDe = new Map(cats.filter((c) => c.parent_id).map((c) => [c.id, c.parent_id as string]));
 
-  // gasto no cartão conta no mês da FATURA (competência), não da data da compra —
-  // inclui cartões que fecham ainda no mês anterior. Mesma regra do dashboard.
+  // CONSUMO = mês da compra: à vista (pix e cartão) conta pela data; só a parcela
+  // conta pela competência (o mês em que ela entra na fatura). Mesma regra do dashboard.
   const compPorInvoice = new Map((invoicesRes.data ?? []).map((i) => [i.id, { ano: i.competencia_ano, mes: i.competencia_mes }]));
   const txsRef = (txsRes.data ?? []).map((t) =>
-    t.card_id && t.invoice_id && compPorInvoice.has(t.invoice_id)
+    t.card_id && t.total_parcelas > 1 && t.invoice_id && compPorInvoice.has(t.invoice_id)
       ? { ...t, competencia: compPorInvoice.get(t.invoice_id) }
       : t);
 

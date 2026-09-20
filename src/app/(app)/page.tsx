@@ -51,10 +51,12 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   const { data: membrosData } = membrosRes;
   const membros = (membrosData ?? []).map((m) => m.nome);
 
-  // gasto no cartão conta no mês da FATURA (competência), não da data da compra
+  // CONSUMO = mês da compra: à vista (pix e cartão) conta pela data; parcela conta
+  // a parcela no mês em que ela entra na fatura (competência), pra não somar as 10
+  // parcelas num mês só. A camada de caixa (projeção) usa outra régua, mais abaixo.
   const compPorInvoice = new Map((invoicesRes.data ?? []).map((i) => [i.id, { ano: i.competencia_ano, mes: i.competencia_mes }]));
   const txsRef = (txs ?? []).map((t) =>
-    t.card_id && t.invoice_id && compPorInvoice.has(t.invoice_id)
+    t.card_id && t.total_parcelas > 1 && t.invoice_id && compPorInvoice.has(t.invoice_id)
       ? { ...t, competencia: compPorInvoice.get(t.invoice_id) }
       : t);
 
@@ -235,8 +237,8 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
 
       <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
         <Card>
-          <h3 className="mb-1 font-medium text-[var(--text)]">Fatura de cada um</h3>
-          <p className="mb-4 text-xs text-[var(--muted)]">Soma das compras dos cartões de cada pessoa neste mês.</p>
+          <h3 className="mb-1 font-medium text-[var(--text)]">Cartão de cada um</h3>
+          <p className="mb-4 text-xs text-[var(--muted)]">Compras nos cartões de cada pessoa neste mês (pela data; parcela conta a parcela do mês).</p>
           <SplitBar itens={porPessoa.map(([nome, centavos]) => ({ nome, centavos }))} membros={membros} />
         </Card>
 

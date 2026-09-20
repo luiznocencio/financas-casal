@@ -4,8 +4,9 @@ type TxResumo = {
   pessoa: string;
   categoria_id: string | null;
   data_compra: string; // yyyy-mm-dd
-  // mês "de verdade" do gasto: p/ compra no cartão é a competência da fatura
-  // (se a fatura já fechou, a compra é gasto do mês seguinte), não a data.
+  // mês do gasto (consumo). À vista usa a data (sem competencia). Só a parcela
+  // preenche competencia = mês em que ela entra na fatura, pra espalhar as
+  // parcelas em vez de somar tudo no mês da compra.
   competencia?: { ano: number; mes: number };
 };
 
