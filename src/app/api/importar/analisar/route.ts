@@ -59,7 +59,8 @@ export async function POST(req: Request) {
       const ehFixo = fixoPorBase.has(base);
       // categoria: regra > categoria do gasto fixo > categoria usada antes
       const categoria_id = (regra?.categoria_id ?? fixoPorBase.get(base) ?? catPorBase.get(base) ?? null) as string | null;
-      return { ...l, descricao, categoria_id, fixo: ehFixo };
+      // guarda o texto cru do banco pra aprender no confirmar o que for ajustado aqui
+      return { ...l, descricao, descricao_original: l.descricao, categoria_id, fixo: ehFixo };
     });
 
     // marca o que já existe (não duplicar fatura x lançamento manual). Combina

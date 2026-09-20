@@ -13,6 +13,7 @@ type Linha = {
   data: string; descricao: string; valor_centavos: number;
   tipo: "despesa" | "receita"; total_parcelas: number;
   categoria_id: string | null; pessoa: string; incluir: boolean; duplicada?: boolean; fixo?: boolean;
+  descricao_original?: string; // texto cru do banco, pra aprender ajustes no confirmar
 };
 
 export function Importador({
@@ -122,7 +123,7 @@ export function Importador({
     const selecionadas = linhas.filter((l) => l.incluir).map((l) => ({
       data: l.data, descricao: l.descricao, valor_centavos: l.valor_centavos,
       tipo: l.tipo, total_parcelas: l.total_parcelas, categoria_id: l.categoria_id, pessoa: l.pessoa,
-      fixo: l.fixo ?? false,
+      fixo: l.fixo ?? false, descricao_original: l.descricao_original ?? null,
     }));
     const [ano, mes] = comp.split("-").map(Number);
     setCarregando(true);

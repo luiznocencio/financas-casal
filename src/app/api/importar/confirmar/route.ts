@@ -5,7 +5,7 @@ import { persistirLancamento } from "@/lib/financeiro/persistir";
 import type { NovoLancamento } from "@/lib/financeiro/tipos";
 import { normalizeDescricao } from "@/lib/financeiro/descricao";
 import { ultimoDiaDoMes } from "@/lib/financeiro/fechamento";
-import { lerParcela, assinaturaParcela } from "@/lib/importacao/parcelas";
+import { lerParcela, assinaturaParcela, nomeBase, baseDescricao } from "@/lib/importacao/parcelas";
 
 const DIA_MS = 86_400_000;
 function diasMs(iso: string): number {
@@ -18,6 +18,7 @@ type ItemImport = {
   tipo: "despesa" | "receita"; total_parcelas: number;
   fixo?: boolean; // marcar como gasto fixo (acha-ou-cria recorrente e liga)
   categoria_id: string | null; pessoa: string;
+  descricao_original?: string | null; // texto cru do banco, pra aprender ajustes
 };
 
 const DATA_ISO = /^\d{4}-\d{2}-\d{2}$/;
@@ -105,10 +106,27 @@ export async function POST(req: Request) {
   let duplicadas = 0;
   let fixosCriados = 0;
   const falhas: string[] = [];
+  // aprende (por nome base do texto do banco) a categoria e o renome que o usuário
+  // ajustar aqui, pra virem prontos na próxima fatura — como uma edição no extrato.
+  const regrasAprender = new Map<string, { categoria_id: string | null; descricao_preferida: string | null }>();
   for (const it of itens) {
     if (!(it.valor_centavos > 0) || !DATA_ISO.test(it.data ?? "")) {
       falhas.push(it.descricao || "(sem descrição)");
       continue;
+    }
+
+    // ajuste feito no import vira regra: categoria escolhida e/ou renome (nome base
+    // do texto cru do banco != nome base do que ficou na linha)
+    if (origem.card_id && it.descricao_original) {
+      const base = nomeBase(it.descricao_original);
+      const renomeou = !!base && nomeBase(it.descricao) !== base;
+      if (base && (it.categoria_id || renomeou)) {
+        const atual = regrasAprender.get(base) ?? { categoria_id: null, descricao_preferida: null };
+        regrasAprender.set(base, {
+          categoria_id: it.categoria_id ?? atual.categoria_id,
+          descricao_preferida: renomeou ? baseDescricao(it.descricao) : atual.descricao_preferida,
+        });
+      }
     }
     // parcela: "k/M" na descrição tem prioridade sobre o total detectado pela IA
     const marca = lerParcela(it.descricao);
@@ -173,5 +191,24 @@ export async function POST(req: Request) {
     // evita duplicar dentro do próprio lote (parcela já se protege via parcelasVistas)
     else { criadas++; if (!ehParcela) chaves.add(chave); }
   }
+
+  // grava as regras aprendidas neste import (merge: não apaga o campo que não veio)
+  if (regrasAprender.size > 0) {
+    const chavesRegra = [...regrasAprender.keys()];
+    const { data: jaExistem } = await supabase
+      .from("category_rules").select("chave, categoria_id, descricao_preferida").in("chave", chavesRegra);
+    const antigo = new Map((jaExistem ?? []).map((r) => [r.chave, r]));
+    const upserts = chavesRegra.map((chave) => {
+      const nova = regrasAprender.get(chave)!;
+      const old = antigo.get(chave);
+      return {
+        household_id: membro.household_id, chave,
+        categoria_id: nova.categoria_id ?? old?.categoria_id ?? null,
+        descricao_preferida: nova.descricao_preferida ?? old?.descricao_preferida ?? null,
+      };
+    });
+    await supabase.from("category_rules").upsert(upserts, { onConflict: "household_id,chave" });
+  }
+
   return NextResponse.json({ criadas, duplicadas, fixosCriados, falhas });
 }
