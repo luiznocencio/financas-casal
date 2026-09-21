@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { createServerSupabase } from "@/lib/supabase/server";
-import { saldoConta, limiteDisponivel } from "@/lib/financeiro/derivados";
+import { saldoConta } from "@/lib/financeiro/derivados";
 import { resumoDoMes } from "@/lib/financeiro/agregacoes";
 import { resumoOrcamento } from "@/lib/financeiro/orcamento";
 import { ultimoDiaDoMes } from "@/lib/financeiro/fechamento";
@@ -8,7 +8,6 @@ import { contaOcorreNoMes, contaVisivelNoMes } from "@/lib/financeiro/contas";
 import { centavosParaReais } from "@/lib/financeiro/dinheiro";
 import { Money } from "@/components/ui/Money";
 import { Card } from "@/components/ui/Card";
-import { StatTile } from "@/components/ui/StatTile";
 import { SplitBar } from "@/components/ui/SplitBar";
 import { CategoriaTag, CategoriaPonto } from "@/components/ui/CategoriaTag";
 import { BarraOrcamento } from "@/components/orcamento/BarraOrcamento";
@@ -66,11 +65,6 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   const saldoTotal = (contas ?? []).reduce((s, c) => {
     const mov = (txs ?? []).filter((t) => t.account_id === c.id);
     return s + saldoConta(c.saldo_inicial_centavos, mov);
-  }, 0);
-
-  const comprometido = (cards ?? []).reduce((s, card) => {
-    const emAberto = (txs ?? []).filter((t) => t.card_id === card.id && !t.paga);
-    return s + (card.limite_centavos - limiteDisponivel(card.limite_centavos, emAberto));
   }, 0);
 
   const resumo = resumoDoMes(txsRef, ref);
@@ -138,10 +132,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   }
 
   const ehFuturo = idxRef > idxAtual;
-  const ehPassado = idxRef < idxAtual;
   const aPagarAtual = faturasAbertasAteAtual + contasPendentesAtual;
-  // saldo mostrado na tile: mês atual = saldo vivo; outros meses = projeção/histórico
-  const saldoTileValor = ehAtual ? saldoTotal : saldoRef;
 
   const catById = new Map((cats ?? []).map((c) => [c.id, c]));
   const nomeCat = (id: string) => catById.get(id)?.nome ?? "Outros";
@@ -164,17 +155,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   const topCategorias = Object.entries(resumo.porCategoria).sort((a, b) => b[1] - a[1]);
   const maiorCategoria = topCategorias.length ? topCategorias[0][1] : 0;
 
-  // "Despesas do mês" inclui as contas a pagar PENDENTES do mês (despesa que vai
-  // existir mesmo antes de vencer). As já pagas já entram como despesa real.
-  const pagoContaRef = new Set((txs ?? [])
-    .filter((t) => { if (!t.conta_pagar_id) return false; const [a, m] = t.data_compra.split("-").map(Number); return a === ref.ano && m === ref.mes; })
-    .map((t) => t.conta_pagar_id));
-  const contasPendentesRef = contasAtivas
-    .filter((c) => contaVisivelNoMes(c, ref.ano, ref.mes, pagaContaAlgumaVez.has(c.id), pagoContaRef.has(c.id)) && !pagoContaRef.has(c.id))
-    .reduce((s, c) => s + (c.valor_estimado_centavos ?? 0), 0);
-  const despesasDoMes = resumo.totalDespesas + contasPendentesRef;
-
-  // resumo do orçamento do mês (consumo): orçado x gasto + categorias estourando.
+  // resumo do orçamento do mês (consumo): orçado x gasto, placar e alertas.
   // o gasto do filho soma na mãe (o limite mora na mãe).
   const paiDe = new Map((cats ?? []).filter((c) => c.parent_id).map((c) => [c.id, c.parent_id as string]));
   const gastoRollup: Record<string, number> = {};
@@ -185,15 +166,31 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   const budgets = budgetsRes.data ?? [];
   const resumoOrc = resumoOrcamento({ rendaCentavos: rendaMensal, budgets, gastoPorCategoria: gastoRollup });
   const totalOrcado = resumoOrc.totalOrcadoCentavos;
-  const estourando = resumoOrc.itens
-    .filter((i) => i.limiteCentavos > 0 && i.pctUsado > 85)
+  const sobraOrcado = totalOrcado - resumo.totalDespesas;
+  const corPlano = resumo.totalDespesas > totalOrcado ? "var(--negativo)"
+    : resumo.totalDespesas > 0.85 * totalOrcado ? "var(--alerta)" : "var(--positivo)";
+  const orcItens = resumoOrc.itens.filter((i) => i.limiteCentavos > 0);
+  const placar = {
+    azul: orcItens.filter((i) => i.pctUsado <= 85).length,
+    perto: orcItens.filter((i) => i.pctUsado > 85 && i.pctUsado <= 100).length,
+    estourou: orcItens.filter((i) => i.pctUsado > 100).length,
+  };
+  const alertas = orcItens
+    .filter((i) => i.pctUsado > 85)
     .sort((a, b) => b.pctUsado - a.pctUsado)
     .slice(0, 4);
 
-  const saldoRotulo = ehAtual ? "Saldo em contas" : ehFuturo ? "Saldo projetado" : "Saldo no fim do mês";
+  // Caixa: folga real (saldo + rendas a entrar − a pagar). Cor pelo sinal.
+  const dinheiro = (c: number) => c < 0 ? `−${centavosParaReais(Math.abs(c))}` : centavosParaReais(c);
+  const corCaixa = saldoRef >= 0 ? "var(--positivo)" : "var(--negativo)";
+  const legendaCaixa = ehAtual
+    ? (saldoRef >= 0 ? "dá pra pagar o pendente" : "falta pro pendente")
+    : ehFuturo
+      ? (saldoRef >= 0 ? `deve sobrar até ${MESES[ref.mes - 1]}` : `vai faltar até ${MESES[ref.mes - 1]}`)
+      : `no fim de ${MESES[ref.mes - 1]}`;
 
   return (
-    <main className="mx-auto flex max-w-5xl flex-col gap-8 px-4 py-10 sm:px-6">
+    <main className="mx-auto flex max-w-5xl flex-col gap-6 px-4 py-10 sm:px-6">
       <header className="flex items-start justify-between gap-3">
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-1">
@@ -211,25 +208,32 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
         <div className="lg:hidden"><SairButton variant="inline" /></div>
       </header>
 
-      {/* ───── NESTE MÊS — consumo (o que gastamos, pela data da compra) ───── */}
-      <section className="flex flex-col gap-3">
-        <div className="flex flex-wrap items-baseline justify-between gap-x-3">
-          <h2 className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">Neste mês</h2>
-          <span className="text-xs text-[var(--muted)]">o que gastamos e recebemos — pela data da compra</span>
-        </div>
-
+      {/* ───── TERMÔMETROS: Plano (orçamento) e Caixa (dinheiro real) ───── */}
+      <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
+        {/* PLANO */}
         <Card>
-          <div className="mb-2 flex items-center justify-between gap-2">
-            <span className="font-medium text-[var(--text)]">Orçamento</span>
-            <Link href="/orcamento" className="text-sm text-[var(--accent)]">Ver orçamento</Link>
+          <div className="mb-3 flex items-start justify-between gap-2">
+            <div className="flex flex-col gap-0.5">
+              <span className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">Plano</span>
+              <span className="text-xs text-[var(--muted)]">o que ainda cabe no orçamento</span>
+            </div>
+            <Link href="/orcamento" className="shrink-0 text-sm text-[var(--accent)]">Ver</Link>
           </div>
           {totalOrcado > 0 ? (
             <>
-              <BarraOrcamento gastoCentavos={resumo.totalDespesas} limiteCentavos={totalOrcado} cor="var(--accent)" />
-              {estourando.length > 0 && (
+              <div className="flex flex-wrap items-baseline gap-x-2">
+                <span className="mono text-2xl font-bold" style={{ color: corPlano }}>{dinheiro(sobraOrcado)}</span>
+                <span className="text-sm text-[var(--muted)]">{sobraOrcado >= 0 ? "ainda no plano" : "acima do plano"}</span>
+              </div>
+              <div className="mt-3"><BarraOrcamento gastoCentavos={resumo.totalDespesas} limiteCentavos={totalOrcado} cor="var(--accent)" /></div>
+              <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-[var(--muted)]">
+                <span><strong style={{ color: "var(--positivo)" }}>{placar.azul}</strong> no azul</span>
+                <span><strong style={{ color: "var(--alerta)" }}>{placar.perto}</strong> perto</span>
+                <span><strong style={{ color: "var(--negativo)" }}>{placar.estourou}</strong> estourou</span>
+              </div>
+              {alertas.length > 0 && (
                 <div className="mt-3 flex flex-col gap-1.5 border-t border-[var(--border)] pt-3">
-                  <span className="text-xs text-[var(--muted)]">Perto do limite</span>
-                  {estourando.map((i) => (
+                  {alertas.map((i) => (
                     <Link key={i.categoria_id} href={`/lancamentos?categoria=${i.categoria_id}&mes=${ref.ano}-${pad(ref.mes)}`}
                       className="flex items-center justify-between gap-2 text-sm hover:text-[var(--accent)]">
                       <span className="flex min-w-0 items-center gap-2 break-words">
@@ -248,89 +252,68 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
           )}
         </Card>
 
-        <div className="grid grid-cols-2 gap-3">
-          <StatTile rotulo="Despesas do mês" valorCentavos={despesasDoMes} hint="compras do mês + contas a pagar" />
-          <StatTile rotulo="Receitas do mês" valorCentavos={resumo.totalReceitas} hint="recebido no mês" />
-        </div>
-
-        <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
-          <Card>
-            <h3 className="mb-1 font-medium text-[var(--text)]">Cartão de cada um</h3>
-            <p className="mb-4 text-xs text-[var(--muted)]">Compras nos cartões de cada pessoa neste mês (pela data; parcela conta a parcela do mês).</p>
-            <SplitBar itens={porPessoa.map(([nome, centavos]) => ({ nome, centavos }))} membros={membros} />
-          </Card>
-
-          <Card>
-            <h3 className="mb-4 font-medium text-[var(--text)]">Categorias do mês</h3>
-            {topCategorias.length === 0 ? (
-              <p className="text-sm text-[var(--muted)]">Nenhuma categoria com gasto neste mês ainda.</p>
-            ) : (
-              <div className="flex flex-col gap-4">
-                {topCategorias.map(([id, valor]) => (
-                  <Link key={id} href={`/lancamentos?categoria=${id}&mes=${ref.ano}-${pad(ref.mes)}`}
-                    className="-mx-2 flex flex-col gap-1.5 rounded-[var(--radius-sm)] px-2 py-1 transition-colors hover:bg-[var(--surface-2)]">
-                    <div className="flex items-center justify-between gap-2 text-sm">
-                      <CategoriaTag nome={nomeCat(id)} cor={corCat(id)} />
-                      <Money centavos={valor} />
-                    </div>
-                    <div className="h-2 overflow-hidden rounded-full bg-[var(--surface-2)]">
-                      <div
-                        className="h-full rounded-full"
-                        style={{ width: `${maiorCategoria > 0 ? (valor / maiorCategoria) * 100 : 0}%`, background: corCat(id) }}
-                      />
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            )}
-          </Card>
-        </div>
-      </section>
-
-      {/* ───── CAIXA — o que entra e sai da conta (cartão sai no vencimento) ───── */}
-      <section className="flex flex-col gap-3">
-        <div className="flex flex-wrap items-baseline justify-between gap-x-3">
-          <h2 className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">Caixa</h2>
-          <span className="text-xs text-[var(--muted)]">o que entra e sai da conta — cartão sai no vencimento</span>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3">
-          <StatTile rotulo={saldoRotulo} valorCentavos={saldoTileValor} sinal />
-          <StatTile rotulo="Faturas abertas" valorCentavos={comprometido} hint="total a pagar nos cartões" />
-        </div>
-
-        {/* projeção de caixa: quanto sobra/falta considerando as faturas e contas de cada mês */}
-        <div className="rounded-[var(--radius)] border px-4 py-3"
-          style={{ borderColor: saldoRef >= 0 ? "var(--positivo)" : "var(--negativo)", background: `color-mix(in srgb, ${saldoRef >= 0 ? "var(--positivo)" : "var(--negativo)"} 8%, transparent)` }}>
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex min-w-0 flex-col">
-              <span className="text-sm font-medium text-[var(--text)]">
-                {ehAtual
-                  ? (saldoRef >= 0 ? "Dá pra pagar o pendente" : "Falta pra pagar o pendente")
-                  : ehFuturo
-                    ? (saldoRef >= 0 ? `Deve sobrar até ${MESES[ref.mes - 1]}` : `Vai faltar até ${MESES[ref.mes - 1]}`)
-                    : `Saldo no fim de ${MESES[ref.mes - 1]}`}
-              </span>
-              <span className="text-xs text-[var(--muted)]">
-                {ehAtual ? (
-                  <>
-                    Saldo <Money centavos={saldoTotal} tamanho="sm" />
-                    {aReceberAtual > 0 && <> + renda a entrar <Money centavos={aReceberAtual} tamanho="sm" /></>}
-                    {" − "}a pagar <Money centavos={aPagarAtual} tamanho="sm" /> (faturas + contas)
-                  </>
-                ) : ehFuturo ? (
-                  <>Projeção partindo do saldo de hoje, somando a renda e descontando as faturas/contas de cada mês.</>
-                ) : (
-                  <>Saldo real no fim do mês, pelo que está lançado.</>
-                )}
-              </span>
-            </div>
-            <span className="mono text-lg font-semibold" style={{ color: saldoRef >= 0 ? "var(--positivo)" : "var(--negativo)" }}>
-              {ehPassado ? centavosParaReais(saldoRef) : <>{saldoRef >= 0 ? "sobra " : "falta "}{centavosParaReais(Math.abs(saldoRef))}</>}
-            </span>
+        {/* CAIXA */}
+        <Card>
+          <div className="mb-3 flex flex-col gap-0.5">
+            <span className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">Caixa</span>
+            <span className="text-xs text-[var(--muted)]">o que sobra na conta de verdade</span>
           </div>
-        </div>
-      </section>
+          <div className="flex flex-wrap items-baseline gap-x-2">
+            <span className="mono text-2xl font-bold" style={{ color: corCaixa }}>{dinheiro(saldoRef)}</span>
+            <span className="text-sm text-[var(--muted)]">{legendaCaixa}</span>
+          </div>
+          <p className="mt-2 text-xs text-[var(--muted)]">
+            {ehAtual ? (
+              <>
+                Saldo <Money centavos={saldoTotal} tamanho="sm" />
+                {aReceberAtual > 0 && <> + renda a entrar <Money centavos={aReceberAtual} tamanho="sm" /></>}
+                {" − "}a pagar <Money centavos={aPagarAtual} tamanho="sm" /> (faturas + contas)
+              </>
+            ) : ehFuturo ? (
+              <>Projeção partindo do saldo de hoje, somando a renda e descontando as faturas/contas de cada mês.</>
+            ) : (
+              <>Saldo real no fim do mês, pelo que está lançado.</>
+            )}
+          </p>
+          <p className="mt-2 border-t border-[var(--border)] pt-2 text-xs text-[var(--muted)]">
+            Recebido no mês <Money centavos={resumo.totalReceitas} tamanho="sm" />
+          </p>
+        </Card>
+      </div>
+
+      {/* ───── PANORAMA: pra onde o dinheiro foi neste mês ───── */}
+      <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
+        <Card>
+          <h3 className="mb-1 font-medium text-[var(--text)]">Cartão de cada um</h3>
+          <p className="mb-4 text-xs text-[var(--muted)]">Compras nos cartões de cada pessoa neste mês (pela data; parcela conta a parcela do mês).</p>
+          <SplitBar itens={porPessoa.map(([nome, centavos]) => ({ nome, centavos }))} membros={membros} />
+        </Card>
+
+        <Card>
+          <h3 className="mb-4 font-medium text-[var(--text)]">Categorias do mês</h3>
+          {topCategorias.length === 0 ? (
+            <p className="text-sm text-[var(--muted)]">Nenhuma categoria com gasto neste mês ainda.</p>
+          ) : (
+            <div className="flex flex-col gap-4">
+              {topCategorias.map(([id, valor]) => (
+                <Link key={id} href={`/lancamentos?categoria=${id}&mes=${ref.ano}-${pad(ref.mes)}`}
+                  className="-mx-2 flex flex-col gap-1.5 rounded-[var(--radius-sm)] px-2 py-1 transition-colors hover:bg-[var(--surface-2)]">
+                  <div className="flex items-center justify-between gap-2 text-sm">
+                    <CategoriaTag nome={nomeCat(id)} cor={corCat(id)} />
+                    <Money centavos={valor} />
+                  </div>
+                  <div className="h-2 overflow-hidden rounded-full bg-[var(--surface-2)]">
+                    <div
+                      className="h-full rounded-full"
+                      style={{ width: `${maiorCategoria > 0 ? (valor / maiorCategoria) * 100 : 0}%`, background: corCat(id) }}
+                    />
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
+        </Card>
+      </div>
     </main>
   );
 }
