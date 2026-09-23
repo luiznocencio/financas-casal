@@ -34,7 +34,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   const mesProx = ref.mes === 12 ? { ano: ref.ano + 1, mes: 1 } : { ano: ref.ano, mes: ref.mes + 1 };
   const paramMes = (c: { ano: number; mes: number }) => `/?mes=${c.ano}-${String(c.mes).padStart(2, "0")}`;
 
-  const [contasRes, cardsRes, txsRes, catsRes, membrosRes, invoicesRes, contasPagarRes, budgetsRes] = await Promise.all([
+  const [contasRes, cardsRes, txsRes, catsRes, membrosRes, invoicesRes, contasPagarRes, budgetsRes, receitasFixasRes] = await Promise.all([
     supabase.from("accounts").select("*"),
     supabase.from("cards").select("*"),
     supabase.from("transactions").select("*"),
@@ -43,9 +43,13 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
     supabase.from("invoices").select("id, competencia_ano, competencia_mes"),
     supabase.from("contas_pagar").select("id, valor_estimado_centavos, dia_vencimento, recorrencia, data_fim, created_at").eq("ativo", true),
     supabase.from("budgets").select("categoria_id, valor_centavos"),
+    // recebimentos fixos que NÃO são salário (salário já está em renda_mensal) —
+    // entram no "a receber" da projeção junto com o salário
+    supabase.from("receitas_agendadas").select("valor_centavos, data_fim")
+      .eq("ativo", true).eq("recorrencia", "mensal").eq("origem_salario", false),
   ]);
   // falha de leitura não pode virar "R$ 0" silencioso num app de dinheiro
-  const erro = contasRes.error ?? cardsRes.error ?? txsRes.error ?? catsRes.error ?? membrosRes.error ?? invoicesRes.error ?? contasPagarRes.error ?? budgetsRes.error;
+  const erro = contasRes.error ?? cardsRes.error ?? txsRes.error ?? catsRes.error ?? membrosRes.error ?? invoicesRes.error ?? contasPagarRes.error ?? budgetsRes.error ?? receitasFixasRes.error;
   if (erro) throw new Error(`Falha ao carregar o painel: ${erro.message}`);
   const { data: contas } = contasRes;
   const { data: cards } = cardsRes;
@@ -75,10 +79,17 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   const idxAtual = idxMes(atual.ano, atual.mes);
   const idxRef = idxMes(ref.ano, ref.mes);
 
-  // renda mensal (salário fixo do orçamento) e o que ainda falta cair NO MÊS ATUAL
+  // o que ENTRA por mês: salário (renda_mensal + ajuda) + recebimentos fixos
+  // mensais (aluguel, renda extra) que ainda não encerraram (data_fim).
   const rendaMensal = (membrosData ?? []).reduce((s, m) => s + (m.renda_mensal_centavos ?? 0) + (m.ajuda_custo_centavos ?? 0), 0);
+  const inicioAtual = `${atual.ano}-${pad(atual.mes)}-01`;
+  const fixosMensais = (receitasFixasRes.data ?? [])
+    .filter((r) => !r.data_fim || r.data_fim >= inicioAtual)
+    .reduce((s, r) => s + (r.valor_centavos ?? 0), 0);
+  const entradaMensal = rendaMensal + fixosMensais;
   const resumoAtual = idxRef === idxAtual ? resumo : resumoDoMes(txsRef, atual);
-  const aReceberAtual = Math.max(0, rendaMensal - resumoAtual.totalReceitas);
+  // o que ainda falta entrar NO MÊS ATUAL = entrada prevista − o já recebido
+  const aReceberAtual = Math.max(0, entradaMensal - resumoAtual.totalReceitas);
 
   // faturas em aberto por competência (mês da fatura), pra saber o que sai em cada mês
   const faturaAbertaPorComp: Record<string, number> = {};
@@ -124,7 +135,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
       const y = Math.floor((i - 1) / 12);
       const mo = i - y * 12;
       const ehAtualLoop = i === idxAtual;
-      const entrada = ehAtualLoop ? aReceberAtual : rendaMensal;
+      const entrada = ehAtualLoop ? aReceberAtual : entradaMensal;
       const saidaFaturas = ehAtualLoop ? faturasAbertasAteAtual : (faturaAbertaPorComp[chaveMes(y, mo)] ?? 0);
       const saidaContas = ehAtualLoop ? contasPendentesAtual : contasDoMes(y, mo);
       running += entrada - saidaFaturas - saidaContas;
@@ -217,7 +228,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
           {ehAtual ? (
             <>
               Saldo <Money centavos={saldoTotal} tamanho="sm" />
-              {aReceberAtual > 0 && <> + renda a entrar <Money centavos={aReceberAtual} tamanho="sm" /></>}
+              {aReceberAtual > 0 && <> + a receber <Money centavos={aReceberAtual} tamanho="sm" /></>}
               {" − "}a pagar <Money centavos={aPagarAtual} tamanho="sm" /> (faturas + contas)
             </>
           ) : ehFuturo ? (
