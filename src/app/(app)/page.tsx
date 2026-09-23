@@ -208,78 +208,33 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
         <div className="lg:hidden"><SairButton variant="inline" /></div>
       </header>
 
-      {/* ───── TERMÔMETROS: Plano (orçamento) e Caixa (dinheiro real) ───── */}
-      <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
-        {/* PLANO */}
-        <Card>
-          <div className="mb-3 flex items-start justify-between gap-2">
-            <div className="flex flex-col gap-0.5">
-              <span className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">Plano</span>
-              <span className="text-xs text-[var(--muted)]">o que ainda cabe no orçamento</span>
-            </div>
-            <Link href="/orcamento" className="shrink-0 text-sm text-[var(--accent)]">Ver</Link>
-          </div>
-          {totalOrcado > 0 ? (
+      {/* ───── CAIXA — dinheiro real (o mais imediato, fica no topo) ───── */}
+      <Card>
+        <div className="mb-3 flex flex-col gap-0.5">
+          <span className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">Caixa</span>
+          <span className="text-xs text-[var(--muted)]">o que sobra na conta de verdade</span>
+        </div>
+        <div className="flex flex-wrap items-baseline gap-x-2">
+          <span className="mono text-2xl font-bold" style={{ color: corCaixa }}>{dinheiro(saldoRef)}</span>
+          <span className="text-sm text-[var(--muted)]">{legendaCaixa}</span>
+        </div>
+        <p className="mt-2 text-xs text-[var(--muted)]">
+          {ehAtual ? (
             <>
-              <div className="flex flex-wrap items-baseline gap-x-2">
-                <span className="mono text-2xl font-bold" style={{ color: corPlano }}>{dinheiro(sobraOrcado)}</span>
-                <span className="text-sm text-[var(--muted)]">{sobraOrcado >= 0 ? "ainda no plano" : "acima do plano"}</span>
-              </div>
-              <div className="mt-3"><BarraOrcamento gastoCentavos={resumo.totalDespesas} limiteCentavos={totalOrcado} cor="var(--accent)" /></div>
-              <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-[var(--muted)]">
-                <span><strong style={{ color: "var(--positivo)" }}>{placar.azul}</strong> no azul</span>
-                <span><strong style={{ color: "var(--alerta)" }}>{placar.perto}</strong> perto</span>
-                <span><strong style={{ color: "var(--negativo)" }}>{placar.estourou}</strong> estourou</span>
-              </div>
-              {alertas.length > 0 && (
-                <div className="mt-3 flex flex-col gap-1.5 border-t border-[var(--border)] pt-3">
-                  {alertas.map((i) => (
-                    <Link key={i.categoria_id} href={`/lancamentos?categoria=${i.categoria_id}&mes=${ref.ano}-${pad(ref.mes)}`}
-                      className="flex items-center justify-between gap-2 text-sm hover:text-[var(--accent)]">
-                      <span className="flex min-w-0 items-center gap-2 break-words">
-                        <CategoriaPonto cor={corCat(i.categoria_id)} />{nomeCat(i.categoria_id)}
-                      </span>
-                      <span className="mono shrink-0" style={{ color: i.pctUsado > 100 ? "var(--negativo)" : "var(--alerta)" }}>
-                        {Math.round(i.pctUsado)}%
-                      </span>
-                    </Link>
-                  ))}
-                </div>
-              )}
+              Saldo <Money centavos={saldoTotal} tamanho="sm" />
+              {aReceberAtual > 0 && <> + renda a entrar <Money centavos={aReceberAtual} tamanho="sm" /></>}
+              {" − "}a pagar <Money centavos={aPagarAtual} tamanho="sm" /> (faturas + contas)
             </>
+          ) : ehFuturo ? (
+            <>Projeção partindo do saldo de hoje, somando a renda e descontando as faturas/contas de cada mês.</>
           ) : (
-            <p className="text-sm text-[var(--muted)]">Defina limites por categoria na aba <Link href="/orcamento" className="text-[var(--accent)]">Orçamento</Link> pra acompanhar aqui.</p>
+            <>Saldo real no fim do mês, pelo que está lançado.</>
           )}
-        </Card>
-
-        {/* CAIXA */}
-        <Card>
-          <div className="mb-3 flex flex-col gap-0.5">
-            <span className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">Caixa</span>
-            <span className="text-xs text-[var(--muted)]">o que sobra na conta de verdade</span>
-          </div>
-          <div className="flex flex-wrap items-baseline gap-x-2">
-            <span className="mono text-2xl font-bold" style={{ color: corCaixa }}>{dinheiro(saldoRef)}</span>
-            <span className="text-sm text-[var(--muted)]">{legendaCaixa}</span>
-          </div>
-          <p className="mt-2 text-xs text-[var(--muted)]">
-            {ehAtual ? (
-              <>
-                Saldo <Money centavos={saldoTotal} tamanho="sm" />
-                {aReceberAtual > 0 && <> + renda a entrar <Money centavos={aReceberAtual} tamanho="sm" /></>}
-                {" − "}a pagar <Money centavos={aPagarAtual} tamanho="sm" /> (faturas + contas)
-              </>
-            ) : ehFuturo ? (
-              <>Projeção partindo do saldo de hoje, somando a renda e descontando as faturas/contas de cada mês.</>
-            ) : (
-              <>Saldo real no fim do mês, pelo que está lançado.</>
-            )}
-          </p>
-          <p className="mt-2 border-t border-[var(--border)] pt-2 text-xs text-[var(--muted)]">
-            Recebido no mês <Money centavos={resumo.totalReceitas} tamanho="sm" />
-          </p>
-        </Card>
-      </div>
+        </p>
+        <p className="mt-2 border-t border-[var(--border)] pt-2 text-xs text-[var(--muted)]">
+          Recebido no mês <Money centavos={resumo.totalReceitas} tamanho="sm" />
+        </p>
+      </Card>
 
       {/* ───── PANORAMA: pra onde o dinheiro foi neste mês ───── */}
       <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
@@ -314,6 +269,48 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
           )}
         </Card>
       </div>
+
+      {/* ───── PLANO — orçamento do mês (fica por último) ───── */}
+      <Card>
+        <div className="mb-3 flex items-start justify-between gap-2">
+          <div className="flex flex-col gap-0.5">
+            <span className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">Plano</span>
+            <span className="text-xs text-[var(--muted)]">o que ainda cabe no orçamento</span>
+          </div>
+          <Link href="/orcamento" className="shrink-0 text-sm text-[var(--accent)]">Ver</Link>
+        </div>
+        {totalOrcado > 0 ? (
+          <>
+            <div className="flex flex-wrap items-baseline gap-x-2">
+              <span className="mono text-2xl font-bold" style={{ color: corPlano }}>{dinheiro(sobraOrcado)}</span>
+              <span className="text-sm text-[var(--muted)]">{sobraOrcado >= 0 ? "ainda no plano" : "acima do plano"}</span>
+            </div>
+            <div className="mt-3"><BarraOrcamento gastoCentavos={resumo.totalDespesas} limiteCentavos={totalOrcado} cor="var(--accent)" /></div>
+            <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-[var(--muted)]">
+              <span><strong style={{ color: "var(--positivo)" }}>{placar.azul}</strong> no azul</span>
+              <span><strong style={{ color: "var(--alerta)" }}>{placar.perto}</strong> perto</span>
+              <span><strong style={{ color: "var(--negativo)" }}>{placar.estourou}</strong> estourou</span>
+            </div>
+            {alertas.length > 0 && (
+              <div className="mt-3 flex flex-col gap-1.5 border-t border-[var(--border)] pt-3">
+                {alertas.map((i) => (
+                  <Link key={i.categoria_id} href={`/lancamentos?categoria=${i.categoria_id}&mes=${ref.ano}-${pad(ref.mes)}`}
+                    className="flex items-center justify-between gap-2 text-sm hover:text-[var(--accent)]">
+                    <span className="flex min-w-0 items-center gap-2 break-words">
+                      <CategoriaPonto cor={corCat(i.categoria_id)} />{nomeCat(i.categoria_id)}
+                    </span>
+                    <span className="mono shrink-0" style={{ color: i.pctUsado > 100 ? "var(--negativo)" : "var(--alerta)" }}>
+                      {Math.round(i.pctUsado)}%
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </>
+        ) : (
+          <p className="text-sm text-[var(--muted)]">Defina limites por categoria na aba <Link href="/orcamento" className="text-[var(--accent)]">Orçamento</Link> pra acompanhar aqui.</p>
+        )}
+      </Card>
     </main>
   );
 }
