@@ -9,7 +9,7 @@ import { centavosParaReais } from "@/lib/financeiro/dinheiro";
 import { Money } from "@/components/ui/Money";
 import { Card } from "@/components/ui/Card";
 import { SplitBar } from "@/components/ui/SplitBar";
-import { CategoriaTag, CategoriaPonto } from "@/components/ui/CategoriaTag";
+import { CategoriaTag } from "@/components/ui/CategoriaTag";
 import { BarraOrcamento } from "@/components/orcamento/BarraOrcamento";
 import { SairButton } from "@/components/shell/SairButton";
 
@@ -166,28 +166,22 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   const budgets = budgetsRes.data ?? [];
   const resumoOrc = resumoOrcamento({ rendaCentavos: rendaMensal, budgets, gastoPorCategoria: gastoRollup });
   const totalOrcado = resumoOrc.totalOrcadoCentavos;
-  const sobraOrcado = totalOrcado - resumo.totalDespesas;
-  const corPlano = resumo.totalDespesas > totalOrcado ? "var(--negativo)"
-    : resumo.totalDespesas > 0.85 * totalOrcado ? "var(--alerta)" : "var(--positivo)";
   const orcItens = resumoOrc.itens.filter((i) => i.limiteCentavos > 0);
   const placar = {
     azul: orcItens.filter((i) => i.pctUsado <= 85).length,
     perto: orcItens.filter((i) => i.pctUsado > 85 && i.pctUsado <= 100).length,
     estourou: orcItens.filter((i) => i.pctUsado > 100).length,
   };
-  const alertas = orcItens
-    .filter((i) => i.pctUsado > 85)
-    .sort((a, b) => b.pctUsado - a.pctUsado)
-    .slice(0, 4);
 
-  // Caixa: folga real (saldo + rendas a entrar − a pagar). Cor pelo sinal.
+  // Caixa é a resposta principal: "dá pra pagar tudo?" — folga real = saldo +
+  // rendas a entrar − faturas/contas a pagar. (Plano/orçamento é só planejamento.)
   const dinheiro = (c: number) => c < 0 ? `−${centavosParaReais(Math.abs(c))}` : centavosParaReais(c);
   const corCaixa = saldoRef >= 0 ? "var(--positivo)" : "var(--negativo)";
-  const legendaCaixa = ehAtual
-    ? (saldoRef >= 0 ? "dá pra pagar o pendente" : "falta pro pendente")
+  const tituloCaixa = ehAtual
+    ? (saldoRef >= 0 ? "Dá pra pagar tudo" : "Não fecha as contas")
     : ehFuturo
-      ? (saldoRef >= 0 ? `deve sobrar até ${MESES[ref.mes - 1]}` : `vai faltar até ${MESES[ref.mes - 1]}`)
-      : `no fim de ${MESES[ref.mes - 1]}`;
+      ? (saldoRef >= 0 ? `Deve fechar até ${MESES[ref.mes - 1]}` : `Pode faltar até ${MESES[ref.mes - 1]}`)
+      : `Fim de ${MESES[ref.mes - 1]}`;
 
   return (
     <main className="mx-auto flex max-w-5xl flex-col gap-6 px-4 py-10 sm:px-6">
@@ -208,15 +202,12 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
         <div className="lg:hidden"><SairButton variant="inline" /></div>
       </header>
 
-      {/* ───── CAIXA — dinheiro real (o mais imediato, fica no topo) ───── */}
+      {/* ───── CAIXA — a resposta principal: dá pra pagar tudo? ───── */}
       <Card>
-        <div className="mb-3 flex flex-col gap-0.5">
-          <span className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">Caixa</span>
-          <span className="text-xs text-[var(--muted)]">o que sobra na conta de verdade</span>
-        </div>
-        <div className="flex flex-wrap items-baseline gap-x-2">
-          <span className="mono text-2xl font-bold" style={{ color: corCaixa }}>{dinheiro(saldoRef)}</span>
-          <span className="text-sm text-[var(--muted)]">{legendaCaixa}</span>
+        <span className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">Caixa</span>
+        <div className="mt-1 flex flex-wrap items-baseline gap-x-3">
+          <span className="mono text-3xl font-bold" style={{ color: corCaixa }}>{dinheiro(saldoRef)}</span>
+          <span className="text-lg font-semibold" style={{ color: corCaixa }}>{tituloCaixa}</span>
         </div>
         <p className="mt-2 text-xs text-[var(--muted)]">
           {ehAtual ? (
@@ -270,42 +261,21 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
         </Card>
       </div>
 
-      {/* ───── PLANO — orçamento do mês (fica por último) ───── */}
+      {/* ───── PLANO — só planejamento (calmo, por último) ───── */}
       <Card>
-        <div className="mb-3 flex items-start justify-between gap-2">
-          <div className="flex flex-col gap-0.5">
-            <span className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">Plano</span>
-            <span className="text-xs text-[var(--muted)]">o que ainda cabe no orçamento</span>
-          </div>
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <span className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">Plano · controle de gastos</span>
           <Link href="/orcamento" className="shrink-0 text-sm text-[var(--accent)]">Ver</Link>
         </div>
         {totalOrcado > 0 ? (
           <>
-            <div className="flex flex-wrap items-baseline gap-x-2">
-              <span className="mono text-2xl font-bold" style={{ color: corPlano }}>{dinheiro(sobraOrcado)}</span>
-              <span className="text-sm text-[var(--muted)]">{sobraOrcado >= 0 ? "ainda no plano" : "acima do plano"}</span>
-            </div>
-            <div className="mt-3"><BarraOrcamento gastoCentavos={resumo.totalDespesas} limiteCentavos={totalOrcado} cor="var(--accent)" /></div>
-            <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-[var(--muted)]">
+            <BarraOrcamento gastoCentavos={resumo.totalDespesas} limiteCentavos={totalOrcado} cor="var(--accent)" />
+            <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-[var(--muted)]">
               <span><strong style={{ color: "var(--positivo)" }}>{placar.azul}</strong> no azul</span>
               <span><strong style={{ color: "var(--alerta)" }}>{placar.perto}</strong> perto</span>
               <span><strong style={{ color: "var(--negativo)" }}>{placar.estourou}</strong> estourou</span>
             </div>
-            {alertas.length > 0 && (
-              <div className="mt-3 flex flex-col gap-1.5 border-t border-[var(--border)] pt-3">
-                {alertas.map((i) => (
-                  <Link key={i.categoria_id} href={`/lancamentos?categoria=${i.categoria_id}&mes=${ref.ano}-${pad(ref.mes)}`}
-                    className="flex items-center justify-between gap-2 text-sm hover:text-[var(--accent)]">
-                    <span className="flex min-w-0 items-center gap-2 break-words">
-                      <CategoriaPonto cor={corCat(i.categoria_id)} />{nomeCat(i.categoria_id)}
-                    </span>
-                    <span className="mono shrink-0" style={{ color: i.pctUsado > 100 ? "var(--negativo)" : "var(--alerta)" }}>
-                      {Math.round(i.pctUsado)}%
-                    </span>
-                  </Link>
-                ))}
-              </div>
-            )}
+            <p className="mt-2 text-xs text-[var(--muted)]">É só o planejado — passar do orçamento não quer dizer que falta dinheiro (isso é o <strong>Caixa</strong>, lá em cima).</p>
           </>
         ) : (
           <p className="text-sm text-[var(--muted)]">Defina limites por categoria na aba <Link href="/orcamento" className="text-[var(--accent)]">Orçamento</Link> pra acompanhar aqui.</p>
