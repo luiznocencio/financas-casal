@@ -12,6 +12,7 @@ import { SplitBar } from "@/components/ui/SplitBar";
 import { CategoriaTag } from "@/components/ui/CategoriaTag";
 import { BarraOrcamento } from "@/components/orcamento/BarraOrcamento";
 import { SairButton } from "@/components/shell/SairButton";
+import { CheckCircle, WarningCircle } from "@phosphor-icons/react/dist/ssr";
 
 const MESES = [
   "janeiro", "fevereiro", "março", "abril", "maio", "junho",
@@ -205,7 +206,10 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
       {/* ───── CAIXA — a resposta principal: dá pra pagar tudo? ───── */}
       <Card>
         <span className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">Caixa</span>
-        <div className="mt-1 flex flex-wrap items-baseline gap-x-3">
+        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
+          {saldoRef >= 0
+            ? <CheckCircle size={30} weight="fill" style={{ color: "var(--positivo)" }} aria-label="Dá pra pagar tudo" />
+            : <WarningCircle size={30} weight="fill" style={{ color: "var(--negativo)" }} aria-label="Não fecha as contas" />}
           <span className="mono text-3xl font-bold" style={{ color: corCaixa }}>{dinheiro(saldoRef)}</span>
           <span className="text-lg font-semibold" style={{ color: corCaixa }}>{tituloCaixa}</span>
         </div>
