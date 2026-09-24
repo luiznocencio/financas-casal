@@ -32,7 +32,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   const mesProx = ref.mes === 12 ? { ano: ref.ano + 1, mes: 1 } : { ano: ref.ano, mes: ref.mes + 1 };
   const paramMes = (c: { ano: number; mes: number }) => `/?mes=${c.ano}-${String(c.mes).padStart(2, "0")}`;
 
-  const [contasRes, cardsRes, txsRes, catsRes, membrosRes, invoicesRes, contasPagarRes, receitasFixasRes] = await Promise.all([
+  const [contasRes, cardsRes, txsRes, catsRes, membrosRes, invoicesRes, contasPagarRes, agendadasRes] = await Promise.all([
     supabase.from("accounts").select("*"),
     supabase.from("cards").select("*"),
     supabase.from("transactions").select("*"),
@@ -40,13 +40,14 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
     supabase.from("members").select("nome, renda_mensal_centavos, ajuda_custo_centavos"),
     supabase.from("invoices").select("id, competencia_ano, competencia_mes"),
     supabase.from("contas_pagar").select("id, valor_estimado_centavos, dia_vencimento, recorrencia, data_fim, created_at").eq("ativo", true),
-    // recebimentos agendados que NÃO são salário (salário já está em renda_mensal):
-    // mensais E únicos — entram no "Recebo"/"a receber" junto com o salário
-    supabase.from("receitas_agendadas").select("valor_centavos, data_fim, data_prevista, recorrencia")
-      .eq("ativo", true).eq("origem_salario", false),
+    // recebimentos agendados (A receber), INCLUINDO salário — base do "Recebo".
+    // Reflete o valor REAL quando já recebido (abono/desconto do salário variável)
+    // e o planejado quando pendente; bate com a tela de Planejamento.
+    supabase.from("receitas_agendadas").select("id, valor_centavos, data_fim, data_prevista, recorrencia")
+      .eq("ativo", true),
   ]);
   // falha de leitura não pode virar "R$ 0" silencioso num app de dinheiro
-  const erro = contasRes.error ?? cardsRes.error ?? txsRes.error ?? catsRes.error ?? membrosRes.error ?? invoicesRes.error ?? contasPagarRes.error ?? receitasFixasRes.error;
+  const erro = contasRes.error ?? cardsRes.error ?? txsRes.error ?? catsRes.error ?? membrosRes.error ?? invoicesRes.error ?? contasPagarRes.error ?? agendadasRes.error;
   if (erro) throw new Error(`Falha ao carregar o painel: ${erro.message}`);
   const { data: contas } = contasRes;
   const { data: cards } = cardsRes;
@@ -78,28 +79,38 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
 
   // o que ENTRA por mês: salário (renda_mensal + ajuda) + recebimentos fixos
   // mensais (aluguel, renda extra) que ainda não encerraram (data_fim).
-  const rendaMensal = (membrosData ?? []).reduce((s, m) => s + (m.renda_mensal_centavos ?? 0) + (m.ajuda_custo_centavos ?? 0), 0);
-  // "Recebo" no mês = salário (renda_mensal + ajuda) + todos os recebimentos
-  // agendados não-salário que caem no mês: mensais ativos + únicos daquele mês.
-  const receitasAgendadas = receitasFixasRes.data ?? [];
-  const recebeDoMes = (ano: number, mes: number): number => {
-    const ini = `${ano}-${pad(mes)}-01`;
-    const fim = `${ano}-${pad(mes)}-${pad(ultimoDiaDoMes(ano, mes))}`;
-    const fixos = receitasAgendadas.reduce((s, r) => {
-      // único: conta só no mês da data prevista. mensal: conta todo mês enquanto
-      // ativo (data_prevista é a PRÓXIMA ocorrência, não serve de filtro; só a
-      // data_fim encerra).
-      const ocorre = r.recorrencia === "unica"
-        ? (r.data_prevista >= ini && r.data_prevista <= fim)
-        : (!r.data_fim || r.data_fim >= ini);
-      return ocorre ? s + (r.valor_centavos ?? 0) : s;
-    }, 0);
-    return rendaMensal + fixos;
+  // "Recebo" e "a receber" saem das mesmas "A receber" da tela de Planejamento
+  // (agendadas, incluindo salário). Reflete o valor REAL quando já recebido no mês
+  // (abono/desconto do salário variável) e o planejado quando ainda pendente.
+  const agendadas = agendadasRes.data ?? [];
+  const rangeMes = (ano: number, mes: number) => [`${ano}-${pad(mes)}-01`, `${ano}-${pad(mes)}-${pad(ultimoDiaDoMes(ano, mes))}`] as const;
+  const ocorreNoMes = (r: { recorrencia: string; data_prevista: string; data_fim: string | null }, ini: string, fim: string) =>
+    r.recorrencia === "unica" ? (r.data_prevista >= ini && r.data_prevista <= fim) : (!r.data_fim || r.data_fim >= ini);
+  // { receita_agendada_id -> valor real recebido } num mês
+  const recebidosNoMes = (ini: string, fim: string) => {
+    const m = new Map<string, number>();
+    for (const t of txs ?? []) {
+      if (!t.receita_agendada_id || t.data_compra < ini || t.data_compra > fim) continue;
+      m.set(t.receita_agendada_id, (m.get(t.receita_agendada_id) ?? 0) + t.valor_centavos);
+    }
+    return m;
   };
-  const recebeNoMes = recebeDoMes(ref.ano, ref.mes);
-  const resumoAtual = idxRef === idxAtual ? resumo : resumoDoMes(txsRef, atual);
-  // o que ainda falta entrar NO MÊS ATUAL = previsto do mês − o já recebido
-  const aReceberAtual = Math.max(0, recebeDoMes(atual.ano, atual.mes) - resumoAtual.totalReceitas);
+  // total do mês: real quando recebido, planejado quando pendente
+  const receboDoMes = (ano: number, mes: number) => {
+    const [ini, fim] = rangeMes(ano, mes);
+    const rec = recebidosNoMes(ini, fim);
+    return agendadas.filter((r) => ocorreNoMes(r, ini, fim))
+      .reduce((s, r) => s + (rec.has(r.id) ? rec.get(r.id)! : (r.valor_centavos ?? 0)), 0);
+  };
+  // o que ainda falta receber no mês (só os pendentes, valor planejado)
+  const aReceberDoMes = (ano: number, mes: number) => {
+    const [ini, fim] = rangeMes(ano, mes);
+    const rec = recebidosNoMes(ini, fim);
+    return agendadas.filter((r) => ocorreNoMes(r, ini, fim) && !rec.has(r.id))
+      .reduce((s, r) => s + (r.valor_centavos ?? 0), 0);
+  };
+  const recebeNoMes = receboDoMes(ref.ano, ref.mes);
+  const aReceberAtual = aReceberDoMes(atual.ano, atual.mes);
 
   // faturas em aberto por competência (mês da fatura), pra saber o que sai em cada mês
   const faturaAbertaPorComp: Record<string, number> = {};
@@ -145,7 +156,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
       const y = Math.floor((i - 1) / 12);
       const mo = i - y * 12;
       const ehAtualLoop = i === idxAtual;
-      const entrada = ehAtualLoop ? aReceberAtual : recebeDoMes(y, mo);
+      const entrada = ehAtualLoop ? aReceberAtual : receboDoMes(y, mo);
       const saidaFaturas = ehAtualLoop ? faturasAbertasAteAtual : (faturaAbertaPorComp[chaveMes(y, mo)] ?? 0);
       const saidaContas = ehAtualLoop ? contasPendentesAtual : contasDoMes(y, mo);
       running += entrada - saidaFaturas - saidaContas;
