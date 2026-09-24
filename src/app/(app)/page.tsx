@@ -202,15 +202,35 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   const margem = recebeNoMes - gastoMes;
   const corMargem = margem >= 0 ? "var(--positivo)" : "var(--negativo)";
 
-  // Caixa é a resposta principal: "dá pra pagar tudo?" — folga real = saldo +
-  // rendas a entrar − faturas/contas a pagar. (Plano/orçamento é só planejamento.)
+  // Caixa em cascata (liga caixa e margem): saldo + falta receber − falta pagar =
+  // sobra no fim do mês; − cartão já usado que só vence depois = sobra de verdade.
+  const ehPassado = idxRef < idxAtual;
+  // compras no cartão JÁ feitas (consumo até o mês visto) que vencem DEPOIS dele:
+  // ainda não estão no "a pagar", mas já comprometem o próximo salário. Parcela
+  // futura é consumo futuro (fica de fora); à vista conta pela data da compra.
+  const cartaoVenceDepois = ehPassado ? 0 : (txs ?? []).reduce((s, t) => {
+    if (!t.card_id || t.paga || t.tipo !== "despesa" || !t.invoice_id) return s;
+    const comp = compPorInvoice.get(t.invoice_id);
+    if (!comp || idxMes(comp.ano, comp.mes) <= idxRef) return s;
+    const idxConsumo = t.total_parcelas > 1
+      ? idxMes(comp.ano, comp.mes)
+      : idxMes(Number(t.data_compra.slice(0, 4)), Number(t.data_compra.slice(5, 7)));
+    return idxConsumo <= idxRef ? s + t.valor_centavos : s;
+  }, 0);
+  const sobraReal = saldoRef - cartaoVenceDepois;
   const dinheiro = (c: number) => c < 0 ? `−${centavosParaReais(Math.abs(c))}` : centavosParaReais(c);
-  const corCaixa = saldoRef >= 0 ? "var(--positivo)" : "var(--negativo)";
-  const tituloCaixa = ehAtual
-    ? (saldoRef >= 0 ? "Dá pra pagar tudo" : "Não fecha as contas")
-    : ehFuturo
-      ? (saldoRef >= 0 ? `Deve fechar até ${MESES[ref.mes - 1]}` : `Pode faltar até ${MESES[ref.mes - 1]}`)
-      : `Fim de ${MESES[ref.mes - 1]}`;
+  // 3 estados: sobra de verdade (ok) · fecha o mês mas já comprometeu parte do
+  // próximo salário com o cartão (comprometido) · não fecha nem o mês (falta)
+  const estadoCaixa: "ok" | "comprometido" | "falta" = ehPassado
+    ? (saldoRef >= 0 ? "ok" : "falta")
+    : saldoRef < 0 ? "falta" : sobraReal < 0 ? "comprometido" : "ok";
+  const corCaixa = estadoCaixa === "ok" ? "var(--positivo)" : estadoCaixa === "comprometido" ? "var(--alerta)" : "var(--negativo)";
+  const ateMes = ehFuturo ? ` até ${MESES[ref.mes - 1]}` : "";
+  const tituloCaixa = ehPassado
+    ? `Saldo no fim de ${MESES[ref.mes - 1]}`
+    : estadoCaixa === "ok" ? `Sobra de verdade${ateMes}`
+      : estadoCaixa === "comprometido" ? "do próximo salário já comprometido no cartão"
+        : (ehFuturo ? `Vai faltar até ${MESES[ref.mes - 1]}` : "Não fecha este mês");
 
   return (
     <main className="mx-auto flex max-w-5xl flex-col gap-6 px-4 py-10 sm:px-6">
@@ -231,32 +251,52 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
         <div className="lg:hidden"><SairButton variant="inline" /></div>
       </header>
 
-      {/* ───── CAIXA — a resposta principal: dá pra pagar tudo? ───── */}
+      {/* ───── CAIXA DO MÊS — cascata: saldo → sobra no fim do mês → sobra de verdade ───── */}
       <Card>
-        <span className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">Caixa</span>
+        <span className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">Caixa do mês</span>
         <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
-          {saldoRef >= 0
-            ? <CheckCircle size={30} weight="fill" style={{ color: "var(--positivo)" }} aria-label="Dá pra pagar tudo" />
-            : <WarningCircle size={30} weight="fill" style={{ color: "var(--negativo)" }} aria-label="Não fecha as contas" />}
-          <span className="mono text-3xl font-bold" style={{ color: corCaixa }}>{dinheiro(saldoRef)}</span>
+          {estadoCaixa === "ok"
+            ? <CheckCircle size={30} weight="fill" style={{ color: corCaixa }} aria-label="Sobra" />
+            : <WarningCircle size={30} weight="fill" style={{ color: corCaixa }} aria-label={estadoCaixa === "comprometido" ? "Próximo salário comprometido" : "Não fecha"} />}
+          <span className="mono text-3xl font-bold" style={{ color: corCaixa }}>
+            {estadoCaixa === "comprometido" ? centavosParaReais(Math.abs(sobraReal)) : dinheiro(sobraReal)}
+          </span>
           <span className="text-lg font-semibold" style={{ color: corCaixa }}>{tituloCaixa}</span>
         </div>
-        <p className="mt-2 text-xs text-[var(--muted)]">
-          {ehAtual ? (
-            <>
-              Saldo <Money centavos={saldoTotal} tamanho="sm" />
-              {aReceberAtual > 0 && <> + a receber <Money centavos={aReceberAtual} tamanho="sm" /></>}
-              {" − "}a pagar <Money centavos={aPagarAtual} tamanho="sm" /> (faturas + contas)
-            </>
-          ) : ehFuturo ? (
-            <>Projeção partindo do saldo de hoje, somando a renda e descontando as faturas/contas de cada mês.</>
-          ) : (
-            <>Saldo real no fim do mês, pelo que está lançado.</>
-          )}
-        </p>
-        <p className="mt-2 border-t border-[var(--border)] pt-2 text-xs text-[var(--muted)]">
-          Recebido no mês <Money centavos={resumo.totalReceitas} tamanho="sm" />
-        </p>
+
+        {ehPassado ? (
+          <p className="mt-2 text-xs text-[var(--muted)]">Saldo real no fim do mês, pelo que está lançado.</p>
+        ) : (
+          <div className="mt-3 flex flex-col gap-1 text-sm">
+            {ehAtual ? (
+              <>
+                <LinhaCascata rotulo="Saldo em conta hoje" valor={saldoTotal} />
+                <LinhaCascata rotulo="Falta receber este mês" valor={aReceberAtual} sinal />
+                <LinhaCascata rotulo="Falta pagar este mês (faturas + contas)" valor={-aPagarAtual} />
+              </>
+            ) : (
+              <p className="text-xs text-[var(--muted)]">
+                Projeção a partir do saldo de hoje, somando o que entra e descontando faturas e contas de cada mês até {MESES[ref.mes - 1]}.
+              </p>
+            )}
+            <LinhaCascata rotulo={ehAtual ? "Sobra no fim do mês" : `Sobra no fim de ${MESES[ref.mes - 1]}`} valor={saldoRef} forte />
+            <LinhaCascata rotulo="Cartão já usado que vence depois" valor={-cartaoVenceDepois} />
+            <LinhaCascata rotulo="Sobra de verdade" valor={sobraReal} forte cor={corCaixa} />
+          </div>
+        )}
+
+        {/* totais do mês (consumo): o que entra × o que gasto */}
+        <div className="mt-4 border-t border-[var(--border)] pt-3">
+          <div className="flex flex-wrap items-baseline justify-between gap-2 text-xs text-[var(--muted)]">
+            <span>Neste mês: recebo <Money centavos={recebeNoMes} tamanho="sm" /> − gasto <Money centavos={gastoMes} tamanho="sm" /></span>
+            <span>resultado <strong className="mono" style={{ color: corMargem }}>{dinheiro(margem)}</strong></span>
+          </div>
+          <div className="mt-2 grid grid-cols-3 gap-2">
+            <div><div className="text-xs text-[var(--muted)]">Cartões</div><Money centavos={totalCartoesMes} tamanho="sm" /></div>
+            <div><div className="text-xs text-[var(--muted)]">Pix/conta</div><Money centavos={totalPixContaMes} tamanho="sm" /></div>
+            <div><div className="text-xs text-[var(--muted)]">Contas a pagar</div><Money centavos={contasPendentesRef} tamanho="sm" /></div>
+          </div>
+        </div>
       </Card>
 
       {/* ───── PANORAMA: pra onde o dinheiro foi neste mês ───── */}
@@ -299,25 +339,21 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
         </Card>
       </div>
 
-      {/* ───── MARGEM — quanto entra × quanto gasto (dinheiro real) ───── */}
-      <Card>
-        <div className="mb-2 flex items-center justify-between gap-2">
-          <span className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">Margem do mês</span>
-          <Link href="/orcamento" className="shrink-0 text-sm text-[var(--accent)]">Orçamento</Link>
-        </div>
-        <div className="flex flex-wrap items-baseline gap-x-2">
-          <span className="mono text-2xl font-bold" style={{ color: corMargem }}>{dinheiro(margem)}</span>
-          <span className="text-sm text-[var(--muted)]">{margem >= 0 ? "de margem pra gastar" : "acima do que entra"}</span>
-        </div>
-        <p className="mt-1 text-xs text-[var(--muted)]">
-          Recebo <Money centavos={recebeNoMes} tamanho="sm" /> − gasto <Money centavos={gastoMes} tamanho="sm" />
-        </p>
-        <div className="mt-3 grid grid-cols-3 gap-2 border-t border-[var(--border)] pt-3">
-          <div><div className="text-xs text-[var(--muted)]">Cartões</div><Money centavos={totalCartoesMes} tamanho="sm" /></div>
-          <div><div className="text-xs text-[var(--muted)]">Pix/conta</div><Money centavos={totalPixContaMes} tamanho="sm" /></div>
-          <div><div className="text-xs text-[var(--muted)]">Contas a pagar</div><Money centavos={contasPendentesRef} tamanho="sm" /></div>
-        </div>
-      </Card>
     </main>
+  );
+}
+
+// Uma linha da cascata do caixa: rótulo à esquerda, valor com sinal à direita.
+function LinhaCascata({ rotulo, valor, forte, cor, sinal }: {
+  rotulo: string; valor: number; forte?: boolean; cor?: string; sinal?: boolean;
+}) {
+  const texto = valor < 0
+    ? `−${centavosParaReais(Math.abs(valor))}`
+    : `${sinal && valor > 0 ? "+" : ""}${centavosParaReais(valor)}`;
+  return (
+    <div className={`flex items-baseline justify-between gap-3 ${forte ? "border-t border-[var(--border)] pt-1 font-semibold text-[var(--text)]" : "text-[var(--muted)]"}`}>
+      <span className="min-w-0">{rotulo}</span>
+      <span className="mono shrink-0" style={cor ? { color: cor } : undefined}>{texto}</span>
+    </div>
   );
 }
