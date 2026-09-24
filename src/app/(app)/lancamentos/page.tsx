@@ -5,6 +5,7 @@ import { LinhaEditavel } from "@/components/lancamentos/LinhaEditavel";
 import { FiltrosExtrato } from "@/components/lancamentos/FiltrosExtrato";
 import { BarraOrcamento } from "@/components/orcamento/BarraOrcamento";
 import { CategoriaPonto } from "@/components/ui/CategoriaTag";
+import { Money } from "@/components/ui/Money";
 import { resumoDoMes } from "@/lib/financeiro/agregacoes";
 import { ultimoDiaDoMes } from "@/lib/financeiro/fechamento";
 
@@ -86,6 +87,9 @@ export default async function Lancamentos({
   const { data: txs, error } = await q;
   if (error) throw new Error(`Falha ao carregar o extrato: ${error.message}`);
   const temFiltro = !!(sp.pessoa || sp.card || sp.categoria || sp.invoice || sp.tipo || sp.origem || sp.de || sp.ate || sp.busca || sp.mes);
+  // totais do que está listado (respeita o filtro)
+  const somaDespesas = (txs ?? []).filter((t) => t.tipo === "despesa").reduce((s, t) => s + t.valor_centavos, 0);
+  const somaReceitas = (txs ?? []).filter((t) => t.tipo === "receita").reduce((s, t) => s + t.valor_centavos, 0);
 
   // barra de status do orçamento da categoria filtrada (no mês escolhido, ou no
   // mês atual). O limite fica na categoria-mãe; o gasto soma mãe + subcategorias.
@@ -148,6 +152,15 @@ export default async function Lancamentos({
         </Card>
       ) : (
         <Card>
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-[var(--border)] pb-3 text-sm">
+            <span className="text-[var(--muted)]">
+              {(txs ?? []).length} lançamento{(txs ?? []).length === 1 ? "" : "s"}{(txs ?? []).length >= 200 ? " (200 mais recentes)" : ""}
+            </span>
+            <span className="flex flex-wrap items-center gap-x-3">
+              {somaDespesas > 0 && <span className="text-[var(--text)]">Gasto <strong><Money centavos={somaDespesas} tamanho="sm" /></strong></span>}
+              {somaReceitas > 0 && <span style={{ color: "var(--positivo)" }}>Recebido <strong><Money centavos={somaReceitas} tamanho="sm" /></strong></span>}
+            </span>
+          </div>
           <ul className="flex flex-col gap-0">
             {(txs ?? []).map((t) => (
               <LinhaEditavel key={t.id} tx={t} categorias={categorias} membros={membros} cartoes={cartoes} />

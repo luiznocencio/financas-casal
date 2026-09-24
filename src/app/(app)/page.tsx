@@ -2,7 +2,6 @@ import Link from "next/link";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { saldoConta } from "@/lib/financeiro/derivados";
 import { resumoDoMes } from "@/lib/financeiro/agregacoes";
-import { resumoOrcamento } from "@/lib/financeiro/orcamento";
 import { ultimoDiaDoMes } from "@/lib/financeiro/fechamento";
 import { contaOcorreNoMes, contaVisivelNoMes } from "@/lib/financeiro/contas";
 import { centavosParaReais } from "@/lib/financeiro/dinheiro";
@@ -10,7 +9,6 @@ import { Money } from "@/components/ui/Money";
 import { Card } from "@/components/ui/Card";
 import { SplitBar } from "@/components/ui/SplitBar";
 import { CategoriaTag } from "@/components/ui/CategoriaTag";
-import { BarraOrcamento } from "@/components/orcamento/BarraOrcamento";
 import { SairButton } from "@/components/shell/SairButton";
 import { CheckCircle, WarningCircle } from "@phosphor-icons/react/dist/ssr";
 
@@ -34,22 +32,21 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   const mesProx = ref.mes === 12 ? { ano: ref.ano + 1, mes: 1 } : { ano: ref.ano, mes: ref.mes + 1 };
   const paramMes = (c: { ano: number; mes: number }) => `/?mes=${c.ano}-${String(c.mes).padStart(2, "0")}`;
 
-  const [contasRes, cardsRes, txsRes, catsRes, membrosRes, invoicesRes, contasPagarRes, budgetsRes, receitasFixasRes] = await Promise.all([
+  const [contasRes, cardsRes, txsRes, catsRes, membrosRes, invoicesRes, contasPagarRes, receitasFixasRes] = await Promise.all([
     supabase.from("accounts").select("*"),
     supabase.from("cards").select("*"),
     supabase.from("transactions").select("*"),
-    supabase.from("categories").select("id, nome, cor, parent_id").eq("tipo", "despesa"),
+    supabase.from("categories").select("id, nome, cor"),
     supabase.from("members").select("nome, renda_mensal_centavos, ajuda_custo_centavos"),
     supabase.from("invoices").select("id, competencia_ano, competencia_mes"),
     supabase.from("contas_pagar").select("id, valor_estimado_centavos, dia_vencimento, recorrencia, data_fim, created_at").eq("ativo", true),
-    supabase.from("budgets").select("categoria_id, valor_centavos"),
     // recebimentos fixos que NÃO são salário (salário já está em renda_mensal) —
     // entram no "a receber" da projeção junto com o salário
     supabase.from("receitas_agendadas").select("valor_centavos, data_fim")
       .eq("ativo", true).eq("recorrencia", "mensal").eq("origem_salario", false),
   ]);
   // falha de leitura não pode virar "R$ 0" silencioso num app de dinheiro
-  const erro = contasRes.error ?? cardsRes.error ?? txsRes.error ?? catsRes.error ?? membrosRes.error ?? invoicesRes.error ?? contasPagarRes.error ?? budgetsRes.error ?? receitasFixasRes.error;
+  const erro = contasRes.error ?? cardsRes.error ?? txsRes.error ?? catsRes.error ?? membrosRes.error ?? invoicesRes.error ?? contasPagarRes.error ?? receitasFixasRes.error;
   if (erro) throw new Error(`Falha ao carregar o painel: ${erro.message}`);
   const { data: contas } = contasRes;
   const { data: cards } = cardsRes;
@@ -155,7 +152,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   const titularPorCard = new Map((cards ?? []).map((c) => [c.id, c.titular]));
   const faturaPorPessoa: Record<string, number> = {};
   for (const t of txsRef) {
-    if (!t.card_id) continue;
+    if (!t.card_id || t.tipo !== "despesa") continue;
     const comp = t.competencia;
     const ano = comp ? comp.ano : Number(t.data_compra.slice(0, 4));
     const mes = comp ? comp.mes : Number(t.data_compra.slice(5, 7));
@@ -164,26 +161,22 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
     faturaPorPessoa[pessoa] = (faturaPorPessoa[pessoa] ?? 0) + t.valor_centavos;
   }
   const porPessoa = Object.entries(faturaPorPessoa).sort((a, b) => b[1] - a[1]);
+  const totalCartoesMes = porPessoa.reduce((s, [, v]) => s + v, 0);
+  const totalPixContaMes = Math.max(0, resumo.totalDespesas - totalCartoesMes);
   const topCategorias = Object.entries(resumo.porCategoria).sort((a, b) => b[1] - a[1]);
   const maiorCategoria = topCategorias.length ? topCategorias[0][1] : 0;
 
-  // resumo do orçamento do mês (consumo): orçado x gasto, placar e alertas.
-  // o gasto do filho soma na mãe (o limite mora na mãe).
-  const paiDe = new Map((cats ?? []).filter((c) => c.parent_id).map((c) => [c.id, c.parent_id as string]));
-  const gastoRollup: Record<string, number> = {};
-  for (const [catId, val] of Object.entries(resumo.porCategoria)) {
-    const alvo = paiDe.get(catId) ?? catId;
-    gastoRollup[alvo] = (gastoRollup[alvo] ?? 0) + val;
-  }
-  const budgets = budgetsRes.data ?? [];
-  const resumoOrc = resumoOrcamento({ rendaCentavos: rendaMensal, budgets, gastoPorCategoria: gastoRollup });
-  const totalOrcado = resumoOrc.totalOrcadoCentavos;
-  const orcItens = resumoOrc.itens.filter((i) => i.limiteCentavos > 0);
-  const placar = {
-    azul: orcItens.filter((i) => i.pctUsado <= 85).length,
-    perto: orcItens.filter((i) => i.pctUsado > 85 && i.pctUsado <= 100).length,
-    estourou: orcItens.filter((i) => i.pctUsado > 100).length,
-  };
+  // Margem do mês: o que ENTRA − o que GASTO. Gasto = consumo do mês (cartão +
+  // pix/conta) + contas a pagar pendentes. Dá a clareza de "quanto posso gastar".
+  const pagoContaRef = new Set((txs ?? [])
+    .filter((t) => { if (!t.conta_pagar_id) return false; const [a, m] = t.data_compra.split("-").map(Number); return a === ref.ano && m === ref.mes; })
+    .map((t) => t.conta_pagar_id));
+  const contasPendentesRef = contasAtivas
+    .filter((c) => contaVisivelNoMes(c, ref.ano, ref.mes, pagaContaAlgumaVez.has(c.id), pagoContaRef.has(c.id)) && !pagoContaRef.has(c.id))
+    .reduce((s, c) => s + (c.valor_estimado_centavos ?? 0), 0);
+  const gastoMes = resumo.totalDespesas + contasPendentesRef;
+  const margem = entradaMensal - gastoMes;
+  const corMargem = margem >= 0 ? "var(--positivo)" : "var(--negativo)";
 
   // Caixa é a resposta principal: "dá pra pagar tudo?" — folga real = saldo +
   // rendas a entrar − faturas/contas a pagar. (Plano/orçamento é só planejamento.)
@@ -245,13 +238,19 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
       {/* ───── PANORAMA: pra onde o dinheiro foi neste mês ───── */}
       <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
         <Card>
-          <h3 className="mb-1 font-medium text-[var(--text)]">Cartão de cada um</h3>
+          <div className="mb-1 flex flex-wrap items-baseline justify-between gap-2">
+            <h3 className="font-medium text-[var(--text)]">Cartão de cada um</h3>
+            <span className="text-sm text-[var(--text)]">Total <strong><Money centavos={totalCartoesMes} tamanho="sm" /></strong></span>
+          </div>
           <p className="mb-4 text-xs text-[var(--muted)]">Compras nos cartões de cada pessoa neste mês (pela data; parcela conta a parcela do mês).</p>
           <SplitBar itens={porPessoa.map(([nome, centavos]) => ({ nome, centavos }))} membros={membros} />
         </Card>
 
         <Card>
-          <h3 className="mb-4 font-medium text-[var(--text)]">Categorias do mês</h3>
+          <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
+            <h3 className="font-medium text-[var(--text)]">Categorias do mês</h3>
+            <span className="text-sm text-[var(--text)]">Total <strong><Money centavos={resumo.totalDespesas} tamanho="sm" /></strong></span>
+          </div>
           {topCategorias.length === 0 ? (
             <p className="text-sm text-[var(--muted)]">Nenhuma categoria com gasto neste mês ainda.</p>
           ) : (
@@ -276,25 +275,24 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
         </Card>
       </div>
 
-      {/* ───── PLANO — só planejamento (calmo, por último) ───── */}
+      {/* ───── MARGEM — quanto entra × quanto gasto (dinheiro real) ───── */}
       <Card>
         <div className="mb-2 flex items-center justify-between gap-2">
-          <span className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">Plano · controle de gastos</span>
-          <Link href="/orcamento" className="shrink-0 text-sm text-[var(--accent)]">Ver</Link>
+          <span className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">Margem do mês</span>
+          <Link href="/orcamento" className="shrink-0 text-sm text-[var(--accent)]">Orçamento</Link>
         </div>
-        {totalOrcado > 0 ? (
-          <>
-            <BarraOrcamento gastoCentavos={resumo.totalDespesas} limiteCentavos={totalOrcado} cor="var(--accent)" />
-            <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-[var(--muted)]">
-              <span><strong style={{ color: "var(--positivo)" }}>{placar.azul}</strong> no azul</span>
-              <span><strong style={{ color: "var(--alerta)" }}>{placar.perto}</strong> perto</span>
-              <span><strong style={{ color: "var(--negativo)" }}>{placar.estourou}</strong> estourou</span>
-            </div>
-            <p className="mt-2 text-xs text-[var(--muted)]">É só o planejado — passar do orçamento não quer dizer que falta dinheiro (isso é o <strong>Caixa</strong>, lá em cima).</p>
-          </>
-        ) : (
-          <p className="text-sm text-[var(--muted)]">Defina limites por categoria na aba <Link href="/orcamento" className="text-[var(--accent)]">Orçamento</Link> pra acompanhar aqui.</p>
-        )}
+        <div className="flex flex-wrap items-baseline gap-x-2">
+          <span className="mono text-2xl font-bold" style={{ color: corMargem }}>{dinheiro(margem)}</span>
+          <span className="text-sm text-[var(--muted)]">{margem >= 0 ? "de margem pra gastar" : "acima do que entra"}</span>
+        </div>
+        <p className="mt-1 text-xs text-[var(--muted)]">
+          Recebo <Money centavos={entradaMensal} tamanho="sm" /> − gasto <Money centavos={gastoMes} tamanho="sm" />
+        </p>
+        <div className="mt-3 grid grid-cols-3 gap-2 border-t border-[var(--border)] pt-3">
+          <div><div className="text-xs text-[var(--muted)]">Cartões</div><Money centavos={totalCartoesMes} tamanho="sm" /></div>
+          <div><div className="text-xs text-[var(--muted)]">Pix/conta</div><Money centavos={totalPixContaMes} tamanho="sm" /></div>
+          <div><div className="text-xs text-[var(--muted)]">Contas a pagar</div><Money centavos={contasPendentesRef} tamanho="sm" /></div>
+        </div>
       </Card>
     </main>
   );

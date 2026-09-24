@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { limiteDisponivel } from "@/lib/financeiro/derivados";
 import { agruparFaturas } from "@/lib/financeiro/faturas";
+import { partesNoFuso } from "@/lib/financeiro/fechamento";
 import { corDaPessoa } from "@/lib/ui/pessoas";
 import { Money } from "@/components/ui/Money";
 import { Card } from "@/components/ui/Card";
@@ -47,13 +48,27 @@ export default async function CartoesPage() {
     return { card, usado, pct, faturas };
   });
 
+  // totais: fatura deste mês (competência) e total em aberto nos cartões
+  const { ano: anoAtual, mes: mesAtual } = partesNoFuso(new Date(), "America/Sao_Paulo");
+  const totalFaturaMes = linhas.reduce((s, l) =>
+    s + l.faturas.filter((f) => f.ano === anoAtual && f.mes === mesAtual).reduce((a, f) => a + f.totalCentavos, 0), 0);
+  const totalEmAberto = linhas.reduce((s, l) => s + l.usado, 0);
+
   return (
     <main className="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-10 sm:px-6">
-      <header className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold text-[var(--text)]">Cartões</h1>
-        <p className="text-sm text-[var(--muted)]">
-          Quanto você já gastou em cada cartão e as faturas por mês. Marque uma fatura como paga quando quitá-la.
-        </p>
+      <header className="flex flex-col gap-2">
+        <div>
+          <h1 className="text-2xl font-semibold text-[var(--text)]">Cartões</h1>
+          <p className="text-sm text-[var(--muted)]">
+            Quanto você já gastou em cada cartão e as faturas por mês. Marque uma fatura como paga quando quitá-la.
+          </p>
+        </div>
+        {linhas.length > 0 && (
+          <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
+            <span className="text-[var(--text)]">Fatura deste mês <strong><Money centavos={totalFaturaMes} tamanho="sm" /></strong></span>
+            <span className="text-[var(--muted)]">Em aberto (total) <strong><Money centavos={totalEmAberto} tamanho="sm" /></strong></span>
+          </div>
+        )}
       </header>
 
       <AtivarNotificacoes />
