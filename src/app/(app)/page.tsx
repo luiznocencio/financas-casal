@@ -40,10 +40,10 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
     supabase.from("members").select("nome, renda_mensal_centavos, ajuda_custo_centavos"),
     supabase.from("invoices").select("id, competencia_ano, competencia_mes"),
     supabase.from("contas_pagar").select("id, valor_estimado_centavos, dia_vencimento, recorrencia, data_fim, created_at").eq("ativo", true),
-    // recebimentos fixos que NÃO são salário (salário já está em renda_mensal) —
-    // entram no "a receber" da projeção junto com o salário
-    supabase.from("receitas_agendadas").select("valor_centavos, data_fim")
-      .eq("ativo", true).eq("recorrencia", "mensal").eq("origem_salario", false),
+    // recebimentos agendados que NÃO são salário (salário já está em renda_mensal):
+    // mensais E únicos — entram no "Recebo"/"a receber" junto com o salário
+    supabase.from("receitas_agendadas").select("valor_centavos, data_fim, data_prevista, recorrencia")
+      .eq("ativo", true).eq("origem_salario", false),
   ]);
   // falha de leitura não pode virar "R$ 0" silencioso num app de dinheiro
   const erro = contasRes.error ?? cardsRes.error ?? txsRes.error ?? catsRes.error ?? membrosRes.error ?? invoicesRes.error ?? contasPagarRes.error ?? receitasFixasRes.error;
@@ -79,14 +79,24 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   // o que ENTRA por mês: salário (renda_mensal + ajuda) + recebimentos fixos
   // mensais (aluguel, renda extra) que ainda não encerraram (data_fim).
   const rendaMensal = (membrosData ?? []).reduce((s, m) => s + (m.renda_mensal_centavos ?? 0) + (m.ajuda_custo_centavos ?? 0), 0);
-  const inicioAtual = `${atual.ano}-${pad(atual.mes)}-01`;
-  const fixosMensais = (receitasFixasRes.data ?? [])
-    .filter((r) => !r.data_fim || r.data_fim >= inicioAtual)
-    .reduce((s, r) => s + (r.valor_centavos ?? 0), 0);
-  const entradaMensal = rendaMensal + fixosMensais;
+  // "Recebo" no mês = salário (renda_mensal + ajuda) + todos os recebimentos
+  // agendados não-salário que caem no mês: mensais ativos + únicos daquele mês.
+  const receitasAgendadas = receitasFixasRes.data ?? [];
+  const recebeDoMes = (ano: number, mes: number): number => {
+    const ini = `${ano}-${pad(mes)}-01`;
+    const fim = `${ano}-${pad(mes)}-${pad(ultimoDiaDoMes(ano, mes))}`;
+    const fixos = receitasAgendadas.reduce((s, r) => {
+      const ocorre = r.recorrencia === "unica"
+        ? (r.data_prevista >= ini && r.data_prevista <= fim) // único: só no mês dele
+        : ((r.data_prevista ?? ini) <= fim && (!r.data_fim || r.data_fim >= ini)); // mensal: já começou e não encerrou
+      return ocorre ? s + (r.valor_centavos ?? 0) : s;
+    }, 0);
+    return rendaMensal + fixos;
+  };
+  const recebeNoMes = recebeDoMes(ref.ano, ref.mes);
   const resumoAtual = idxRef === idxAtual ? resumo : resumoDoMes(txsRef, atual);
-  // o que ainda falta entrar NO MÊS ATUAL = entrada prevista − o já recebido
-  const aReceberAtual = Math.max(0, entradaMensal - resumoAtual.totalReceitas);
+  // o que ainda falta entrar NO MÊS ATUAL = previsto do mês − o já recebido
+  const aReceberAtual = Math.max(0, recebeDoMes(atual.ano, atual.mes) - resumoAtual.totalReceitas);
 
   // faturas em aberto por competência (mês da fatura), pra saber o que sai em cada mês
   const faturaAbertaPorComp: Record<string, number> = {};
@@ -132,7 +142,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
       const y = Math.floor((i - 1) / 12);
       const mo = i - y * 12;
       const ehAtualLoop = i === idxAtual;
-      const entrada = ehAtualLoop ? aReceberAtual : entradaMensal;
+      const entrada = ehAtualLoop ? aReceberAtual : recebeDoMes(y, mo);
       const saidaFaturas = ehAtualLoop ? faturasAbertasAteAtual : (faturaAbertaPorComp[chaveMes(y, mo)] ?? 0);
       const saidaContas = ehAtualLoop ? contasPendentesAtual : contasDoMes(y, mo);
       running += entrada - saidaFaturas - saidaContas;
@@ -175,7 +185,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
     .filter((c) => contaVisivelNoMes(c, ref.ano, ref.mes, pagaContaAlgumaVez.has(c.id), pagoContaRef.has(c.id)) && !pagoContaRef.has(c.id))
     .reduce((s, c) => s + (c.valor_estimado_centavos ?? 0), 0);
   const gastoMes = resumo.totalDespesas + contasPendentesRef;
-  const margem = entradaMensal - gastoMes;
+  const margem = recebeNoMes - gastoMes;
   const corMargem = margem >= 0 ? "var(--positivo)" : "var(--negativo)";
 
   // Caixa é a resposta principal: "dá pra pagar tudo?" — folga real = saldo +
@@ -286,7 +296,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
           <span className="text-sm text-[var(--muted)]">{margem >= 0 ? "de margem pra gastar" : "acima do que entra"}</span>
         </div>
         <p className="mt-1 text-xs text-[var(--muted)]">
-          Recebo <Money centavos={entradaMensal} tamanho="sm" /> − gasto <Money centavos={gastoMes} tamanho="sm" />
+          Recebo <Money centavos={recebeNoMes} tamanho="sm" /> − gasto <Money centavos={gastoMes} tamanho="sm" />
         </p>
         <div className="mt-3 grid grid-cols-3 gap-2 border-t border-[var(--border)] pt-3">
           <div><div className="text-xs text-[var(--muted)]">Cartões</div><Money centavos={totalCartoesMes} tamanho="sm" /></div>
