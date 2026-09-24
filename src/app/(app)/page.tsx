@@ -86,9 +86,12 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
     const ini = `${ano}-${pad(mes)}-01`;
     const fim = `${ano}-${pad(mes)}-${pad(ultimoDiaDoMes(ano, mes))}`;
     const fixos = receitasAgendadas.reduce((s, r) => {
+      // único: conta só no mês da data prevista. mensal: conta todo mês enquanto
+      // ativo (data_prevista é a PRÓXIMA ocorrência, não serve de filtro; só a
+      // data_fim encerra).
       const ocorre = r.recorrencia === "unica"
-        ? (r.data_prevista >= ini && r.data_prevista <= fim) // único: só no mês dele
-        : ((r.data_prevista ?? ini) <= fim && (!r.data_fim || r.data_fim >= ini)); // mensal: já começou e não encerrou
+        ? (r.data_prevista >= ini && r.data_prevista <= fim)
+        : (!r.data_fim || r.data_fim >= ini);
       return ocorre ? s + (r.valor_centavos ?? 0) : s;
     }, 0);
     return rendaMensal + fixos;
