@@ -105,11 +105,14 @@ export async function POST(req: Request) {
 
   const grupoImportacao = crypto.randomUUID();
 
-  // gastos fixos (recorrentes) deste cartão, pra "achar-ou-criar" ao marcar linha como fixo
+  // gastos fixos (recorrentes) deste cartão, pra "achar-ou-criar" ao marcar linha
+  // como fixo. Chave = NOME BASE, procurada pelo nome da linha E pelo texto cru do
+  // banco: se a regra renomeou "TOTALPASS" pra "Totalpass Luiz", ainda acha o fixo
+  // (antes não achava e criava um fixo duplicado).
   const recorrentePorChave = new Map<string, string>();
   if (origem.card_id) {
     const { data: recs } = await supabase.from("recorrentes").select("id, descricao").eq("card_id", origem.card_id);
-    for (const r of recs ?? []) if (r.descricao) recorrentePorChave.set(normalizeDescricao(r.descricao), r.id);
+    for (const r of recs ?? []) if (r.descricao) recorrentePorChave.set(nomeBase(r.descricao), r.id);
   }
 
   let criadas = 0;
@@ -175,8 +178,9 @@ export async function POST(req: Request) {
     // gasto fixo: acha-ou-cria o recorrente deste cartão e liga o lançamento a ele
     let recorrenteId: string | null = null;
     if (it.fixo && origem.card_id) {
-      const chaveRec = normalizeDescricao(it.descricao);
-      recorrenteId = recorrentePorChave.get(chaveRec) ?? null;
+      const chaveRec = nomeBase(it.descricao);
+      const chaveBanco = it.descricao_original ? nomeBase(it.descricao_original) : "";
+      recorrenteId = recorrentePorChave.get(chaveRec) ?? (chaveBanco ? recorrentePorChave.get(chaveBanco) : undefined) ?? null;
       if (!recorrenteId) {
         const dia = Math.min(31, Math.max(1, Number(it.data.slice(8, 10)) || 1));
         const { data: rec } = await supabase.from("recorrentes").insert({
@@ -184,7 +188,11 @@ export async function POST(req: Request) {
           valor_centavos: it.valor_centavos, categoria_id: it.categoria_id ?? null,
           pessoa: it.pessoa, dia, card_id: origem.card_id, account_id: null,
         }).select("id").single();
-        if (rec) { recorrenteId = rec.id; recorrentePorChave.set(chaveRec, rec.id); fixosCriados++; }
+        if (rec) {
+          recorrenteId = rec.id; fixosCriados++;
+          recorrentePorChave.set(chaveRec, rec.id);
+          if (chaveBanco) recorrentePorChave.set(chaveBanco, rec.id);
+        }
       }
     }
 

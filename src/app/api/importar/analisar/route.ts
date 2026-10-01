@@ -63,9 +63,14 @@ export async function POST(req: Request) {
       const base = nomeBase(l.descricao);
       const regra = regraEfetiva(porChave, base, cardId);
       const descricao = regra?.descricao_preferida ? nomeComMarcador(regra.descricao_preferida, l.descricao) : l.descricao;
-      const ehFixo = fixoPorBase.has(base);
+      // fixo: reconhece pelo texto do banco OU pelo nome já aplicado (o fixo pode ter
+      // sido renomeado — "TOTALPASS" no banco, "Totalpass Luiz" no cadastro)
+      const baseAplicada = nomeBase(descricao);
+      const chaveFixo = fixoPorBase.has(base) ? base : fixoPorBase.has(baseAplicada) ? baseAplicada : null;
+      const ehFixo = chaveFixo !== null;
+      const catFixo = chaveFixo !== null ? fixoPorBase.get(chaveFixo) : null;
       // categoria: regra > categoria do gasto fixo > usada antes neste cartão > usada antes
-      const categoria_id = (regra?.categoria_id ?? fixoPorBase.get(base) ?? catPorBaseCartao.get(base) ?? catPorBase.get(base) ?? null) as string | null;
+      const categoria_id = (regra?.categoria_id ?? catFixo ?? catPorBaseCartao.get(base) ?? catPorBase.get(base) ?? null) as string | null;
       // guarda o texto cru do banco pra aprender no confirmar o que for ajustado aqui
       return { ...l, descricao, descricao_original: l.descricao, categoria_id, fixo: ehFixo };
     });
