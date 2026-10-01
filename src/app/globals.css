@@ -19,7 +19,7 @@
   --radius: 14px;
   --radius-sm: 10px;
   --shadow: 0 1px 2px rgba(16,17,22,.05), 0 6px 20px rgba(16,17,22,.05);
-  /* --font-sans / --font-mono são injetadas pelo next/font no <html>.
+  /* --font-sans / --font-num são injetadas pelo next/font no <html>.
      NÃO redeclarar aqui (auto-referência vira ciclo e zera a variável).
      Os fallbacks ficam na própria declaração font-family (body/.mono). */
 }
@@ -50,7 +50,7 @@ body {
   line-height: 1.5; /* respiro: textos de várias linhas dentro das caixas */
 }
 .tabular { font-variant-numeric: tabular-nums; }
-.mono { font-family: var(--font-mono), ui-monospace, "SFMono-Regular", monospace; font-variant-numeric: tabular-nums; }
+.mono { font-family: var(--font-num), ui-sans-serif, system-ui, sans-serif; font-variant-numeric: tabular-nums; }
 /* Não forçar border-radius aqui: o outline já acompanha o raio do elemento.
    (Antes, focar um campo/botão quadrava os cantos — quebrava a formatação.) */
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
