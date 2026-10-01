@@ -10,7 +10,7 @@ import { Card } from "@/components/ui/Card";
 import { SplitBar } from "@/components/ui/SplitBar";
 import { CategoriaTag } from "@/components/ui/CategoriaTag";
 import { SairButton } from "@/components/shell/SairButton";
-import { CheckCircle, WarningCircle } from "@phosphor-icons/react/dist/ssr";
+import { CheckCircle, WarningCircle, Wallet, Receipt } from "@phosphor-icons/react/dist/ssr";
 
 const MESES = [
   "janeiro", "fevereiro", "março", "abril", "maio", "junho",
@@ -144,6 +144,9 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   // somando a renda e descontando faturas/contas de cada mês. Pro passado, mostra
   // o saldo real no fim do mês (só o que está lançado até lá).
   let saldoRef: number;
+  // acumulados da projeção até o mês visto (alimentam os blocos "Vou ter" / "Já tem destino")
+  let entradasAte = 0;
+  let saidasAte = 0;
   if (idxRef < idxAtual) {
     const fimRef = `${ref.ano}-${pad(ref.mes)}-${pad(ultimoDiaDoMes(ref.ano, ref.mes))}`;
     saldoRef = (contas ?? []).reduce((s, c) => {
@@ -160,6 +163,8 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
       const saidaFaturas = ehAtualLoop ? faturasAbertasAteAtual : (faturaAbertaPorComp[chaveMes(y, mo)] ?? 0);
       const saidaContas = ehAtualLoop ? contasPendentesAtual : contasDoMes(y, mo);
       running += entrada - saidaFaturas - saidaContas;
+      entradasAte += entrada;
+      saidasAte += saidaFaturas + saidaContas;
     }
     saldoRef = running;
   }
@@ -226,11 +231,14 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
     : saldoRef < 0 ? "falta" : sobraReal < 0 ? "comprometido" : "ok";
   const corCaixa = estadoCaixa === "ok" ? "var(--positivo)" : estadoCaixa === "comprometido" ? "var(--alerta)" : "var(--negativo)";
   const ateMes = ehFuturo ? ` até ${MESES[ref.mes - 1]}` : "";
-  const tituloCaixa = ehPassado
-    ? `Saldo no fim de ${MESES[ref.mes - 1]}`
-    : estadoCaixa === "ok" ? `Sobra de verdade${ateMes}`
-      : estadoCaixa === "comprometido" ? "do próximo salário já comprometido no cartão"
-        : (ehFuturo ? `Vai faltar até ${MESES[ref.mes - 1]}` : "Não fecha este mês");
+  // três blocos: Vou ter − Já tem destino = Livre (= sobraReal)
+  const vouTer = saldoTotal + entradasAte;              // mês atual: saldo + a receber
+  const jaTemDestino = saidasAte + cartaoVenceDepois;   // faturas + contas + cartão que vence depois
+  const rotuloLivre = estadoCaixa === "ok" ? "Livre"
+    : estadoCaixa === "comprometido" ? "Já usou do próximo salário" : "Falta";
+  const subLivre = estadoCaixa === "ok" ? `pode gastar${ateMes}`
+    : estadoCaixa === "comprometido" ? "no cartão, antes do salário cair"
+      : (ehFuturo ? `pra fechar até ${MESES[ref.mes - 1]}` : "pra fechar o mês");
 
   return (
     <main className="mx-auto flex max-w-5xl flex-col gap-6 px-4 py-10 sm:px-6">
@@ -251,38 +259,60 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
         <div className="lg:hidden"><SairButton variant="inline" /></div>
       </header>
 
-      {/* ───── CAIXA DO MÊS — cascata: saldo → sobra no fim do mês → sobra de verdade ───── */}
+      {/* ───── CAIXA DO MÊS — três blocos: Vou ter · Já tem destino · Livre ───── */}
       <Card>
         <span className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">Caixa do mês</span>
-        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
-          {estadoCaixa === "ok"
-            ? <CheckCircle size={30} weight="fill" style={{ color: corCaixa }} aria-label="Sobra" />
-            : <WarningCircle size={30} weight="fill" style={{ color: corCaixa }} aria-label={estadoCaixa === "comprometido" ? "Próximo salário comprometido" : "Não fecha"} />}
-          <span className="mono text-3xl font-bold" style={{ color: corCaixa }}>
-            {estadoCaixa === "comprometido" ? centavosParaReais(Math.abs(sobraReal)) : dinheiro(sobraReal)}
-          </span>
-          <span className="text-lg font-semibold" style={{ color: corCaixa }}>{tituloCaixa}</span>
-        </div>
 
         {ehPassado ? (
-          <p className="mt-2 text-xs text-[var(--muted)]">Saldo real no fim do mês, pelo que está lançado.</p>
+          <>
+            <div className="mt-1 flex flex-wrap items-baseline gap-x-2">
+              <span className="mono text-3xl font-bold" style={{ color: corCaixa }}>{dinheiro(saldoRef)}</span>
+              <span className="text-sm text-[var(--muted)]">no fim de {MESES[ref.mes - 1]}</span>
+            </div>
+            <p className="mt-1 text-xs text-[var(--muted)]">Saldo real no fim do mês, pelo que está lançado.</p>
+          </>
         ) : (
-          <div className="mt-3 flex flex-col gap-1 text-sm">
-            {ehAtual ? (
-              <>
-                <LinhaCascata rotulo="Saldo em conta hoje" valor={saldoTotal} />
-                <LinhaCascata rotulo="Falta receber este mês" valor={aReceberAtual} sinal />
-                <LinhaCascata rotulo="Falta pagar este mês (faturas + contas)" valor={-aPagarAtual} />
-              </>
-            ) : (
-              <p className="text-xs text-[var(--muted)]">
-                Projeção a partir do saldo de hoje, somando o que entra e descontando faturas e contas de cada mês até {MESES[ref.mes - 1]}.
-              </p>
-            )}
-            <LinhaCascata rotulo={ehAtual ? "Sobra no fim do mês" : `Sobra no fim de ${MESES[ref.mes - 1]}`} valor={saldoRef} forte />
-            <LinhaCascata rotulo="Cartão já usado que vence depois" valor={-cartaoVenceDepois} />
-            <LinhaCascata rotulo="Sobra de verdade" valor={sobraReal} forte cor={corCaixa} />
-          </div>
+          <>
+            <div className="mt-3 grid gap-2 sm:grid-cols-3">
+              <BlocoCaixa
+                icone={<Wallet size={15} aria-hidden />}
+                rotulo={ehFuturo ? `Vou ter até ${MESES[ref.mes - 1]}` : "Vou ter"}
+                valor={vouTer}
+                sub={ehAtual ? "saldo + a receber" : "saldo + o que entra"} />
+              <BlocoCaixa
+                icone={<Receipt size={15} aria-hidden />}
+                rotulo="Já tem destino"
+                valor={jaTemDestino}
+                sub="contas, faturas e cartão" />
+              <BlocoCaixa
+                icone={estadoCaixa === "ok" ? <CheckCircle size={15} weight="fill" aria-hidden /> : <WarningCircle size={15} weight="fill" aria-hidden />}
+                rotulo={rotuloLivre}
+                valor={Math.abs(sobraReal)}
+                sub={subLivre}
+                cor={corCaixa} />
+            </div>
+
+            {/* a conta completa fica recolhida: abre só pra quem quer entender de onde vem */}
+            <details className="mt-3">
+              <summary className="cursor-pointer select-none text-sm text-[var(--accent)]">Ver detalhes</summary>
+              <div className="mt-2 flex flex-col gap-1 text-sm">
+                {ehAtual ? (
+                  <>
+                    <LinhaCascata rotulo="Saldo em conta hoje" valor={saldoTotal} />
+                    <LinhaCascata rotulo="Falta receber este mês" valor={aReceberAtual} sinal />
+                    <LinhaCascata rotulo="Falta pagar este mês (faturas + contas)" valor={-aPagarAtual} />
+                  </>
+                ) : (
+                  <p className="text-xs text-[var(--muted)]">
+                    Projeção a partir do saldo de hoje, somando o que entra e descontando faturas e contas de cada mês até {MESES[ref.mes - 1]}.
+                  </p>
+                )}
+                <LinhaCascata rotulo={ehAtual ? "Sobra no fim do mês" : `Sobra no fim de ${MESES[ref.mes - 1]}`} valor={saldoRef} forte />
+                <LinhaCascata rotulo="Cartão já usado que vence depois" valor={-cartaoVenceDepois} />
+                <LinhaCascata rotulo="Sobra de verdade" valor={sobraReal} forte cor={corCaixa} />
+              </div>
+            </details>
+          </>
         )}
 
         {/* totais do mês (consumo): o que entra × o que gasto */}
@@ -340,6 +370,21 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
       </div>
 
     </main>
+  );
+}
+
+// Um dos três blocos do Caixa do mês. Com `cor`, vira o bloco de destaque (Livre).
+function BlocoCaixa({ icone, rotulo, valor, sub, cor }: {
+  icone: React.ReactNode; rotulo: string; valor: number; sub: string; cor?: string;
+}) {
+  const tom = cor ?? "var(--muted)";
+  return (
+    <div className="flex min-w-0 flex-col gap-0.5 rounded-[var(--radius-sm)] px-3 py-2.5"
+      style={{ background: cor ? `color-mix(in srgb, ${cor} 10%, transparent)` : "var(--surface-2)" }}>
+      <span className="flex items-center gap-1.5 text-xs font-medium" style={{ color: tom }}>{icone}{rotulo}</span>
+      <span className="mono text-xl font-semibold" style={{ color: cor ?? "var(--text)" }}>{centavosParaReais(valor)}</span>
+      <span className="text-xs" style={{ color: tom }}>{sub}</span>
+    </div>
   );
 }
 
