@@ -5,6 +5,7 @@ import { chamarModeloJson } from "@/lib/ai/openai";
 import { getMembroAtual } from "@/lib/auth/household";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { nomeBase, nomeComMarcador } from "@/lib/importacao/parcelas";
+import { indexarRegras, regraEfetiva } from "@/lib/importacao/regras";
 import { ultimoDiaDoMes } from "@/lib/financeiro/fechamento";
 
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -29,9 +30,11 @@ export async function POST(req: Request) {
     const supabase = await createServerSupabase();
 
     // regras aprendidas (casamento por NOME BASE: ignora marcador de parcela e
-    // código de loja, então a regra vale pra mesma compra em qualquer mês)
-    const { data: regras } = await supabase.from("category_rules").select("chave, categoria_id, descricao_preferida");
-    const porChave = new Map((regras ?? []).map((r) => [r.chave, r]));
+    // código de loja). A regra DESTE cartão tem prioridade sobre a da casa — o
+    // mesmo texto do banco (ex.: TOTALPASS) pode ter nomes diferentes por cartão.
+    const { data: regras } = await supabase.from("category_rules").select("chave, card_id, categoria_id, descricao_preferida");
+    const porChave = indexarRegras(regras ?? []);
+    const cardId = origem.card_id ?? null;
 
     // gastos fixos deste cartão: casa por nome base pra pré-marcar "fixo" e sugerir
     // a categoria do próprio fixo, sem o usuário precisar marcar na mão.
@@ -41,24 +44,28 @@ export async function POST(req: Request) {
       for (const r of recs ?? []) if (r.descricao) fixoPorBase.set(nomeBase(r.descricao), r.categoria_id ?? null);
     }
 
-    // categoria já usada antes pra essa compra (qualquer origem, mais recente) —
-    // reconhece o que foi categorizado num import anterior mesmo sem virar regra.
+    // categoria já usada antes pra essa compra (mais recente) — reconhece o que
+    // foi categorizado num import anterior mesmo sem virar regra. Prefere o que
+    // foi usado NESTE cartão; senão, em qualquer origem.
     const { data: categorizadas } = await supabase
-      .from("transactions").select("descricao, categoria_id, data_compra")
+      .from("transactions").select("descricao, categoria_id, data_compra, card_id")
       .not("categoria_id", "is", null).order("data_compra", { ascending: false });
     const catPorBase = new Map<string, string>();
+    const catPorBaseCartao = new Map<string, string>();
     for (const t of categorizadas ?? []) {
       const b = nomeBase(t.descricao ?? "");
-      if (b && !catPorBase.has(b)) catPorBase.set(b, t.categoria_id); // 1ª ocorrência = mais recente
+      if (!b) continue;
+      if (!catPorBase.has(b)) catPorBase.set(b, t.categoria_id); // 1ª ocorrência = mais recente
+      if (cardId && t.card_id === cardId && !catPorBaseCartao.has(b)) catPorBaseCartao.set(b, t.categoria_id);
     }
 
     const comRegra = linhas.map((l) => {
       const base = nomeBase(l.descricao);
-      const regra = porChave.get(base);
+      const regra = regraEfetiva(porChave, base, cardId);
       const descricao = regra?.descricao_preferida ? nomeComMarcador(regra.descricao_preferida, l.descricao) : l.descricao;
       const ehFixo = fixoPorBase.has(base);
-      // categoria: regra > categoria do gasto fixo > categoria usada antes
-      const categoria_id = (regra?.categoria_id ?? fixoPorBase.get(base) ?? catPorBase.get(base) ?? null) as string | null;
+      // categoria: regra > categoria do gasto fixo > usada antes neste cartão > usada antes
+      const categoria_id = (regra?.categoria_id ?? fixoPorBase.get(base) ?? catPorBaseCartao.get(base) ?? catPorBase.get(base) ?? null) as string | null;
       // guarda o texto cru do banco pra aprender no confirmar o que for ajustado aqui
       return { ...l, descricao, descricao_original: l.descricao, categoria_id, fixo: ehFixo };
     });
@@ -81,11 +88,13 @@ export async function POST(req: Request) {
         .from("transactions").select("id, data_compra, valor_centavos, tipo, descricao, recorrente_id").eq(origemCol, origemId);
       for (const t of data ?? []) addTx(t);
     }
-    // gastos fixos já materializados na casa toda (RLS já limita ao household).
-    // Escopa ao MÊS da fatura importada: não pode reconhecer (nem sobrescrever)
-    // um fixo ligado a OUTRA fatura/mês.
+    // gastos fixos já materializados NESTA origem (o cartão da fatura). Não olha
+    // outros cartões: o casal tem assinaturas iguais (TotalPass, WellHub) cada um
+    // no seu cartão, e uma não pode anular a outra. Escopa também ao MÊS da
+    // fatura importada: não reconhece (nem sobrescreve) um fixo de OUTRO mês.
     let recQuery = supabase
       .from("transactions").select("id, data_compra, valor_centavos, tipo, descricao, recorrente_id").not("recorrente_id", "is", null);
+    if (origemCol && origemId) recQuery = recQuery.eq(origemCol, origemId);
     if (competencia) {
       const ini = `${competencia.ano}-${pad(competencia.mes)}-01`;
       const fim = `${competencia.ano}-${pad(competencia.mes)}-${pad(ultimoDiaDoMes(competencia.ano, competencia.mes))}`;

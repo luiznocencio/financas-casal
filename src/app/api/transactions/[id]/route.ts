@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { getMembroAtual } from "@/lib/auth/household";
 import { nomeBase, nomeComMarcador } from "@/lib/importacao/parcelas";
+import { aprenderRegras } from "@/lib/importacao/regras";
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const membro = await getMembroAtual();
@@ -13,7 +14,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   const supabase = await createServerSupabase();
 
   // descrição atual (base da regra — o texto que reaparece nas faturas)
-  const { data: atual } = await supabase.from("transactions").select("descricao").eq("id", id).maybeSingle();
+  const { data: atual } = await supabase.from("transactions").select("descricao, card_id").eq("id", id).maybeSingle();
   if (!atual) return NextResponse.json({ error: "lançamento inexistente" }, { status: 400 });
 
   // atualiza o próprio lançamento (observação é específica desta compra — não vira regra)
@@ -28,22 +29,24 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   // de parcela e sem código de loja variável), pra pegar a mesma compra em faturas
   // diferentes: renomear a parcela 9/10 aprende o nome pra 10/10 e futuras. A regra
   // guarda nome E/OU categoria (renomear sem taggear, ou vice-versa).
+  // Lançamento de cartão aprende na regra DAQUELE cartão e aplica só nele: o mesmo
+  // texto do banco (TOTALPASS, WELLHUB) pode ser de pessoas diferentes em cartões
+  // diferentes. Conta/pix usa a regra da casa e aplica nos lançamentos sem cartão.
   const chave = nomeBase(atual.descricao ?? descricao ?? "");
+  const cardId: string | null = atual.card_id ?? null;
   let aplicadas = 0;
   if ((categoria_id || descricao) && chave) {
-    // merge: não apaga o campo que não veio nesta edição
-    const { data: regraAtual } = await supabase
-      .from("category_rules").select("categoria_id, descricao_preferida")
-      .eq("household_id", membro.household_id).eq("chave", chave).maybeSingle();
-    const catRegra = categoria_id ?? regraAtual?.categoria_id ?? null;
-    const nomeRegra = descricao ?? regraAtual?.descricao_preferida ?? null;
-    await supabase.from("category_rules").upsert(
-      { household_id: membro.household_id, chave, categoria_id: catRegra, descricao_preferida: nomeRegra },
-      { onConflict: "household_id,chave" },
-    );
-    // retroativo: todos os lançamentos do household que casam pelo nome base
-    const { data: todos } = await supabase.from("transactions").select("id, descricao");
-    const casando = (todos ?? []).filter((t) => t.id !== id && nomeBase(t.descricao ?? "") === chave);
+    await aprenderRegras(supabase, membro.household_id, cardId, [{ chave, categoria_id, nome: descricao }]);
+    // regra resultante (merge), pra aplicar retroativamente
+    let qr = supabase.from("category_rules").select("categoria_id, descricao_preferida").eq("chave", chave);
+    qr = cardId ? qr.eq("card_id", cardId) : qr.is("card_id", null);
+    const { data: regra } = await qr.maybeSingle();
+    const catRegra = regra?.categoria_id ?? null;
+    const nomeRegra = regra?.descricao_preferida ?? null;
+    // retroativo: mesmo nome base, na MESMA origem (o cartão; ou sem cartão)
+    const { data: todos } = await supabase.from("transactions").select("id, descricao, card_id");
+    const casando = (todos ?? []).filter((t) =>
+      t.id !== id && (t.card_id ?? null) === cardId && nomeBase(t.descricao ?? "") === chave);
     for (const t of casando) {
       const patch: { categoria_id?: string; descricao?: string } = {};
       if (catRegra) patch.categoria_id = catRegra;

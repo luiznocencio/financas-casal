@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { getMembroAtual } from "@/lib/auth/household";
 import { nomeBase, nomeComMarcador } from "@/lib/importacao/parcelas";
+import { aprenderRegras } from "@/lib/importacao/regras";
 
 // Ações sobre compras parceladas (aba Parcelas):
 // - renomear: troca o nome de todas as parcelas da compra preservando o marcador,
@@ -19,7 +20,7 @@ export async function POST(req: Request) {
   const supabase = await createServerSupabase();
   // RLS limita ao household; confere que os ids existem antes de agir
   const { data: txs, error } = await supabase
-    .from("transactions").select("id, descricao, grupo_parcela").in("id", txIds);
+    .from("transactions").select("id, descricao, grupo_parcela, card_id").in("id", txIds);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   if (!txs?.length) return NextResponse.json({ error: "lançamentos inexistentes" }, { status: 400 });
 
@@ -30,17 +31,18 @@ export async function POST(req: Request) {
     for (const t of txs) {
       await supabase.from("transactions").update({ descricao: nomeComMarcador(nome, t.descricao ?? "") }).eq("id", t.id);
     }
-    // aprende o nome pro futuro: uma regra por variação do texto do banco que a
-    // compra teve, todas apontando pro mesmo nome (não mexe na categoria existente)
-    const bases = [...new Set(txs.map((t) => nomeBase(t.descricao ?? "")).filter(Boolean))];
-    for (const chave of bases) {
-      const { data: regra } = await supabase
-        .from("category_rules").select("categoria_id")
-        .eq("household_id", membro.household_id).eq("chave", chave).maybeSingle();
-      await supabase.from("category_rules").upsert(
-        { household_id: membro.household_id, chave, categoria_id: regra?.categoria_id ?? null, descricao_preferida: nome },
-        { onConflict: "household_id,chave" },
-      );
+    // aprende o nome pro futuro, na regra do CARTÃO da compra: uma regra por
+    // variação do texto do banco que a compra teve, todas apontando pro mesmo nome
+    // (merge: não mexe na categoria existente; o nome não vaza pra outro cartão)
+    const porCartao = new Map<string | null, Set<string>>();
+    for (const t of txs) {
+      const b = nomeBase(t.descricao ?? "");
+      if (!b) continue;
+      const k = t.card_id ?? null;
+      (porCartao.get(k) ?? porCartao.set(k, new Set()).get(k)!).add(b);
+    }
+    for (const [cardId, bases] of porCartao) {
+      await aprenderRegras(supabase, membro.household_id, cardId, [...bases].map((chave) => ({ chave, nome })));
     }
     return NextResponse.json({ ok: true, renomeadas: txs.length });
   }

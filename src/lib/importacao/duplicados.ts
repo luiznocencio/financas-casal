@@ -18,8 +18,8 @@ function dias(iso: string): number {
  *
  * Gasto fixo (recorrente) já materializado casa quando o VALOR e o TIPO batem e
  * ( a DESCRIÇÃO normalizada é igual OU a data cai dentro da janela de 27 dias ) —
- * assim um fixo já lançado em OUTRO cartão/conta é reconhecido mesmo que a fatura
- * mostre o mesmo lançamento num dia bem distante do mês.
+ * assim o fixo gerado no dia configurado é reconhecido mesmo que a fatura mostre a
+ * cobrança num dia bem distante. Quem chama passa só fixos do MESMO cartão/conta.
  */
 export function marcarDuplicados(
   linhas: LinhaImportada[],

@@ -6,6 +6,7 @@ import type { NovoLancamento } from "@/lib/financeiro/tipos";
 import { normalizeDescricao } from "@/lib/financeiro/descricao";
 import { ultimoDiaDoMes } from "@/lib/financeiro/fechamento";
 import { lerParcela, assinaturaParcela, nomeBase, baseDescricao } from "@/lib/importacao/parcelas";
+import { aprenderRegras } from "@/lib/importacao/regras";
 
 const DIA_MS = 86_400_000;
 function diasMs(iso: string): number {
@@ -46,16 +47,25 @@ export async function POST(req: Request) {
   const origemId = (origem.card_id ?? origem.account_id) as string;
   const { data: existentes } = await supabase
     .from("transactions").select("data_compra, valor_centavos, total_parcelas").eq(origemCol, origemId);
-  const chaves = new Set(
-    (existentes ?? []).filter((e) => (e.total_parcelas ?? 1) <= 1).map((e) => `${e.data_compra}|${e.valor_centavos}`),
-  );
+  // CONTAGEM por data+valor (não um set): cada lançamento existente cancela UMA
+  // linha da fatura. Assim duas cobranças idênticas no mesmo dia (ex.: dois
+  // TotalPass de R$ 139,90 no mesmo cartão) entram as duas; reimportar a mesma
+  // fatura continua sem duplicar, porque cada linha encontra seu par já lançado.
+  const chaves = new Map<string, number>();
+  for (const e of existentes ?? []) {
+    if ((e.total_parcelas ?? 1) > 1) continue;
+    const k = `${e.data_compra}|${e.valor_centavos}`;
+    chaves.set(k, (chaves.get(k) ?? 0) + 1);
+  }
 
-  // gastos fixos já materializados na casa toda (qualquer origem) — um fixo já
-  // lançado noutro cartão/conta também é duplicado. Consumido no máximo 1x por tx
-  // (guloso), pra duas linhas fixas iguais não serem ambas suprimidas por 1 só tx.
-  // escopado ao mês da fatura importada: não reconhece nem sobrescreve um fixo de OUTRA fatura
+  // gastos fixos já materializados NESTE cartão (não em qualquer origem: o casal
+  // tem assinaturas iguais — TotalPass, WellHub — cada um no seu cartão, e uma não
+  // pode anular a outra). Consumido no máximo 1x por tx (guloso), pra duas linhas
+  // fixas iguais não serem ambas suprimidas por 1 só tx. Escopado ao mês da
+  // fatura importada: não reconhece nem sobrescreve um fixo de OUTRA fatura.
   let recQuery = supabase
-    .from("transactions").select("data_compra, valor_centavos, tipo, descricao").not("recorrente_id", "is", null);
+    .from("transactions").select("data_compra, valor_centavos, tipo, descricao").not("recorrente_id", "is", null)
+    .eq(origemCol, origemId);
   if (competencia) {
     const ini = `${competencia.ano}-${pad(competencia.mes)}-01`;
     const fim = `${competencia.ano}-${pad(competencia.mes)}-${pad(ultimoDiaDoMes(competencia.ano, competencia.mes))}`;
@@ -138,9 +148,10 @@ export async function POST(req: Request) {
     // dedup própria por assinatura+número logo abaixo.
     const chave = `${it.data}|${it.valor_centavos}`;
     if (!ehParcela) {
-      if (chaves.has(chave)) { duplicadas++; continue; } // já existe → pula
+      const jaExiste = chaves.get(chave) ?? 0;
+      if (jaExiste > 0) { chaves.set(chave, jaExiste - 1); duplicadas++; continue; } // consome o par já lançado
 
-      // fixo já materializado (qualquer origem): mesmo valor+tipo e ( descrição
+      // fixo já materializado neste cartão: mesmo valor+tipo e ( descrição
       // normalizada igual OU dentro de 27 dias ) → pula sem recriar
       const idxRec = poolRecorrentes.findIndex((r) =>
         !r.usado && r.valor_centavos === it.valor_centavos && r.tipo === it.tipo &&
@@ -187,27 +198,17 @@ export async function POST(req: Request) {
     const { error } = await persistirLancamento(
       supabase, { householdId: membro.household_id, criadoPor: membro.user_id, grupoImportacao, recorrenteId }, novo, diaFechamento, competencia, parcelaInfo,
     );
+    // linhas do próprio lote NÃO entram na contagem: se a fatura lista duas
+    // cobranças iguais, são duas cobranças (parcela se protege via parcelasVistas)
     if (error) falhas.push(it.descricao || "(sem descrição)");
-    // evita duplicar dentro do próprio lote (parcela já se protege via parcelasVistas)
-    else { criadas++; if (!ehParcela) chaves.add(chave); }
+    else criadas++;
   }
 
-  // grava as regras aprendidas neste import (merge: não apaga o campo que não veio)
+  // grava as regras aprendidas neste import NA REGRA DESTE CARTÃO (merge); a casa
+  // herda só a categoria, se ainda não tiver — o nome não vaza pro outro cartão
   if (regrasAprender.size > 0) {
-    const chavesRegra = [...regrasAprender.keys()];
-    const { data: jaExistem } = await supabase
-      .from("category_rules").select("chave, categoria_id, descricao_preferida").in("chave", chavesRegra);
-    const antigo = new Map((jaExistem ?? []).map((r) => [r.chave, r]));
-    const upserts = chavesRegra.map((chave) => {
-      const nova = regrasAprender.get(chave)!;
-      const old = antigo.get(chave);
-      return {
-        household_id: membro.household_id, chave,
-        categoria_id: nova.categoria_id ?? old?.categoria_id ?? null,
-        descricao_preferida: nova.descricao_preferida ?? old?.descricao_preferida ?? null,
-      };
-    });
-    await supabase.from("category_rules").upsert(upserts, { onConflict: "household_id,chave" });
+    await aprenderRegras(supabase, membro.household_id, origem.card_id ?? null,
+      [...regrasAprender.entries()].map(([chave, r]) => ({ chave, categoria_id: r.categoria_id, nome: r.descricao_preferida })));
   }
 
   return NextResponse.json({ criadas, duplicadas, fixosCriados, falhas });
