@@ -7,6 +7,7 @@ import { normalizeDescricao } from "@/lib/financeiro/descricao";
 import { ultimoDiaDoMes } from "@/lib/financeiro/fechamento";
 import { lerParcela, assinaturaParcela, nomeBase, baseDescricao } from "@/lib/importacao/parcelas";
 import { aprenderRegras } from "@/lib/importacao/regras";
+import { todas } from "@/lib/supabase/todas";
 
 const DIA_MS = 86_400_000;
 function diasMs(iso: string): number {
@@ -45,8 +46,8 @@ export async function POST(req: Request) {
   // outras — a dedup de parcela é feita por assinatura+número (mais abaixo).
   const origemCol = origem.card_id ? "card_id" : "account_id";
   const origemId = (origem.card_id ?? origem.account_id) as string;
-  const { data: existentes } = await supabase
-    .from("transactions").select("data_compra, valor_centavos, total_parcelas").eq(origemCol, origemId);
+  const { data: existentes } = await todas((de, ate) => supabase
+    .from("transactions").select("data_compra, valor_centavos, total_parcelas").eq(origemCol, origemId).order("id").range(de, ate));
   // CONTAGEM por data+valor (não um set): cada lançamento existente cancela UMA
   // linha da fatura. Assim duas cobranças idênticas no mesmo dia (ex.: dois
   // TotalPass de R$ 139,90 no mesmo cartão) entram as duas; reimportar a mesma
@@ -93,9 +94,10 @@ export async function POST(req: Request) {
   const idCompra = (descricao: string, total: number, valor: number) =>
     `${assinaturaParcela(origem.card_id as string, descricao, total)}|${valor}`;
   if (origem.card_id) {
-    const { data: parc } = await supabase.from("transactions")
+    const cardId = origem.card_id;
+    const { data: parc } = await todas((de, ate) => supabase.from("transactions")
       .select("grupo_parcela, descricao, total_parcelas, parcela_n, valor_centavos")
-      .eq("card_id", origem.card_id).gt("total_parcelas", 1);
+      .eq("card_id", cardId).gt("total_parcelas", 1).order("id").range(de, ate));
     for (const p of parc ?? []) {
       const idC = idCompra(p.descricao ?? "", p.total_parcelas, p.valor_centavos);
       if (p.grupo_parcela && !grupoPorCompra.has(idC)) grupoPorCompra.set(idC, p.grupo_parcela);

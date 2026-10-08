@@ -8,6 +8,7 @@ import { GerarFixos } from "@/components/recorrentes/GerarFixos";
 import { RemoverRecorrente } from "@/components/recorrentes/RemoverRecorrente";
 import { recorrenteJaLancado } from "@/lib/financeiro/recorrentes";
 import type { Recorrente } from "@/lib/db/tipos";
+import { todas } from "@/lib/supabase/todas";
 
 const pad = (n: number) => String(n).padStart(2, "0");
 
@@ -28,7 +29,7 @@ export async function SecaoFixos() {
     // conta/pix: lançamentos do mês pela data
     supabase.from("transactions").select(cols).not("account_id", "is", null).gte("data_compra", ini).lte("data_compra", fim),
     // cartão: lançamentos com fatura (filtra pela competência deste mês abaixo)
-    supabase.from("transactions").select(cols).not("card_id", "is", null),
+    todas((de, ate) => supabase.from("transactions").select(cols).not("card_id", "is", null).order("id").range(de, ate)),
   ]);
   const erro = recRes.error ?? catsRes.error ?? cardsRes.error ?? contasRes.error ?? membrosRes.error ?? invRes.error ?? contaTxRes.error ?? cartaoTxRes.error;
   if (erro) throw new Error(`Falha ao carregar os gastos fixos: ${erro.message}`);

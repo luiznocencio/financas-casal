@@ -12,16 +12,34 @@ import { AddCategoriaForm } from "@/components/orcamento/AddCategoriaForm";
 import { AddSubcategoria } from "@/components/orcamento/AddSubcategoria";
 import { CategoriaPonto } from "@/components/ui/CategoriaTag";
 import { BarraOrcamento, SeloOrcamento } from "@/components/orcamento/BarraOrcamento";
+import { todas } from "@/lib/supabase/todas";
 
-export default async function OrcamentoPage() {
+const MESES = [
+  "janeiro", "fevereiro", "março", "abril", "maio", "junho",
+  "julho", "agosto", "setembro", "outubro", "novembro", "dezembro",
+];
+
+export default async function OrcamentoPage({ searchParams }: { searchParams: Promise<{ mes?: string }> }) {
   const supabase = await createServerSupabase();
-  const { ano, mes } = partesNoFuso(new Date(), "America/Sao_Paulo");
+  const sp = await searchParams;
+  // mês visto: ?mes=YYYY-MM (padrão: mês atual) — pra ver como foi cada mês
+  const atual = partesNoFuso(new Date(), "America/Sao_Paulo");
+  let ano = atual.ano, mes = atual.mes;
+  if (sp.mes && /^\d{4}-\d{2}$/.test(sp.mes)) {
+    const [a, m] = sp.mes.split("-").map(Number);
+    if (m >= 1 && m <= 12) { ano = a; mes = m; }
+  }
+  const ehAtual = ano === atual.ano && mes === atual.mes;
+  const ehPassado = ano * 12 + mes < atual.ano * 12 + atual.mes;
+  const mesPrev = mes === 1 ? { ano: ano - 1, mes: 12 } : { ano, mes: mes - 1 };
+  const mesProx = mes === 12 ? { ano: ano + 1, mes: 1 } : { ano, mes: mes + 1 };
+  const hrefMes = (c: { ano: number; mes: number }) => `/orcamento?mes=${c.ano}-${String(c.mes).padStart(2, "0")}`;
 
   const [membrosRes, catsRes, budgetsRes, txsRes, contasRes, invoicesRes, fixosRes, contasPagarRes] = await Promise.all([
     supabase.from("members").select("user_id, nome, renda_mensal_centavos, ajuda_custo_centavos, salario_account_id, ajuda_custo_account_id").order("papel"),
     supabase.from("categories").select("id, nome, cor, parent_id").eq("tipo", "despesa").order("nome"),
     supabase.from("budgets").select("categoria_id, valor_centavos"),
-    supabase.from("transactions").select("categoria_id, tipo, pessoa, valor_centavos, data_compra, card_id, account_id, invoice_id, total_parcelas, recorrente_id, conta_pagar_id, descricao"),
+    todas((de, ate) => supabase.from("transactions").select("categoria_id, tipo, pessoa, valor_centavos, data_compra, card_id, account_id, invoice_id, total_parcelas, recorrente_id, conta_pagar_id, conta_pagar_ref, descricao").order("id").range(de, ate)),
     supabase.from("accounts").select("id, nome, titular").order("nome"),
     supabase.from("invoices").select("id, competencia_ano, competencia_mes"),
     supabase.from("recorrentes").select("id, descricao, valor_centavos, categoria_id, dia, card_id, account_id, data_fim, ativo").eq("ativo", true),
@@ -45,7 +63,9 @@ export default async function OrcamentoPage() {
   // cair no mês (fixos não lançados, contas pendentes). Mesma regra da Home e dos avisos.
   const orc = orcamentoDoMes({ ano, mes }, {
     cats, budgets, txs: txsRes.data ?? [], invoices: invoicesRes.data ?? [],
-    fixos: fixosRes.data ?? [], contas: contasPagarRes.data ?? [],
+    // mês que já passou: só o que aconteceu (sem projeção do que "ainda vai cair")
+    fixos: ehPassado ? [] : fixosRes.data ?? [], contas: ehPassado ? [] : contasPagarRes.data ?? [],
+    hoje: atual,
   });
   const gastoPorCategoria = orc.gastoPorCategoria; // filho fica no filho
   const gastoRollup = orc.gastoRollup;             // filho soma na mãe
@@ -63,7 +83,17 @@ export default async function OrcamentoPage() {
   return (
     <main className="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-10 sm:px-6">
       <header className="flex items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold text-[var(--text)]">Orçamento</h1>
+        <div className="flex flex-col gap-0.5">
+          <h1 className="text-2xl font-bold text-[var(--text)]">Orçamento</h1>
+          <div className="flex items-center gap-1">
+            <Link href={hrefMes(mesPrev)} aria-label="Mês anterior"
+              className="rounded-md px-2 py-0.5 text-lg leading-none text-[var(--muted)] hover:bg-[var(--surface-2)] hover:text-[var(--text)]">‹</Link>
+            <span className="text-sm font-medium capitalize text-[var(--text)]">{MESES[mes - 1]}{ano !== atual.ano ? ` ${ano}` : ""}</span>
+            <Link href={hrefMes(mesProx)} aria-label="Próximo mês"
+              className="rounded-md px-2 py-0.5 text-lg leading-none text-[var(--muted)] hover:bg-[var(--surface-2)] hover:text-[var(--text)]">›</Link>
+            {!ehAtual && <Link href="/orcamento" className="ml-1 text-xs text-[var(--accent)]">hoje</Link>}
+          </div>
+        </div>
         <Link href="/planejamento?aba=fixos" className="text-sm text-[var(--accent)]">Gastos fixos</Link>
       </header>
 

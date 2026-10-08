@@ -1,6 +1,7 @@
 import { createServerSupabase } from "@/lib/supabase/server";
 import { Importador } from "@/components/importar/Importador";
 import { ImportacoesRecentes, type LoteImportacao } from "@/components/importar/ImportacoesRecentes";
+import { todas } from "@/lib/supabase/todas";
 
 export default async function ImportarPage() {
   const supabase = await createServerSupabase();
@@ -9,9 +10,9 @@ export default async function ImportarPage() {
     supabase.from("accounts").select("id, nome, titular").order("nome"),
     supabase.from("categories").select("id, nome, parent_id, tipo"),
     supabase.from("members").select("nome"),
-    supabase.from("transactions")
+    todas((de, ate) => supabase.from("transactions")
       .select("grupo_importacao, valor_centavos, created_at, card_id, account_id")
-      .not("grupo_importacao", "is", null),
+      .not("grupo_importacao", "is", null).order("id").range(de, ate)),
   ]);
 
   const nomeCartao = new Map((cartoes ?? []).map((c) => [c.id, c.nome]));

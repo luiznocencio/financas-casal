@@ -3,6 +3,7 @@ import { createServerSupabase } from "@/lib/supabase/server";
 import { getMembroAtual } from "@/lib/auth/household";
 import { nomeBase, nomeComMarcador } from "@/lib/importacao/parcelas";
 import { aprenderRegras } from "@/lib/importacao/regras";
+import { todas } from "@/lib/supabase/todas";
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const membro = await getMembroAtual();
@@ -44,7 +45,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     const catRegra = regra?.categoria_id ?? null;
     const nomeRegra = regra?.descricao_preferida ?? null;
     // retroativo: mesmo nome base, na MESMA origem (o cartão; ou sem cartão)
-    const { data: todos } = await supabase.from("transactions").select("id, descricao, card_id");
+    const { data: todos } = await todas((de, ate) => supabase.from("transactions").select("id, descricao, card_id").order("id").range(de, ate));
     const casando = (todos ?? []).filter((t) =>
       t.id !== id && (t.card_id ?? null) === cardId && nomeBase(t.descricao ?? "") === chave);
     for (const t of casando) {

@@ -11,6 +11,7 @@ import { AddCartaoForm } from "@/components/cartoes/AddCartaoForm";
 import { EditarCartao } from "@/components/cartoes/EditarCartao";
 import { AtivarNotificacoes } from "@/components/pwa/AtivarNotificacoes";
 import { CreditCard as CreditCardIcon, Receipt, Star } from "@phosphor-icons/react/dist/ssr";
+import { todas } from "@/lib/supabase/todas";
 
 const MESES = [
   "jan", "fev", "mar", "abr", "mai", "jun",
@@ -21,8 +22,8 @@ export default async function CartoesPage() {
   const supabase = await createServerSupabase();
   const [cardsRes, txsRes, invoicesRes, membrosRes, contasRes] = await Promise.all([
     supabase.from("cards").select("*").order("nome"),
-    supabase.from("transactions")
-      .select("card_id, invoice_id, valor_centavos, paga").not("card_id", "is", null),
+    todas((de, ate) => supabase.from("transactions")
+      .select("card_id, invoice_id, valor_centavos, paga").not("card_id", "is", null).order("id").range(de, ate)),
     supabase.from("invoices").select("id, card_id, competencia_ano, competencia_mes, status"),
     supabase.from("members").select("nome"),
     supabase.from("accounts").select("id, nome, titular").order("nome"),

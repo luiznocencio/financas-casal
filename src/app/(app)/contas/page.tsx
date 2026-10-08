@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/Card";
 import { AddContaForm } from "@/components/contas/AddContaForm";
 import { EditarConta } from "@/components/contas/EditarConta";
 import { TransferirEntreContas } from "@/components/contas/TransferirEntreContas";
+import { todas } from "@/lib/supabase/todas";
 
 const ROTULO_TIPO: Record<string, string> = {
   corrente: "Conta corrente",
@@ -15,8 +16,8 @@ const ROTULO_TIPO: Record<string, string> = {
 export default async function ContasPage() {
   const supabase = await createServerSupabase();
   const { data: contas } = await supabase.from("accounts").select("*").order("nome");
-  const { data: txs } = await supabase
-    .from("transactions").select("account_id, tipo, valor_centavos").not("account_id", "is", null);
+  const { data: txs } = await todas((de, ate) => supabase
+    .from("transactions").select("account_id, tipo, valor_centavos").not("account_id", "is", null).order("id").range(de, ate));
   const { data: membrosData } = await supabase.from("members").select("nome");
   const membros = (membrosData ?? []).map((m) => m.nome);
 

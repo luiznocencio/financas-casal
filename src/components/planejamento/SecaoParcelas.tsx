@@ -4,14 +4,15 @@ import { Money } from "@/components/ui/Money";
 import { Card } from "@/components/ui/Card";
 import { agruparParcelas, type TxParcela } from "@/lib/importacao/parcelas";
 import { ParcelasLista } from "./ParcelasLista";
+import { todas } from "@/lib/supabase/todas";
 
 export async function SecaoParcelas() {
   const supabase = await createServerSupabase();
   const { ano, mes } = partesNoFuso(new Date(), "America/Sao_Paulo");
   const [txsRes, cardsRes, invoicesRes] = await Promise.all([
-    supabase.from("transactions")
+    todas((de, ate) => supabase.from("transactions")
       .select("id, grupo_parcela, card_id, descricao, valor_centavos, total_parcelas, parcela_n, invoice_id")
-      .gt("total_parcelas", 1).not("card_id", "is", null),
+      .gt("total_parcelas", 1).not("card_id", "is", null).order("id").range(de, ate)),
     supabase.from("cards").select("id, nome"),
     supabase.from("invoices").select("id, competencia_ano, competencia_mes"),
   ]);

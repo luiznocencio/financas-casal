@@ -8,17 +8,31 @@ import { CategoriaPonto } from "@/components/ui/CategoriaTag";
 import { Money } from "@/components/ui/Money";
 import { resumoDoMes } from "@/lib/financeiro/agregacoes";
 import { ultimoDiaDoMes } from "@/lib/financeiro/fechamento";
+import { todas } from "@/lib/supabase/todas";
 
 const MESES = [
   "janeiro", "fevereiro", "março", "abril", "maio", "junho",
   "julho", "agosto", "setembro", "outubro", "novembro", "dezembro",
 ];
 const pad = (n: number) => String(n).padStart(2, "0");
+const POR_PAGINA = 100;
+
+// o mínimo do query builder do Supabase que os filtros do extrato usam (os
+// tipos genéricos do builder são fundos demais pro TS checar estruturalmente)
+interface Filtro {
+  eq(coluna: string, valor: string): Filtro;
+  not(coluna: string, op: string, valor: null): Filtro;
+  gte(coluna: string, valor: string): Filtro;
+  lte(coluna: string, valor: string): Filtro;
+  or(filtro: string): Filtro;
+  ilike(coluna: string, padrao: string): Filtro;
+  in(coluna: string, valores: string[]): Filtro;
+}
 
 export default async function Lancamentos({
   searchParams,
 }: {
-  searchParams: Promise<{ pessoa?: string; card?: string; categoria?: string; invoice?: string; tipo?: string; origem?: string; de?: string; ate?: string; busca?: string; mes?: string }>;
+  searchParams: Promise<{ pessoa?: string; card?: string; categoria?: string; invoice?: string; tipo?: string; origem?: string; de?: string; ate?: string; busca?: string; mes?: string; pagina?: string }>;
 }) {
   const sp = await searchParams;
   const supabase = await createServerSupabase();
@@ -47,49 +61,71 @@ export default async function Lancamentos({
     ? { ano: Number(sp.mes.slice(0, 4)), mes: Number(sp.mes.slice(5, 7)) } : null;
   const mesValido = mesRef && mesRef.mes >= 1 && mesRef.mes <= 12 ? mesRef : null;
 
-  let q = supabase
-    .from("transactions")
-    .select("id, descricao, data_compra, pessoa, parcela_n, total_parcelas, tipo, valor_centavos, categoria_id, card_id, account_id, recorrente_id, observacao")
-    .order("data_compra", { ascending: false })
-    .limit(200);
-  if (sp.card) q = q.eq("card_id", sp.card);
-  if (sp.invoice) q = q.eq("invoice_id", sp.invoice);
-  if (sp.tipo === "despesa" || sp.tipo === "receita") q = q.eq("tipo", sp.tipo);
-  if (sp.origem === "cartao") q = q.not("card_id", "is", null);
-  if (sp.origem === "pix") q = q.not("account_id", "is", null);
-  if (sp.de) q = q.gte("data_compra", sp.de);
-  if (sp.ate) q = q.lte("data_compra", sp.ate);
-  // mês do CONSUMO: à vista (pix e cartão) pela data; parcela pela fatura do mês
-  if (mesValido) {
-    const ini = `${mesValido.ano}-${pad(mesValido.mes)}-01`;
-    const fim = `${mesValido.ano}-${pad(mesValido.mes)}-${pad(ultimoDiaDoMes(mesValido.ano, mesValido.mes))}`;
-    const invIds = invoices.filter((i) => i.competencia_ano === mesValido.ano && i.competencia_mes === mesValido.mes).map((i) => i.id);
-    const partes = [`and(total_parcelas.lte.1,data_compra.gte.${ini},data_compra.lte.${fim})`];
-    if (invIds.length) partes.push(`and(total_parcelas.gt.1,invoice_id.in.(${invIds.join(",")}))`);
-    q = q.or(partes.join(","));
-  }
-  if (sp.busca?.trim()) q = q.ilike("descricao", `%${sp.busca.trim()}%`);
-  // categoria: se for uma categoria-mãe, inclui as subcategorias; senão, exata
-  if (sp.categoria) {
-    const filhos = categorias.filter((c) => c.parent_id === sp.categoria).map((c) => c.id);
-    q = filhos.length ? q.in("categoria_id", [sp.categoria, ...filhos]) : q.eq("categoria_id", sp.categoria);
-  }
-  // pessoa: filtra pelos cartões e contas dela (titular)
-  if (sp.pessoa) {
-    const cardIds = cartoes.filter((c) => c.titular === sp.pessoa).map((c) => c.id);
-    const accIds = contas.filter((c) => c.titular === sp.pessoa).map((c) => c.id);
-    const ors: string[] = [];
-    if (cardIds.length) ors.push(`card_id.in.(${cardIds.join(",")})`);
-    if (accIds.length) ors.push(`account_id.in.(${accIds.join(",")})`);
-    q = ors.length ? q.or(ors.join(",")) : q.eq("id", "00000000-0000-0000-0000-000000000000");
-  }
+  // filtros num lugar só: a página da lista e os totais usam exatamente os mesmos
+  const invIdsMes = mesValido
+    ? invoices.filter((i) => i.competencia_ano === mesValido.ano && i.competencia_mes === mesValido.mes).map((i) => i.id)
+    : [];
+  const filtrar = <Q,>(builder: Q): Q => {
+    let q = builder as unknown as Filtro;
+    if (sp.card) q = q.eq("card_id", sp.card);
+    if (sp.invoice) q = q.eq("invoice_id", sp.invoice);
+    if (sp.tipo === "despesa" || sp.tipo === "receita") q = q.eq("tipo", sp.tipo);
+    if (sp.origem === "cartao") q = q.not("card_id", "is", null);
+    if (sp.origem === "pix") q = q.not("account_id", "is", null);
+    if (sp.de) q = q.gte("data_compra", sp.de);
+    if (sp.ate) q = q.lte("data_compra", sp.ate);
+    // mês do CONSUMO: à vista (pix e cartão) pela data; parcela pela fatura do mês
+    if (mesValido) {
+      const ini = `${mesValido.ano}-${pad(mesValido.mes)}-01`;
+      const fim = `${mesValido.ano}-${pad(mesValido.mes)}-${pad(ultimoDiaDoMes(mesValido.ano, mesValido.mes))}`;
+      const partes = [`and(total_parcelas.lte.1,data_compra.gte.${ini},data_compra.lte.${fim})`];
+      if (invIdsMes.length) partes.push(`and(total_parcelas.gt.1,invoice_id.in.(${invIdsMes.join(",")}))`);
+      q = q.or(partes.join(","));
+    }
+    if (sp.busca?.trim()) q = q.ilike("descricao", `%${sp.busca.trim()}%`);
+    // categoria: se for uma categoria-mãe, inclui as subcategorias; senão, exata
+    if (sp.categoria) {
+      const filhos = categorias.filter((c) => c.parent_id === sp.categoria).map((c) => c.id);
+      q = filhos.length ? q.in("categoria_id", [sp.categoria, ...filhos]) : q.eq("categoria_id", sp.categoria);
+    }
+    // pessoa: filtra pelos cartões e contas dela (titular)
+    if (sp.pessoa) {
+      const cardIds = cartoes.filter((c) => c.titular === sp.pessoa).map((c) => c.id);
+      const accIds = contas.filter((c) => c.titular === sp.pessoa).map((c) => c.id);
+      const ors: string[] = [];
+      if (cardIds.length) ors.push(`card_id.in.(${cardIds.join(",")})`);
+      if (accIds.length) ors.push(`account_id.in.(${accIds.join(",")})`);
+      q = ors.length ? q.or(ors.join(",")) : q.eq("id", "00000000-0000-0000-0000-000000000000");
+    }
+    return q as unknown as Q;
+  };
 
-  const { data: txs, error } = await q;
-  if (error) throw new Error(`Falha ao carregar o extrato: ${error.message}`);
+  const pagina = Math.max(1, Math.floor(Number(sp.pagina)) || 1);
+  const [listaRes, totaisRes] = await Promise.all([
+    filtrar(supabase
+      .from("transactions")
+      .select("id, descricao, data_compra, pessoa, parcela_n, total_parcelas, tipo, valor_centavos, categoria_id, card_id, account_id, recorrente_id, observacao", { count: "exact" }))
+      .order("data_compra", { ascending: false })
+      .order("id")
+      .range((pagina - 1) * POR_PAGINA, pagina * POR_PAGINA - 1),
+    // totais sobre TUDO que o filtro pega (não só a página)
+    todas((de, ate) => filtrar(supabase.from("transactions").select("tipo, valor_centavos")).order("id").range(de, ate)),
+  ]);
+  const { data: txs, error, count } = listaRes;
+  if (error ?? totaisRes.error) throw new Error(`Falha ao carregar o extrato: ${(error ?? totaisRes.error)!.message}`);
+  const total = count ?? 0;
+  const paginas = Math.max(1, Math.ceil(total / POR_PAGINA));
   const temFiltro = !!(sp.pessoa || sp.card || sp.categoria || sp.invoice || sp.tipo || sp.origem || sp.de || sp.ate || sp.busca || sp.mes);
-  // totais do que está listado (respeita o filtro)
-  const somaDespesas = (txs ?? []).filter((t) => t.tipo === "despesa").reduce((s, t) => s + t.valor_centavos, 0);
-  const somaReceitas = (txs ?? []).filter((t) => t.tipo === "receita").reduce((s, t) => s + t.valor_centavos, 0);
+  const somaDespesas = totaisRes.data.filter((t) => t.tipo === "despesa").reduce((s, t) => s + t.valor_centavos, 0);
+  const somaReceitas = totaisRes.data.filter((t) => t.tipo === "receita").reduce((s, t) => s + t.valor_centavos, 0);
+  // link pra outra página mantendo os filtros
+  const hrefPagina = (n: number) => {
+    const u = new URLSearchParams();
+    for (const [k, v] of Object.entries(sp)) if (v && k !== "pagina") u.set(k, v);
+    if (n > 1) u.set("pagina", String(n));
+    const qs = u.toString();
+    return qs ? `/lancamentos?${qs}` : "/lancamentos";
+  };
 
   // barra de status do orçamento da categoria filtrada (no mês escolhido, ou no
   // mês atual). O limite fica na categoria-mãe; o gasto soma mãe + subcategorias.
@@ -101,10 +137,10 @@ export default async function Lancamentos({
     const rollupIds = [mae.id, ...filhosIds];
     const agora = new Date();
     const bm = mesValido ?? { ano: agora.getFullYear(), mes: agora.getMonth() + 1 };
-    const { data: txsCat } = await supabase
+    const { data: txsCat } = await todas((de, ate) => supabase
       .from("transactions")
       .select("categoria_id, tipo, pessoa, valor_centavos, data_compra, card_id, invoice_id, total_parcelas")
-      .in("categoria_id", rollupIds);
+      .in("categoria_id", rollupIds).order("id").range(de, ate));
     const compPorInvoice = new Map(invoices.map((i) => [i.id, { ano: i.competencia_ano, mes: i.competencia_mes }]));
     // consumo: à vista pela data; parcela pela competência
     const txsRef = (txsCat ?? []).map((t) =>
@@ -154,7 +190,7 @@ export default async function Lancamentos({
         <Card>
           <div className="mb-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-[var(--border)] pb-3 text-sm">
             <span className="text-[var(--muted)]">
-              {(txs ?? []).length} lançamento{(txs ?? []).length === 1 ? "" : "s"}{(txs ?? []).length >= 200 ? " (200 mais recentes)" : ""}
+              {total} lançamento{total === 1 ? "" : "s"}{paginas > 1 ? ` · mostrando ${(pagina - 1) * POR_PAGINA + 1}–${Math.min(pagina * POR_PAGINA, total)}` : ""}
             </span>
             <span className="flex flex-wrap items-center gap-x-3">
               {somaDespesas > 0 && <span className="text-[var(--text)]">Gasto <strong><Money centavos={somaDespesas} tamanho="sm" /></strong></span>}
@@ -166,6 +202,17 @@ export default async function Lancamentos({
               <LinhaEditavel key={t.id} tx={t} categorias={categorias} membros={membros} cartoes={cartoes} />
             ))}
           </ul>
+          {paginas > 1 && (
+            <nav className="mt-3 flex items-center justify-between gap-2 border-t border-[var(--border)] pt-3 text-sm" aria-label="Páginas do extrato">
+              {pagina > 1
+                ? <Link href={hrefPagina(pagina - 1)} className="text-[var(--accent)]">‹ Mais recentes</Link>
+                : <span />}
+              <span className="text-[var(--muted)]">Página {pagina} de {paginas}</span>
+              {pagina < paginas
+                ? <Link href={hrefPagina(pagina + 1)} className="text-[var(--accent)]">Mais antigos ›</Link>
+                : <span />}
+            </nav>
+          )}
         </Card>
       )}
     </main>

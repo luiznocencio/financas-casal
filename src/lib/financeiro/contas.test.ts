@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { mesRefConta, contaOcorreNoMes, contaVisivelNoMes, type ContaOcorrencia } from "./contas";
+import { mesRefConta, contaOcorreNoMes, contaVisivelNoMes, mesesEmAberto, quitadosPorConta, mesQuitado, type ContaOcorrencia } from "./contas";
 
 const base = (over: Partial<ContaOcorrencia>): ContaOcorrencia => ({
   dia_vencimento: 10, recorrencia: "mensal", data_fim: null, created_at: "2026-08-05", ...over,
@@ -52,5 +52,40 @@ describe("contaVisivelNoMes", () => {
     const c = base({ created_at: "2026-08-05", data_fim: "2026-09-30" });
     expect(contaVisivelNoMes(c, 2026, 9, false, false)).toBe(true);
     expect(contaVisivelNoMes(c, 2026, 10, false, false)).toBe(false); // fora do data_fim
+  });
+});
+
+describe("mesesEmAberto", () => {
+  it("conta não paga continua aberta nos meses seguintes (atrasada)", () => {
+    const c = base({ created_at: "2026-08-05" }); // 1ª ocorrência: agosto
+    const abertos = mesesEmAberto(c, new Set(["2026-08"]), { ano: 2026, mes: 10 });
+    expect(abertos).toEqual([{ ano: 2026, mes: 9 }, { ano: 2026, mes: 10 }]);
+  });
+  it("tudo quitado → nada aberto", () => {
+    const c = base({ created_at: "2026-08-05" });
+    expect(mesesEmAberto(c, new Set(["2026-08", "2026-09", "2026-10"]), { ano: 2026, mes: 10 })).toEqual([]);
+  });
+  it("respeita data_fim e a virada de ano", () => {
+    const c = base({ created_at: "2026-11-05", data_fim: "2027-01-31" });
+    expect(mesesEmAberto(c, new Set(), { ano: 2027, mes: 3 })).toEqual([
+      { ano: 2026, mes: 11 }, { ano: 2026, mes: 12 }, { ano: 2027, mes: 1 },
+    ]);
+  });
+  it("única: aberta até ser quitada", () => {
+    const c = base({ recorrencia: "unica", created_at: "2026-08-05" });
+    expect(mesesEmAberto(c, new Set(), { ano: 2026, mes: 10 })).toEqual([{ ano: 2026, mes: 8 }]);
+    expect(mesesEmAberto(c, new Set(["2026-08"]), { ano: 2026, mes: 10 })).toEqual([]);
+  });
+});
+
+describe("quitadosPorConta / mesQuitado", () => {
+  it("usa o mês registrado; sem registro, o mês do pagamento", () => {
+    const q = quitadosPorConta([
+      { conta_pagar_id: "a", conta_pagar_ref: "2026-09", data_compra: "2026-10-02" },
+      { conta_pagar_id: "a", conta_pagar_ref: null, data_compra: "2026-08-30" },
+      { conta_pagar_id: null, data_compra: "2026-08-30" },
+    ]);
+    expect([...q.get("a")!].sort()).toEqual(["2026-08", "2026-09"]);
+    expect(mesQuitado({ data_compra: "2026-07-15" })).toBe("2026-07");
   });
 });

@@ -6,6 +6,7 @@ import { faturaFechaNaData, partesNoFuso, diaSeguinte, ultimoDiaDoMes } from "@/
 import { contaOcorreNoMes } from "@/lib/financeiro/contas";
 import { orcamentoDoMes, type EstadoOrc } from "@/lib/financeiro/projecao";
 import { centavosParaReais } from "@/lib/financeiro/dinheiro";
+import { todas } from "@/lib/supabase/todas";
 
 const pad = (n: number) => String(n).padStart(2, "0");
 
@@ -44,15 +45,13 @@ export async function GET(req: Request) {
   const amanha = diaSeguinte(hoje.ano, hoje.mes, hoje.dia);
 
   const supabase = createServiceSupabase();
-  // janela de pagamentos: mês atual + mês seguinte (cobre um vencimento que cai amanhã já no próximo mês)
-  const iniMes = `${hoje.ano}-${pad(hoje.mes)}-01`;
-  const fimMes = `${amanha.ano}-${pad(amanha.mes)}-${pad(ultimoDiaDoMes(amanha.ano, amanha.mes))}`;
   const [cardsRes, subsRes, contasRes, pagasRes, orcRes] = await Promise.all([
     supabase.from("cards").select("id, nome, dia_fechamento, household_id"),
     supabase.from("push_subscriptions").select("household_id, endpoint, p256dh, auth"),
     supabase.from("contas_pagar").select("id, descricao, dia_vencimento, household_id, recorrencia, data_fim, created_at").eq("ativo", true),
+    // contas já quitadas no mês do vencimento de amanhã (pelo mês que o pagamento quita)
     supabase.from("transactions").select("conta_pagar_id").not("conta_pagar_id", "is", null)
-      .gte("data_compra", iniMes).lte("data_compra", fimMes),
+      .eq("conta_pagar_ref", `${amanha.ano}-${pad(amanha.mes)}`),
     // falha no orçamento não pode derrubar os avisos de fatura/conta
     forcar ? Promise.resolve(null) : carregarOrcamentos(supabase).catch(() => null),
   ]);
@@ -131,7 +130,7 @@ export async function GET(req: Request) {
     }
     for (const hh of new Set(subs.map((s) => s.household_id))) {
       const d = orcRes.porCasa(hh);
-      const orc = orcamentoDoMes({ ano: hoje.ano, mes: hoje.mes }, d);
+      const orc = orcamentoDoMes({ ano: hoje.ano, mes: hoje.mes }, { ...d, hoje: { ano: hoje.ano, mes: hoje.mes } });
       const nome = new Map(d.cats.map((c) => [c.id, c.nome]));
       for (const i of orc.itens) {
         if (i.estado === "ok" || RANK[i.estado] <= (enviado.get(`${hh}|${i.categoria_id}`) ?? 0)) continue;
@@ -190,7 +189,7 @@ async function carregarOrcamentos(supabase: ReturnType<typeof createServiceSupab
   const [cats, budgets, txs, invoices, fixos, contas] = await Promise.all([
     supabase.from("categories").select("id, nome, parent_id, household_id").eq("tipo", "despesa"),
     supabase.from("budgets").select("categoria_id, valor_centavos, household_id"),
-    supabase.from("transactions").select("household_id, tipo, valor_centavos, pessoa, categoria_id, data_compra, card_id, account_id, invoice_id, total_parcelas, recorrente_id, conta_pagar_id, descricao"),
+    todas((de, ate) => supabase.from("transactions").select("household_id, tipo, valor_centavos, pessoa, categoria_id, data_compra, card_id, account_id, invoice_id, total_parcelas, recorrente_id, conta_pagar_id, conta_pagar_ref, descricao").order("id").range(de, ate)),
     supabase.from("invoices").select("id, competencia_ano, competencia_mes, household_id"),
     supabase.from("recorrentes").select("id, descricao, valor_centavos, categoria_id, dia, card_id, account_id, data_fim, ativo, household_id").eq("ativo", true),
     supabase.from("contas_pagar").select("id, descricao, categoria_id, valor_estimado_centavos, dia_vencimento, recorrencia, data_fim, created_at, household_id").eq("ativo", true),

@@ -2,12 +2,13 @@ import { NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { getMembroAtual } from "@/lib/auth/household";
 import { saldoConta } from "@/lib/financeiro/derivados";
+import { todas } from "@/lib/supabase/todas";
 
 export async function GET() {
   const supabase = await createServerSupabase();
   const { data: contas } = await supabase.from("accounts").select("*").order("nome");
-  const { data: txs } = await supabase
-    .from("transactions").select("account_id, tipo, valor_centavos").not("account_id", "is", null);
+  const { data: txs } = await todas((de, ate) => supabase
+    .from("transactions").select("account_id, tipo, valor_centavos").not("account_id", "is", null).order("id").range(de, ate));
 
   const resultado = (contas ?? []).map((c) => {
     const movimentos = (txs ?? []).filter((t) => t.account_id === c.id);

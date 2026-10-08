@@ -7,6 +7,7 @@ export type CtxRegistro = {
   grupoImportacao?: string | null;
   recorrenteId?: string | null;
   contaPagarId?: string | null;
+  contaPagarRef?: string | null; // mês da conta que o pagamento quita (YYYY-MM)
   receitaAgendadaId?: string | null;
 };
 
@@ -35,6 +36,7 @@ export function mapearRegistros(
       grupo_importacao: ctx.grupoImportacao ?? null,
       recorrente_id: ctx.recorrenteId ?? null,
       conta_pagar_id: ctx.contaPagarId ?? null,
+      conta_pagar_ref: ctx.contaPagarRef ?? null,
       receita_agendada_id: ctx.receitaAgendadaId ?? null,
     };
   });

@@ -5,14 +5,20 @@ import { Check, Trash } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/Button";
 import { MoneyInput } from "@/components/ui/MoneyInput";
 
+// mesRef: qual mês da conta este botão quita (pode ser um atrasado). hoje: data
+// padrão do pagamento — dá pra trocar, porque nem sempre se lança no dia.
 export function ContaPagarAcoes({
-  id, valorEstimado, jaPaga, contas,
-}: { id: string; valorEstimado: number; jaPaga: boolean; contas: { id: string; nome: string; titular?: string | null }[] }) {
+  id, mesRef, hoje, valorEstimado, jaPaga, podeApagar = true, contas,
+}: {
+  id: string; mesRef: string; hoje: string; valorEstimado: number; jaPaga: boolean; podeApagar?: boolean;
+  contas: { id: string; nome: string; titular?: string | null }[];
+}) {
   const rotuloConta = (c: { nome: string; titular?: string | null }) => c.titular ? `${c.nome} · ${c.titular}` : c.nome;
   const router = useRouter();
   const [pagando, setPagando] = useState(false);
   const [valor, setValor] = useState(valorEstimado);
   const [contaId, setContaId] = useState(contas[0]?.id ?? "");
+  const [data, setData] = useState(hoje);
   const [ocupado, setOcupado] = useState(false);
   const [confirmando, setConfirmando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
@@ -20,12 +26,17 @@ export function ContaPagarAcoes({
   async function pagar() {
     if (!(valor > 0)) { setErro("Informe o valor pago."); return; }
     if (!contaId) { setErro("Escolha a conta."); return; }
+    if (!data || data > hoje) { setErro("Data do pagamento inválida."); return; }
     setErro(null); setOcupado(true);
     const res = await fetch(`/api/contas-pagar/${id}/pagar`, {
-      method: "POST", body: JSON.stringify({ valor_centavos: valor, account_id: contaId }),
+      method: "POST", body: JSON.stringify({ valor_centavos: valor, account_id: contaId, data, ref: mesRef }),
     }).catch(() => null);
     setOcupado(false);
-    if (!res?.ok) { setErro("Falhou"); return; }
+    if (!res?.ok) {
+      const j = await res?.json().catch(() => null);
+      setErro(j?.error ?? "Falhou");
+      return;
+    }
     setPagando(false); router.refresh();
   }
   async function remover() {
@@ -44,6 +55,11 @@ export function ContaPagarAcoes({
           className="rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--surface)] px-2 py-1.5 text-sm text-[var(--text)]">
           {contas.map((c) => <option key={c.id} value={c.id}>{rotuloConta(c)}</option>)}
         </select>
+        <label className="flex items-center gap-1 text-xs text-[var(--muted)]">
+          pago em
+          <input type="date" value={data} max={hoje} onChange={(e) => setData(e.target.value)}
+            className="rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--surface)] px-2 py-1.5 text-sm text-[var(--text)]" />
+        </label>
         <Button variant="primary" onClick={pagar} disabled={ocupado}>Confirmar</Button>
         <Button variant="quiet" onClick={() => setPagando(false)}>Cancelar</Button>
         {erro && <span className="text-xs text-[var(--negativo)]">{erro}</span>}
@@ -57,7 +73,7 @@ export function ContaPagarAcoes({
           <span className="flex items-center gap-1.5"><Check size={14} /> Pagar</span>
         </Button>
       )}
-      {confirmando ? (
+      {!podeApagar ? null : confirmando ? (
         <>
           <Button variant="danger" onClick={remover} disabled={ocupado}>Apagar</Button>
           <Button variant="quiet" onClick={() => setConfirmando(false)}>Não</Button>

@@ -7,6 +7,7 @@ import { createServerSupabase } from "@/lib/supabase/server";
 import { nomeBase, nomeComMarcador } from "@/lib/importacao/parcelas";
 import { indexarRegras, regraEfetiva } from "@/lib/importacao/regras";
 import { ultimoDiaDoMes } from "@/lib/financeiro/fechamento";
+import { todas } from "@/lib/supabase/todas";
 
 const pad = (n: number) => String(n).padStart(2, "0");
 
@@ -47,9 +48,9 @@ export async function POST(req: Request) {
     // categoria já usada antes pra essa compra (mais recente) — reconhece o que
     // foi categorizado num import anterior mesmo sem virar regra. Prefere o que
     // foi usado NESTE cartão; senão, em qualquer origem.
-    const { data: categorizadas } = await supabase
+    const { data: categorizadas } = await todas((de, ate) => supabase
       .from("transactions").select("descricao, categoria_id, data_compra, card_id")
-      .not("categoria_id", "is", null).order("data_compra", { ascending: false });
+      .not("categoria_id", "is", null).order("data_compra", { ascending: false }).order("id").range(de, ate));
     const catPorBase = new Map<string, string>();
     const catPorBaseCartao = new Map<string, string>();
     for (const t of categorizadas ?? []) {
@@ -89,8 +90,8 @@ export async function POST(req: Request) {
       });
     };
     if (origemCol && origemId) {
-      const { data } = await supabase
-        .from("transactions").select("id, data_compra, valor_centavos, tipo, descricao, recorrente_id").eq(origemCol, origemId);
+      const { data } = await todas((de, ate) => supabase
+        .from("transactions").select("id, data_compra, valor_centavos, tipo, descricao, recorrente_id").eq(origemCol, origemId).order("id").range(de, ate));
       for (const t of data ?? []) addTx(t);
     }
     // gastos fixos já materializados NESTA origem (o cartão da fatura). Não olha

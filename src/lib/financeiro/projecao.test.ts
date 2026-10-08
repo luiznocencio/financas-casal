@@ -40,6 +40,22 @@ describe("aCairNoMes", () => {
     expect(itens.map((i) => i.descricao).sort()).toEqual(["Energia", "Netflix"]);
   });
 
+  it("no mês atual, conta atrasada de mês anterior continua a cair; noutro mês só a do mês", () => {
+    const c = conta({ created_at: "2026-08-01T00:00:00Z" }); // agosto em diante
+    const txs = [tx({ conta_pagar_id: "c1", conta_pagar_ref: "2026-08", data_compra: "2026-08-15", valor_centavos: 20000 })];
+    const atual = aCairNoMes(OUT, { txs, invoices: [], fixos: [], contas: [c], hoje: OUT });
+    expect(atual).toHaveLength(2); // setembro (atrasada) + outubro
+    const futuro = aCairNoMes({ ano: 2026, mes: 11 }, { txs, invoices: [], fixos: [], contas: [c], hoje: OUT });
+    expect(futuro).toHaveLength(1);
+  });
+
+  it("pagamento de setembro feito em outubro quita setembro, não outubro", () => {
+    const c = conta({ created_at: "2026-09-01T00:00:00Z" });
+    const txs = [tx({ conta_pagar_id: "c1", conta_pagar_ref: "2026-09", data_compra: "2026-10-03", valor_centavos: 20000 })];
+    const itens = aCairNoMes(OUT, { txs, invoices: [], fixos: [], contas: [c], hoje: OUT });
+    expect(itens).toHaveLength(1); // outubro segue pendente
+  });
+
   it("fixo encerrado não projeta", () => {
     const itens = aCairNoMes(OUT, { txs: [], invoices: [], fixos: [fixo({ data_fim: "2026-09-30" })], contas: [] });
     expect(itens).toHaveLength(0);

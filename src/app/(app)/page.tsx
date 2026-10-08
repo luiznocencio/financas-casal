@@ -3,7 +3,7 @@ import { createServerSupabase } from "@/lib/supabase/server";
 import { saldoConta } from "@/lib/financeiro/derivados";
 import { resumoDoMes } from "@/lib/financeiro/agregacoes";
 import { ultimoDiaDoMes } from "@/lib/financeiro/fechamento";
-import { contaOcorreNoMes, contaVisivelNoMes } from "@/lib/financeiro/contas";
+import { contaOcorreNoMes, mesesEmAberto, quitadosPorConta, chaveMes as chaveMesConta } from "@/lib/financeiro/contas";
 import { centavosParaReais } from "@/lib/financeiro/dinheiro";
 import { Money } from "@/components/ui/Money";
 import { Card } from "@/components/ui/Card";
@@ -15,6 +15,7 @@ import { orcamentoDoMes } from "@/lib/financeiro/projecao";
 import type { FatosResumo } from "@/lib/financeiro/resumoFrase";
 import { Cascata } from "@/components/dashboard/Cascata";
 import { ResumoFrase } from "@/components/dashboard/ResumoFrase";
+import { todas } from "@/lib/supabase/todas";
 
 const MESES = [
   "janeiro", "fevereiro", "março", "abril", "maio", "junho",
@@ -39,7 +40,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   const [contasRes, cardsRes, txsRes, catsRes, membrosRes, invoicesRes, contasPagarRes, agendadasRes, budgetsRes, fixosRes] = await Promise.all([
     supabase.from("accounts").select("*"),
     supabase.from("cards").select("*"),
-    supabase.from("transactions").select("*"),
+    todas((de, ate) => supabase.from("transactions").select("*").order("id").range(de, ate)),
     supabase.from("categories").select("id, nome, cor, parent_id"),
     supabase.from("members").select("nome, renda_mensal_centavos, ajuda_custo_centavos"),
     supabase.from("invoices").select("id, competencia_ano, competencia_mes"),
@@ -134,17 +135,16 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
 
   // contas a pagar: respeita recorrência (mensal/única) e data_fim
   const contasAtivas = contasPagarRes.data ?? [];
-  const pagoContaMesAtual = new Set((txs ?? [])
-    .filter((t) => { if (!t.conta_pagar_id) return false; const [a, m] = t.data_compra.split("-").map(Number); return a === atual.ano && m === atual.mes; })
-    .map((t) => t.conta_pagar_id));
-  const pagaContaAlgumaVez = new Set((txs ?? []).filter((t) => t.conta_pagar_id).map((t) => t.conta_pagar_id));
-  // pendente do mês atual = conta visível neste mês e ainda não paga neste mês
+  // meses já quitados de cada conta (pelo mês que o pagamento quita, não pela data)
+  const quitados = quitadosPorConta(txs ?? []);
+  const quitadosDe = (id: string) => quitados.get(id) ?? new Set<string>();
+  // pendente agora = TODOS os meses em aberto até o atual: conta não paga não
+  // some na virada do mês, continua devida (atrasada) até ser quitada
   const contasPendentesAtual = contasAtivas
-    .filter((c) => contaVisivelNoMes(c, atual.ano, atual.mes, pagaContaAlgumaVez.has(c.id), pagoContaMesAtual.has(c.id)) && !pagoContaMesAtual.has(c.id))
-    .reduce((s, c) => s + (c.valor_estimado_centavos ?? 0), 0);
-  // contas devidas num mês futuro (única só no mês dela e se ainda não paga)
+    .reduce((s, c) => s + mesesEmAberto(c, quitadosDe(c.id), atual).length * (c.valor_estimado_centavos ?? 0), 0);
+  // a cobrança de um mês específico, se ainda não quitada
   const contasDoMes = (a: number, m: number) => contasAtivas
-    .filter((c) => contaOcorreNoMes(c, a, m) && !(c.recorrencia === "unica" && pagaContaAlgumaVez.has(c.id)))
+    .filter((c) => contaOcorreNoMes(c, a, m) && !quitadosDe(c.id).has(chaveMesConta({ ano: a, mes: m })))
     .reduce((s, c) => s + (c.valor_estimado_centavos ?? 0), 0);
 
   // Projeção de caixa: parte do saldo de hoje e rola mês a mês até o mês visto,
@@ -204,12 +204,8 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
 
   // Margem do mês: o que ENTRA − o que GASTO. Gasto = consumo do mês (cartão +
   // pix/conta) + contas a pagar pendentes. Dá a clareza de "quanto posso gastar".
-  const pagoContaRef = new Set((txs ?? [])
-    .filter((t) => { if (!t.conta_pagar_id) return false; const [a, m] = t.data_compra.split("-").map(Number); return a === ref.ano && m === ref.mes; })
-    .map((t) => t.conta_pagar_id));
-  const contasPendentesRef = contasAtivas
-    .filter((c) => contaVisivelNoMes(c, ref.ano, ref.mes, pagaContaAlgumaVez.has(c.id), pagoContaRef.has(c.id)) && !pagoContaRef.has(c.id))
-    .reduce((s, c) => s + (c.valor_estimado_centavos ?? 0), 0);
+  // mês atual: tudo em aberto (inclui atrasadas); outro mês: a cobrança dele em aberto
+  const contasPendentesRef = ehAtual ? contasPendentesAtual : contasDoMes(ref.ano, ref.mes);
   const gastoMes = resumo.totalDespesas + contasPendentesRef;
   const margem = recebeNoMes - gastoMes;
   const corMargem = margem >= 0 ? "var(--positivo)" : "var(--negativo)";
@@ -260,7 +256,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   const orc = orcamentoDoMes(ref, {
     cats: cats ?? [], budgets: budgetsRes.data ?? [], txs: txs ?? [], invoices: invoicesRes.data ?? [],
     // projeção do que ainda vai cair só faz sentido do mês atual em diante
-    fixos: ehPassado ? [] : fixosRes.data ?? [], contas: ehPassado ? [] : contasAtivas,
+    fixos: ehPassado ? [] : fixosRes.data ?? [], contas: ehPassado ? [] : contasAtivas, hoje: atual,
   });
   const gastoAnterior = resumoDoMes(txsRef, mesPrev).totalDespesas;
   const fatos: FatosResumo = {

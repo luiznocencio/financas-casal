@@ -1,5 +1,5 @@
 import { resumoDoMes } from "./agregacoes";
-import { contaVisivelNoMes, type ContaOcorrencia } from "./contas";
+import { contaOcorreNoMes, mesesEmAberto, quitadosPorConta, chaveMes, type ContaOcorrencia } from "./contas";
 import { ultimoDiaDoMes } from "./fechamento";
 import { recorrenteJaLancado } from "./recorrentes";
 
@@ -24,6 +24,7 @@ export type TxOrc = {
   total_parcelas: number;
   recorrente_id: string | null;
   conta_pagar_id: string | null;
+  conta_pagar_ref?: string | null; // mês da conta que o pagamento quita
   descricao: string | null;
 };
 export type FixoOrc = {
@@ -49,7 +50,9 @@ export function comCompetenciaDeParcela<T extends TxOrc>(txs: T[], invoices: Inv
 }
 
 // O que ainda vai cair no mês: fixos não lançados + contas a pagar pendentes.
-export function aCairNoMes(ref: Mes, p: { txs: TxOrc[]; invoices: InvoiceOrc[]; fixos: FixoOrc[]; contas: ContaOrc[] }): ACair[] {
+// `hoje`: no mês atual, as contas ATRASADAS de meses anteriores também contam
+// (continuam devidas e vão ser pagas agora).
+export function aCairNoMes(ref: Mes, p: { txs: TxOrc[]; invoices: InvoiceOrc[]; fixos: FixoOrc[]; contas: ContaOrc[]; hoje?: Mes }): ACair[] {
   const ultimo = ultimoDiaDoMes(ref.ano, ref.mes);
   const ini = `${ref.ano}-${pad(ref.mes)}-01`;
   const fim = `${ref.ano}-${pad(ref.mes)}-${pad(ultimo)}`;
@@ -66,13 +69,16 @@ export function aCairNoMes(ref: Mes, p: { txs: TxOrc[]; invoices: InvoiceOrc[]; 
     itens.push({ descricao: r.descricao, categoria_id: r.categoria_id, valor_centavos: r.valor_centavos, origem: "fixo" });
   }
 
-  const pagaAlgumaVez = new Set(p.txs.filter((t) => t.conta_pagar_id).map((t) => t.conta_pagar_id));
-  const pagaNoMes = new Set(p.txs.filter((t) => t.conta_pagar_id && t.data_compra >= ini && t.data_compra <= fim).map((t) => t.conta_pagar_id));
+  const quitados = quitadosPorConta(p.txs);
+  const ehHoje = !!p.hoje && p.hoje.ano === ref.ano && p.hoje.mes === ref.mes;
   for (const c of p.contas) {
-    if (c.ativo === false || pagaNoMes.has(c.id)) continue;
-    if (!contaVisivelNoMes(c, ref.ano, ref.mes, pagaAlgumaVez.has(c.id), false)) continue;
+    if (c.ativo === false) continue;
+    const q = quitados.get(c.id) ?? new Set<string>();
+    const meses = ehHoje
+      ? mesesEmAberto(c, q, ref)
+      : contaOcorreNoMes(c, ref.ano, ref.mes) && !q.has(chaveMes(ref)) ? [ref] : [];
     const v = c.valor_estimado_centavos ?? 0;
-    if (v > 0) itens.push({ descricao: c.descricao, categoria_id: c.categoria_id, valor_centavos: v, origem: "conta" });
+    if (v > 0) itens.push(...meses.map(() => ({ descricao: c.descricao, categoria_id: c.categoria_id, valor_centavos: v, origem: "conta" as const })));
   }
   return itens;
 }
@@ -114,7 +120,7 @@ export type OrcamentoDoMes = {
 };
 
 export function orcamentoDoMes(ref: Mes, p: {
-  cats: CatOrc[]; budgets: BudgetOrc[]; txs: TxOrc[]; invoices: InvoiceOrc[]; fixos: FixoOrc[]; contas: ContaOrc[];
+  cats: CatOrc[]; budgets: BudgetOrc[]; txs: TxOrc[]; invoices: InvoiceOrc[]; fixos: FixoOrc[]; contas: ContaOrc[]; hoje?: Mes;
 }): OrcamentoDoMes {
   const paiDe = new Map(p.cats.filter((c) => c.parent_id).map((c) => [c.id, c.parent_id as string]));
   const mae = (id: string) => paiDe.get(id) ?? id;
