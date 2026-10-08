@@ -279,6 +279,21 @@ export function Importador({
                     <option value="">—</option>
                     {ordenarComSubcategorias(categorias.filter((c) => !c.tipo || c.tipo === l.tipo)).map((c) => <option key={c.id} value={c.id}>{c.rotulo}</option>)}
                   </select>
+                  <button type="button"
+                    onClick={() => {
+                      const tipo = l.tipo === "receita" ? "despesa" : "receita";
+                      // categoria do outro tipo não serve mais
+                      const cat = categorias.find((c) => c.id === l.categoria_id);
+                      atualizar(i, { tipo, categoria_id: cat?.tipo && cat.tipo !== tipo ? null : l.categoria_id });
+                    }}
+                    title={l.tipo === "receita" ? "Entrada (estorno/crédito) — clique pra virar gasto" : "Gasto — clique pra virar entrada"}
+                    className="rounded-full border px-2 py-0.5 text-xs"
+                    style={{
+                      borderColor: l.tipo === "receita" ? "var(--positivo)" : "var(--border)",
+                      color: l.tipo === "receita" ? "var(--positivo)" : "var(--muted)",
+                    }}>
+                    {l.tipo === "receita" ? "+ entrada" : "− gasto"}
+                  </button>
                   <MoneyInput centavos={l.valor_centavos} onCentavos={(v) => atualizar(i, { valor_centavos: v })} className="mono"
                     style={{ width: 96, textAlign: "right", padding: "4px 8px", borderRadius: 4, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)" }} />
                   {origem.startsWith("card:") && (

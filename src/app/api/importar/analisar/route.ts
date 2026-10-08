@@ -25,7 +25,7 @@ export async function POST(req: Request) {
     // fatura de cartão: detecta o total, remove a seção de próximas faturas e ancora a extração
     const totalFaturaCentavos = origem.card_id ? detectarTotalFatura(texto) : null;
     const textoExtrair = origem.card_id ? cortarSecaoFuturas(texto) : texto;
-    const linhas = await interpretarImportacao(textoExtrair, chamarModeloJson, totalFaturaCentavos);
+    const linhas = await interpretarImportacao(textoExtrair, chamarModeloJson, totalFaturaCentavos, !!origem.card_id);
 
     const supabase = await createServerSupabase();
 

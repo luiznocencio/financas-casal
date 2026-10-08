@@ -10,7 +10,11 @@ export type LinhaImportada = {
 
 const DATA_ISO = /^\d{4}-\d{2}-\d{2}$/;
 
-function montarPrompt(texto: string, totalEsperadoReais?: string): string {
+// Estorno/devolução de verdade numa fatura de cartão (o que pode virar receita).
+// "crédito" fica de fora de propósito: "Pix no crédito" é uma DESPESA no cartão.
+const ESTORNO = /estorno|devolu|reembols|cashback|cancelamento|ressarc/i;
+
+function montarPrompt(texto: string, totalEsperadoReais?: string, cartao = false): string {
   return [
     "Extraia os lançamentos financeiros deste extrato/fatura de cartão (texto colado; cada transação começa com a data DD/MM).",
     "Responda APENAS JSON no formato:",
@@ -21,7 +25,9 @@ function montarPrompt(texto: string, totalEsperadoReais?: string): string {
     totalEsperadoReais
       ? `O total DESTA fatura é R$ ${totalEsperadoReais}. A soma das despesas menos as receitas/estornos DEVE bater com esse total.`
       : "",
-    "Regras: valor_reais sempre positivo; tipo 'receita' para créditos/estornos/pagamentos (valor negativo vira receita), 'despesa' no resto;",
+    cartao
+      ? "É uma FATURA DE CARTÃO: tudo que entra nela é gasto no cartão (inclusive 'Pix no crédito', transferência ou pagamento a terceiros feito no cartão). NÃO decida o tipo pelo nome. valor_reais com o SINAL da fatura: NEGATIVO só para estorno/crédito/devolução que abate a fatura (aparece com '-' ou na coluna de créditos); positivo no resto. tipo = 'receita' só quando valor_reais for negativo;"
+      : "Regras: valor_reais sempre positivo; tipo 'receita' para créditos/estornos/pagamentos (valor negativo vira receita), 'despesa' no resto;",
     "número tipo '05/06' após a descrição indica parcela (total_parcelas = 6); '3/12' => 12; senão 1. data no formato YYYY-MM-DD.",
     "Texto:",
     texto,
@@ -65,11 +71,12 @@ export async function interpretarImportacao(
   texto: string,
   chamarModelo: (prompt: string) => Promise<string>,
   totalEsperadoCentavos?: number | null,
+  cartao = false,
 ): Promise<LinhaImportada[]> {
   const totalReais = totalEsperadoCentavos && totalEsperadoCentavos > 0
     ? (totalEsperadoCentavos / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
     : undefined;
-  const bruto = await chamarModelo(montarPrompt(texto, totalReais));
+  const bruto = await chamarModelo(montarPrompt(texto, totalReais, cartao));
   let obj: { lancamentos?: unknown };
   try {
     obj = JSON.parse(bruto);
@@ -80,13 +87,21 @@ export async function interpretarImportacao(
   const linhas: LinhaImportada[] = [];
   for (const item of lista as Record<string, unknown>[]) {
     const data = typeof item.data === "string" ? item.data : "";
-    const valorReais = typeof item.valor_reais === "number" ? item.valor_reais : 0;
+    const comSinal = typeof item.valor_reais === "number" ? item.valor_reais : 0;
+    const valorReais = Math.abs(comSinal);
     if (!DATA_ISO.test(data) || valorReais <= 0) continue;
+    const descricao = typeof item.descricao === "string" ? item.descricao : "";
+    // cartão: o tipo vem do SINAL na fatura, não do nome (Pix no crédito,
+    // transferência etc. são gasto). Fallback: o modelo marcou receita E o texto
+    // é claramente estorno/devolução. Conta: segue o que o modelo leu.
+    const receita = cartao
+      ? comSinal < 0 || (item.tipo === "receita" && ESTORNO.test(descricao))
+      : item.tipo === "receita" || comSinal < 0;
     linhas.push({
       data,
-      descricao: typeof item.descricao === "string" ? item.descricao : "",
+      descricao,
       valor_centavos: reaisParaCentavos(valorReais),
-      tipo: item.tipo === "receita" ? "receita" : "despesa",
+      tipo: receita ? "receita" : "despesa",
       total_parcelas: typeof item.total_parcelas === "number" && item.total_parcelas >= 1
         ? Math.floor(item.total_parcelas) : 1,
     });

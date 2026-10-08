@@ -57,6 +57,28 @@ describe("interpretarImportacao", () => {
     expect(linhas[0].descricao).toBe("ok");
   });
 
+  it("fatura de cartão: tipo vem do sinal, não do nome (Pix no crédito é gasto)", async () => {
+    const modeloFake = async () => JSON.stringify({
+      lancamentos: [
+        { data: "2026-10-02", descricao: "Pix no crédito - Fulano", valor_reais: 300, tipo: "receita", total_parcelas: 1 },
+        { data: "2026-10-03", descricao: "Estorno Loja X", valor_reais: -50, tipo: "receita", total_parcelas: 1 },
+        { data: "2026-10-04", descricao: "Estorno Loja Y", valor_reais: 20, tipo: "receita", total_parcelas: 1 },
+        { data: "2026-10-05", descricao: "Crédito de pix recebido", valor_reais: 80, tipo: "receita", total_parcelas: 1 },
+      ],
+    });
+    const linhas = await interpretarImportacao("x", modeloFake, null, true);
+    expect(linhas.map((l) => l.tipo)).toEqual(["despesa", "receita", "receita", "despesa"]);
+    expect(linhas[1].valor_centavos).toBe(5000);
+  });
+
+  it("conta: segue o tipo lido pelo modelo", async () => {
+    const modeloFake = async () => JSON.stringify({
+      lancamentos: [{ data: "2026-10-02", descricao: "Pix recebido", valor_reais: 300, tipo: "receita", total_parcelas: 1 }],
+    });
+    const linhas = await interpretarImportacao("x", modeloFake);
+    expect(linhas[0].tipo).toBe("receita");
+  });
+
   it("lança erro quando o modelo devolve JSON inválido", async () => {
     await expect(interpretarImportacao("x", async () => "nao é json")).rejects.toThrow();
   });
