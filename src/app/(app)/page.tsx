@@ -13,7 +13,6 @@ import { SairButton } from "@/components/shell/SairButton";
 import { CheckCircle, WarningCircle, Wallet, Receipt } from "@phosphor-icons/react/dist/ssr";
 import { orcamentoDoMes } from "@/lib/financeiro/projecao";
 import type { FatosResumo } from "@/lib/financeiro/resumoFrase";
-import { Cascata } from "@/components/dashboard/Cascata";
 import { ResumoFrase } from "@/components/dashboard/ResumoFrase";
 import { todas } from "@/lib/supabase/todas";
 
@@ -243,15 +242,6 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
     : estadoCaixa === "comprometido" ? "no cartão, antes do salário cair"
       : (ehFuturo ? `pra fechar até ${MESES[ref.mes - 1]}` : "pra fechar o mês");
 
-  // cascata em gráfico: saldo de hoje → entra → sai → cartão que vence depois → Livre
-  const passosCascata = [
-    { rotulo: "Saldo hoje", valor: saldoTotal, total: true },
-    { rotulo: ehFuturo ? `Entra até ${MESES[ref.mes - 1].slice(0, 3)}` : "A receber", valor: entradasAte },
-    { rotulo: ehFuturo ? `Sai até ${MESES[ref.mes - 1].slice(0, 3)}` : "A pagar", valor: -saidasAte },
-    ...(cartaoVenceDepois > 0 ? [{ rotulo: "Cartão depois", valor: -cartaoVenceDepois }] : []),
-    { rotulo: estadoCaixa === "falta" ? "Falta" : "Livre", valor: sobraReal, total: true, cor: corCaixa },
-  ];
-
   // resumo do mês em uma frase: os números saem daqui; a IA só redige
   const orc = orcamentoDoMes(ref, {
     cats: cats ?? [], budgets: budgetsRes.data ?? [], txs: txs ?? [], invoices: invoicesRes.data ?? [],
@@ -330,10 +320,6 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
                 valor={Math.abs(sobraReal)}
                 sub={subLivre}
                 cor={corCaixa} />
-            </div>
-
-            <div className="mt-4">
-              <Cascata passos={passosCascata} />
             </div>
 
             {/* a conta completa fica recolhida: abre só pra quem quer entender de onde vem */}
