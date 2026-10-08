@@ -1,6 +1,7 @@
 import { createServerSupabase } from "@/lib/supabase/server";
 import { resumoOrcamento } from "@/lib/financeiro/orcamento";
-import { resumoDoMes } from "@/lib/financeiro/agregacoes";
+import { orcamentoDoMes, estadoCategoria } from "@/lib/financeiro/projecao";
+import { partesNoFuso } from "@/lib/financeiro/fechamento";
 import { Money } from "@/components/ui/Money";
 import { Card } from "@/components/ui/Card";
 import Link from "next/link";
@@ -10,23 +11,23 @@ import { EditarCategoria } from "@/components/orcamento/EditarCategoria";
 import { AddCategoriaForm } from "@/components/orcamento/AddCategoriaForm";
 import { AddSubcategoria } from "@/components/orcamento/AddSubcategoria";
 import { CategoriaPonto } from "@/components/ui/CategoriaTag";
-import { BarraOrcamento } from "@/components/orcamento/BarraOrcamento";
+import { BarraOrcamento, SeloOrcamento } from "@/components/orcamento/BarraOrcamento";
 
 export default async function OrcamentoPage() {
   const supabase = await createServerSupabase();
-  const agora = new Date();
-  const ano = agora.getFullYear();
-  const mes = agora.getMonth() + 1;
+  const { ano, mes } = partesNoFuso(new Date(), "America/Sao_Paulo");
 
-  const [membrosRes, catsRes, budgetsRes, txsRes, contasRes, invoicesRes] = await Promise.all([
+  const [membrosRes, catsRes, budgetsRes, txsRes, contasRes, invoicesRes, fixosRes, contasPagarRes] = await Promise.all([
     supabase.from("members").select("user_id, nome, renda_mensal_centavos, ajuda_custo_centavos, salario_account_id, ajuda_custo_account_id").order("papel"),
     supabase.from("categories").select("id, nome, cor, parent_id").eq("tipo", "despesa").order("nome"),
     supabase.from("budgets").select("categoria_id, valor_centavos"),
-    supabase.from("transactions").select("categoria_id, tipo, pessoa, valor_centavos, data_compra, card_id, invoice_id, total_parcelas"),
+    supabase.from("transactions").select("categoria_id, tipo, pessoa, valor_centavos, data_compra, card_id, account_id, invoice_id, total_parcelas, recorrente_id, conta_pagar_id, descricao"),
     supabase.from("accounts").select("id, nome, titular").order("nome"),
     supabase.from("invoices").select("id, competencia_ano, competencia_mes"),
+    supabase.from("recorrentes").select("id, descricao, valor_centavos, categoria_id, dia, card_id, account_id, data_fim, ativo").eq("ativo", true),
+    supabase.from("contas_pagar").select("id, descricao, categoria_id, valor_estimado_centavos, dia_vencimento, recorrencia, data_fim, created_at").eq("ativo", true),
   ]);
-  const erro = membrosRes.error ?? catsRes.error ?? budgetsRes.error ?? txsRes.error ?? contasRes.error ?? invoicesRes.error;
+  const erro = membrosRes.error ?? catsRes.error ?? budgetsRes.error ?? txsRes.error ?? contasRes.error ?? invoicesRes.error ?? fixosRes.error ?? contasPagarRes.error;
   if (erro) throw new Error(`Falha ao carregar o orçamento: ${erro.message}`);
 
   const membros = membrosRes.data ?? [];
@@ -39,33 +40,25 @@ export default async function OrcamentoPage() {
   const maes = cats.filter((c) => !c.parent_id);
   const filhosPorMae = new Map<string, typeof cats>();
   for (const c of cats) if (c.parent_id) (filhosPorMae.get(c.parent_id) ?? filhosPorMae.set(c.parent_id, []).get(c.parent_id)!).push(c);
-  const paiDe = new Map(cats.filter((c) => c.parent_id).map((c) => [c.id, c.parent_id as string]));
 
-  // CONSUMO = mês da compra: à vista (pix e cartão) conta pela data; só a parcela
-  // conta pela competência (o mês em que ela entra na fatura). Mesma regra do dashboard.
-  const compPorInvoice = new Map((invoicesRes.data ?? []).map((i) => [i.id, { ano: i.competencia_ano, mes: i.competencia_mes }]));
-  const txsRef = (txsRes.data ?? []).map((t) =>
-    t.card_id && t.total_parcelas > 1 && t.invoice_id && compPorInvoice.has(t.invoice_id)
-      ? { ...t, competencia: compPorInvoice.get(t.invoice_id) }
-      : t);
-
-  // reusa a agregação do mês (mesma regra do dashboard)
-  const rd = resumoDoMes(txsRef, { ano, mes });
-  const gastoPorCategoria = rd.porCategoria; // despesas do mês por categoria (filho fica no filho)
-  const gastoTotalMes = rd.totalDespesas;    // total de despesas do mês (todas as categorias)
-
-  // gasto com rollup: o que caiu no filho soma na mãe (pro orçamento e barra)
-  const gastoRollup: Record<string, number> = {};
-  for (const [catId, val] of Object.entries(gastoPorCategoria)) {
-    const alvo = paiDe.get(catId) ?? catId;
-    gastoRollup[alvo] = (gastoRollup[alvo] ?? 0) + val;
-  }
+  // CONSUMO = mês da compra (parcela pela competência) + PROJEÇÃO do que ainda vai
+  // cair no mês (fixos não lançados, contas pendentes). Mesma regra da Home e dos avisos.
+  const orc = orcamentoDoMes({ ano, mes }, {
+    cats, budgets, txs: txsRes.data ?? [], invoices: invoicesRes.data ?? [],
+    fixos: fixosRes.data ?? [], contas: contasPagarRes.data ?? [],
+  });
+  const gastoPorCategoria = orc.gastoPorCategoria; // filho fica no filho
+  const gastoRollup = orc.gastoRollup;             // filho soma na mãe
+  const gastoTotalMes = orc.totalGasto;
+  const projPorCat = new Map(orc.itens.map((i) => [i.categoria_id, i]));
+  const catPorId = new Map(cats.map((c) => [c.id, c]));
 
   const resumo = resumoOrcamento({ rendaCentavos: renda, budgets, gastoPorCategoria: gastoRollup });
   const valorPorCat = new Map(budgets.map((b) => [b.categoria_id, b.valor_centavos]));
   const itemPorCat = new Map(resumo.itens.map((i) => [i.categoria_id, i]));
   // ao filtrar uma categoria no extrato, leva o mês corrente (competência) junto
   const mesParam = `${ano}-${String(mes).padStart(2, "0")}`;
+  const estadoTotal = estadoCategoria(orc.totalOrcado, orc.totalGastoOrcado, orc.totalProjetadoOrcado - orc.totalGastoOrcado);
 
   return (
     <main className="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-10 sm:px-6">
@@ -87,7 +80,45 @@ export default async function OrcamentoPage() {
         {resumo.reservaCentavos < 0 && (
           <p style={{ color: "var(--alerta)" }}>Você orçou <Money centavos={resumo.totalOrcadoCentavos} tamanho="sm" /> — acima da renda de <Money centavos={renda} tamanho="sm" />.</p>
         )}
+        {orc.totalOrcado > 0 && (
+          <div className="mt-4 border-t border-[var(--border)] pt-3">
+            <div className="mb-2 flex items-center justify-between gap-2 text-sm">
+              <span className="font-medium text-[var(--text)]">Orçamento total</span>
+              <SeloOrcamento {...estadoTotal} />
+            </div>
+            <BarraOrcamento gastoCentavos={orc.totalGastoOrcado} limiteCentavos={orc.totalOrcado}
+              aCairCentavos={orc.totalProjetadoOrcado - orc.totalGastoOrcado} cor="var(--accent)" />
+          </div>
+        )}
       </Card>
+
+      {(orc.semOrcamento.length > 0 || orc.semCategoria > 0) && (
+        <Card>
+          <div className="mb-1 flex items-baseline justify-between gap-2">
+            <h3 className="font-medium text-[var(--text)]">Gastos sem orçamento</h3>
+            <Money centavos={orc.semOrcamento.reduce((s, i) => s + i.gasto, 0) + orc.semCategoria} tamanho="sm" />
+          </div>
+          <p className="mb-3 text-xs text-[var(--muted)]">Gasto neste mês em categorias sem limite definido — ficam fora da conta do orçamento.</p>
+          <div className="flex flex-col gap-1.5 text-sm">
+            {orc.semOrcamento.map((i) => {
+              const c = catPorId.get(i.categoria_id);
+              return (
+                <Link key={i.categoria_id} href={`/lancamentos?categoria=${i.categoria_id}&mes=${mesParam}`}
+                  className="flex items-center justify-between gap-2 text-[var(--text)] hover:text-[var(--accent)]">
+                  <span className="flex min-w-0 items-center gap-2"><CategoriaPonto cor={c?.cor ?? "#6b7280"} />{c?.nome ?? "Outros"}</span>
+                  <Money centavos={i.gasto} tamanho="sm" />
+                </Link>
+              );
+            })}
+            {orc.semCategoria > 0 && (
+              <div className="flex items-center justify-between gap-2 text-[var(--muted)]">
+                <span className="flex items-center gap-2"><CategoriaPonto cor="#6b7280" />Sem categoria</span>
+                <Money centavos={orc.semCategoria} tamanho="sm" />
+              </div>
+            )}
+          </div>
+        </Card>
+      )}
 
       {/* categorias (mães; o gasto dos filhos soma aqui) */}
       <div className="flex flex-col gap-3">
@@ -95,6 +126,8 @@ export default async function OrcamentoPage() {
           const item = itemPorCat.get(c.id);
           const limite = item?.limiteCentavos ?? 0;
           const gasto = gastoRollup[c.id] ?? 0;
+          const proj = projPorCat.get(c.id);
+          const aCair = orc.aCairRollup[c.id] ?? 0;
           const filhos = filhosPorMae.get(c.id) ?? [];
           return (
             <Card key={c.id}>
@@ -103,9 +136,10 @@ export default async function OrcamentoPage() {
                   className="flex min-w-0 items-center gap-2 break-words font-medium text-[var(--text)] hover:text-[var(--accent)]">
                   <CategoriaPonto cor={c.cor} />{c.nome}
                 </Link>
+                {proj && <SeloOrcamento estado={proj.estado} excesso={proj.excesso} />}
                 <PercentualEditor categoriaId={c.id} valorCentavos={valorPorCat.get(c.id) ?? 0} />
               </div>
-              <BarraOrcamento gastoCentavos={gasto} limiteCentavos={limite} cor={c.cor} />
+              <BarraOrcamento gastoCentavos={gasto} limiteCentavos={limite} cor={c.cor} aCairCentavos={aCair} />
 
               {filhos.length > 0 && (
                 <div className="mt-3 flex flex-col gap-1.5 border-t border-[var(--border)] pt-3">

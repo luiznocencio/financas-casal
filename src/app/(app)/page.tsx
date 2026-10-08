@@ -11,6 +11,10 @@ import { SplitBar } from "@/components/ui/SplitBar";
 import { CategoriaTag } from "@/components/ui/CategoriaTag";
 import { SairButton } from "@/components/shell/SairButton";
 import { CheckCircle, WarningCircle, Wallet, Receipt } from "@phosphor-icons/react/dist/ssr";
+import { orcamentoDoMes } from "@/lib/financeiro/projecao";
+import type { FatosResumo } from "@/lib/financeiro/resumoFrase";
+import { Cascata } from "@/components/dashboard/Cascata";
+import { ResumoFrase } from "@/components/dashboard/ResumoFrase";
 
 const MESES = [
   "janeiro", "fevereiro", "março", "abril", "maio", "junho",
@@ -32,22 +36,25 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   const mesProx = ref.mes === 12 ? { ano: ref.ano + 1, mes: 1 } : { ano: ref.ano, mes: ref.mes + 1 };
   const paramMes = (c: { ano: number; mes: number }) => `/?mes=${c.ano}-${String(c.mes).padStart(2, "0")}`;
 
-  const [contasRes, cardsRes, txsRes, catsRes, membrosRes, invoicesRes, contasPagarRes, agendadasRes] = await Promise.all([
+  const [contasRes, cardsRes, txsRes, catsRes, membrosRes, invoicesRes, contasPagarRes, agendadasRes, budgetsRes, fixosRes] = await Promise.all([
     supabase.from("accounts").select("*"),
     supabase.from("cards").select("*"),
     supabase.from("transactions").select("*"),
-    supabase.from("categories").select("id, nome, cor"),
+    supabase.from("categories").select("id, nome, cor, parent_id"),
     supabase.from("members").select("nome, renda_mensal_centavos, ajuda_custo_centavos"),
     supabase.from("invoices").select("id, competencia_ano, competencia_mes"),
-    supabase.from("contas_pagar").select("id, valor_estimado_centavos, dia_vencimento, recorrencia, data_fim, created_at").eq("ativo", true),
+    supabase.from("contas_pagar").select("id, descricao, categoria_id, valor_estimado_centavos, dia_vencimento, recorrencia, data_fim, created_at").eq("ativo", true),
     // recebimentos agendados (A receber), INCLUINDO salário — base do "Recebo".
     // Reflete o valor REAL quando já recebido (abono/desconto do salário variável)
     // e o planejado quando pendente; bate com a tela de Planejamento.
     supabase.from("receitas_agendadas").select("id, valor_centavos, data_fim, data_prevista, recorrencia")
       .eq("ativo", true),
+    // orçamento projetado (pro resumo do mês): limites + gastos fixos
+    supabase.from("budgets").select("categoria_id, valor_centavos"),
+    supabase.from("recorrentes").select("id, descricao, valor_centavos, categoria_id, dia, card_id, account_id, data_fim, ativo").eq("ativo", true),
   ]);
   // falha de leitura não pode virar "R$ 0" silencioso num app de dinheiro
-  const erro = contasRes.error ?? cardsRes.error ?? txsRes.error ?? catsRes.error ?? membrosRes.error ?? invoicesRes.error ?? contasPagarRes.error ?? agendadasRes.error;
+  const erro = contasRes.error ?? cardsRes.error ?? txsRes.error ?? catsRes.error ?? membrosRes.error ?? invoicesRes.error ?? contasPagarRes.error ?? agendadasRes.error ?? budgetsRes.error ?? fixosRes.error;
   if (erro) throw new Error(`Falha ao carregar o painel: ${erro.message}`);
   const { data: contas } = contasRes;
   const { data: cards } = cardsRes;
@@ -240,6 +247,41 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
     : estadoCaixa === "comprometido" ? "no cartão, antes do salário cair"
       : (ehFuturo ? `pra fechar até ${MESES[ref.mes - 1]}` : "pra fechar o mês");
 
+  // cascata em gráfico: saldo de hoje → entra → sai → cartão que vence depois → Livre
+  const passosCascata = [
+    { rotulo: "Saldo hoje", valor: saldoTotal, total: true },
+    { rotulo: ehFuturo ? `Entra até ${MESES[ref.mes - 1].slice(0, 3)}` : "A receber", valor: entradasAte },
+    { rotulo: ehFuturo ? `Sai até ${MESES[ref.mes - 1].slice(0, 3)}` : "A pagar", valor: -saidasAte },
+    ...(cartaoVenceDepois > 0 ? [{ rotulo: "Cartão depois", valor: -cartaoVenceDepois }] : []),
+    { rotulo: estadoCaixa === "falta" ? "Falta" : "Livre", valor: sobraReal, total: true, cor: corCaixa },
+  ];
+
+  // resumo do mês em uma frase: os números saem daqui; a IA só redige
+  const orc = orcamentoDoMes(ref, {
+    cats: cats ?? [], budgets: budgetsRes.data ?? [], txs: txs ?? [], invoices: invoicesRes.data ?? [],
+    // projeção do que ainda vai cair só faz sentido do mês atual em diante
+    fixos: ehPassado ? [] : fixosRes.data ?? [], contas: ehPassado ? [] : contasAtivas,
+  });
+  const gastoAnterior = resumoDoMes(txsRef, mesPrev).totalDespesas;
+  const fatos: FatosResumo = {
+    mes: MESES[ref.mes - 1],
+    momento: ehPassado ? "passado" : ehFuturo ? "futuro" : "atual",
+    recebo: centavosParaReais(recebeNoMes),
+    gasto: centavosParaReais(gastoMes),
+    resultadoPositivo: margem >= 0,
+    resultado: centavosParaReais(Math.abs(margem)),
+    estado: estadoCaixa,
+    livre: centavosParaReais(Math.abs(ehPassado ? saldoRef : sobraReal)),
+    gastoMesAnterior: gastoAnterior > 0 ? centavosParaReais(gastoAnterior) : null,
+    gastoSubiu: gastoAnterior > 0 ? resumo.totalDespesas > gastoAnterior : null,
+    maiores: topCategorias.slice(0, 2).map(([id, v]) => ({ nome: nomeCat(id), valor: centavosParaReais(v) })),
+    estouradas: orc.itens.filter((i) => i.estado === "estourou").sort((a, b) => b.excesso - a.excesso)
+      .map((i) => ({ nome: nomeCat(i.categoria_id), excesso: centavosParaReais(i.excesso) })),
+    vaoPassar: orc.itens.filter((i) => i.estado === "vai_estourar").sort((a, b) => b.excesso - a.excesso)
+      .map((i) => ({ nome: nomeCat(i.categoria_id), excesso: centavosParaReais(i.excesso) })),
+  };
+  const mesChave = `${ref.ano}-${pad(ref.mes)}`;
+
   return (
     <main className="mx-auto flex max-w-5xl flex-col gap-6 px-4 py-10 sm:px-6">
       <header className="flex items-start justify-between gap-3">
@@ -258,6 +300,8 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
         </div>
         <div className="lg:hidden"><SairButton variant="inline" /></div>
       </header>
+
+      <ResumoFrase key={mesChave} mes={mesChave} fatos={fatos} />
 
       {/* ───── CAIXA DO MÊS — três blocos: Vou ter · Já tem destino · Livre ───── */}
       <Card>
@@ -290,6 +334,10 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
                 valor={Math.abs(sobraReal)}
                 sub={subLivre}
                 cor={corCaixa} />
+            </div>
+
+            <div className="mt-4">
+              <Cascata passos={passosCascata} />
             </div>
 
             {/* a conta completa fica recolhida: abre só pra quem quer entender de onde vem */}
