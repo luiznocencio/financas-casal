@@ -19,6 +19,8 @@ export async function updateSession(request: NextRequest) {
       },
     },
   );
-  await supabase.auth.getUser();
+  // renova o token se expirou e confere a assinatura localmente (chaves ES256,
+  // JWKS em cache) — sem ida ao servidor de Auth a cada request como o getUser
+  await supabase.auth.getClaims();
   return response;
 }

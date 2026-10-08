@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { createServerSupabase } from "@/lib/supabase/server";
-import { getMembroAtual } from "@/lib/auth/household";
+import { getMembroAtual, getUsuarioId } from "@/lib/auth/household";
 import { QuickAdd } from "@/components/quick-add/QuickAdd";
 import { TabBar } from "@/components/shell/TabBar";
 import { Sidebar } from "@/components/shell/Sidebar";
@@ -9,18 +9,18 @@ import { InstalarApp } from "@/components/pwa/InstalarApp";
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createServerSupabase();
 
-  // guardas: sem login -> /login; logado sem lar -> /onboarding
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
-  const membro = await getMembroAtual();
-  if (!membro) redirect("/onboarding");
-
-  const [cardsRes, contasRes, catsRes, membrosRes] = await Promise.all([
+  // guardas: sem login -> /login; logado sem lar -> /onboarding. Os dados do
+  // "+" (quick-add) já saem em paralelo com a checagem do membro.
+  const [userId, membro, cardsRes, contasRes, catsRes, membrosRes] = await Promise.all([
+    getUsuarioId(),
+    getMembroAtual(),
     supabase.from("cards").select("*").order("nome"),
     supabase.from("accounts").select("*").order("nome"),
     supabase.from("categories").select("*").order("nome"),
     supabase.from("members").select("nome"),
   ]);
+  if (!userId) redirect("/login");
+  if (!membro) redirect("/onboarding");
   const erroShell = cardsRes.error ?? contasRes.error ?? catsRes.error ?? membrosRes.error;
   if (erroShell) throw new Error(`Falha ao carregar dados do app: ${erroShell.message}`);
   const cartoes = cardsRes.data;
