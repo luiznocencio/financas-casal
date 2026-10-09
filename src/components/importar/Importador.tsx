@@ -113,7 +113,9 @@ export function Importador({
         const dup = (l as { duplicada?: boolean }).duplicada ?? false;
         // já existe na origem → desmarcado por padrão (só adiciona os novos)
         return { ...l, incluir: !dup, categoria_id: (l as { categoria_id?: string | null }).categoria_id ?? null, pessoa: dono };
-      }));
+      // em ordem de DATA (da mais antiga pra mais nova), não na ordem em que o
+      // arquivo listou — sort estável: mesma data mantém a ordem do arquivo
+      }).sort((a, b) => a.data.localeCompare(b.data)));
       setTotalFatura(typeof r.totalFaturaCentavos === "number" ? r.totalFaturaCentavos : null);
     } catch {
       setErro("Falha ao analisar. Tente de novo.");
