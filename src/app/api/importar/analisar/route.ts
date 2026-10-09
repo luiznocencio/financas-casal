@@ -102,9 +102,17 @@ export async function POST(req: Request) {
       .from("transactions").select("id, data_compra, valor_centavos, tipo, descricao, recorrente_id").not("recorrente_id", "is", null);
     if (origemCol && origemId) recQuery = recQuery.eq(origemCol, origemId);
     if (competencia) {
-      const ini = `${competencia.ano}-${pad(competencia.mes)}-01`;
-      const fim = `${competencia.ano}-${pad(competencia.mes)}-${pad(ultimoDiaDoMes(competencia.ano, competencia.mes))}`;
-      recQuery = recQuery.gte("data_compra", ini).lte("data_compra", fim);
+      if (origem.card_id) {
+        // cartão: os fixos que estão NA fatura importada (o fixo de outubro de um
+        // cartão que fecha no fim do mês mora na fatura de novembro, com data de outubro)
+        const { data: inv } = await supabase.from("invoices").select("id")
+          .eq("card_id", origem.card_id).eq("competencia_ano", competencia.ano).eq("competencia_mes", competencia.mes).maybeSingle();
+        recQuery = recQuery.eq("invoice_id", inv?.id ?? "00000000-0000-0000-0000-000000000000");
+      } else {
+        const ini = `${competencia.ano}-${pad(competencia.mes)}-01`;
+        const fim = `${competencia.ano}-${pad(competencia.mes)}-${pad(ultimoDiaDoMes(competencia.ano, competencia.mes))}`;
+        recQuery = recQuery.gte("data_compra", ini).lte("data_compra", fim);
+      }
     }
     const { data: recorrentes } = await recQuery;
     for (const t of recorrentes ?? []) addTx(t);

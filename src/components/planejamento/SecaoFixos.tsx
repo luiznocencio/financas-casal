@@ -18,20 +18,17 @@ export async function SecaoFixos() {
   const ini = `${ano}-${pad(mes)}-01`;
   const fim = `${ano}-${pad(mes)}-${pad(ultimoDiaDoMes(ano, mes))}`;
 
-  const cols = "recorrente_id, descricao, valor_centavos, card_id, account_id, invoice_id";
-  const [recRes, catsRes, cardsRes, contasRes, membrosRes, invRes, contaTxRes, cartaoTxRes] = await Promise.all([
+  const cols = "recorrente_id, descricao, valor_centavos, card_id, account_id";
+  const [recRes, catsRes, cardsRes, contasRes, membrosRes, doMesRes] = await Promise.all([
     supabase.from("recorrentes").select("*").order("dia"),
     supabase.from("categories").select("id, nome, cor"),
     supabase.from("cards").select("id, nome, titular").order("nome"),
     supabase.from("accounts").select("id, nome, titular").order("nome"),
     supabase.from("members").select("nome"),
-    supabase.from("invoices").select("id, competencia_ano, competencia_mes"),
-    // conta/pix: lançamentos do mês pela data
-    supabase.from("transactions").select(cols).not("account_id", "is", null).gte("data_compra", ini).lte("data_compra", fim),
-    // cartão: lançamentos com fatura (filtra pela competência deste mês abaixo)
-    todas((de, ate) => supabase.from("transactions").select(cols).not("card_id", "is", null).order("id").range(de, ate)),
+    // lançamentos do mês pela DATA da cobrança (conta e cartão) — mesma régua do "lançar fixos"
+    todas((de, ate) => supabase.from("transactions").select(cols).gte("data_compra", ini).lte("data_compra", fim).order("id").range(de, ate)),
   ]);
-  const erro = recRes.error ?? catsRes.error ?? cardsRes.error ?? contasRes.error ?? membrosRes.error ?? invRes.error ?? contaTxRes.error ?? cartaoTxRes.error;
+  const erro = recRes.error ?? catsRes.error ?? cardsRes.error ?? contasRes.error ?? membrosRes.error ?? doMesRes.error;
   if (erro) throw new Error(`Falha ao carregar os gastos fixos: ${erro.message}`);
 
   const recorrentes = (recRes.data ?? []) as Recorrente[];
@@ -39,10 +36,7 @@ export async function SecaoFixos() {
   const cartoes = cardsRes.data ?? [];
   const contas = contasRes.data ?? [];
   const membros = (membrosRes.data ?? []).map((m) => m.nome);
-  // lançamentos que já existem neste mês: conta por data + cartão pela competência da fatura
-  const invCompRef = new Set((invRes.data ?? []).filter((i) => i.competencia_ano === ano && i.competencia_mes === mes).map((i) => i.id));
-  const cartaoMes = (cartaoTxRes.data ?? []).filter((t) => t.invoice_id && invCompRef.has(t.invoice_id));
-  const existentes = [...(contaTxRes.data ?? []), ...cartaoMes];
+  const existentes = doMesRes.data ?? [];
   const jaLancado = (r: Recorrente) => recorrenteJaLancado(r, existentes);
 
   const catById = new Map(cats.map((c) => [c.id, c]));

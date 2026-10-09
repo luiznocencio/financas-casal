@@ -61,13 +61,23 @@ describe("aCairNoMes", () => {
     expect(itens).toHaveLength(0);
   });
 
-  it("fixo no cartão lançado com data de outro mês mas na fatura deste mês conta como lançado", () => {
-    const itens = aCairNoMes(OUT, {
+  it("fixo no cartão vale pela DATA da cobrança, não pela fatura em que caiu", () => {
+    const invoices = [
+      { id: "inv10", competencia_ano: 2026, competencia_mes: 10 },
+      { id: "inv11", competencia_ano: 2026, competencia_mes: 11 },
+    ];
+    // cobrança de setembro que caiu na fatura de outubro NÃO é a de outubro
+    const setembro = aCairNoMes(OUT, {
       txs: [tx({ recorrente_id: "f1", data_compra: "2026-09-28", card_id: "nubank", account_id: null, invoice_id: "inv10", valor_centavos: 5000 })],
-      invoices: [{ id: "inv10", competencia_ano: 2026, competencia_mes: 10 }],
-      fixos: [fixo({})], contas: [],
+      invoices, fixos: [fixo({})], contas: [],
     });
-    expect(itens).toHaveLength(0);
+    expect(setembro).toHaveLength(1);
+    // cobrança de outubro que caiu na fatura de novembro É a de outubro
+    const outubro = aCairNoMes(OUT, {
+      txs: [tx({ recorrente_id: "f1", data_compra: "2026-10-20", card_id: "nubank", account_id: null, invoice_id: "inv11", valor_centavos: 5000 })],
+      invoices, fixos: [fixo({})], contas: [],
+    });
+    expect(outubro).toHaveLength(0);
   });
 });
 

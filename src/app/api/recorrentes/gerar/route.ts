@@ -20,24 +20,20 @@ export async function POST() {
   const ini = `${ano}-${pad(mes)}-01`;
   const fim = `${ano}-${pad(mes)}-${pad(ultimo)}`;
 
-  // faturas desta competência (pra deduplicar contra o gasto do cartão, que tem a
-  // data real da compra — ex.: agosto — mas cai na fatura deste mês)
-  const { data: invs } = await supabase.from("invoices").select("id").eq("competencia_ano", ano).eq("competencia_mes", mes);
-  const invIds = (invs ?? []).map((i) => i.id);
-
+  // o fixo DESTE mês já existe? Vale a data da cobrança (régua do consumo), em
+  // conta e em cartão. Pela fatura não dá: a cobrança de outubro num cartão que
+  // fecha no fim do mês cai na fatura de NOVEMBRO — procurar só na de outubro
+  // fazia o fixo ser criado de novo a cada clique.
   const cols = "recorrente_id, descricao, valor_centavos, card_id, account_id";
-  const [recsRes, contasEx, cartaoEx] = await Promise.all([
+  const [recsRes, doMesRes] = await Promise.all([
     supabase.from("recorrentes").select("*").eq("ativo", true),
-    // conta/pix: lançamentos do mês pela data
-    supabase.from("transactions").select(cols).not("account_id", "is", null).gte("data_compra", ini).lte("data_compra", fim),
-    // cartão: lançamentos que caem na fatura desta competência
-    invIds.length ? supabase.from("transactions").select(cols).in("invoice_id", invIds) : Promise.resolve({ data: [], error: null }),
+    supabase.from("transactions").select(cols).gte("data_compra", ini).lte("data_compra", fim),
   ]);
-  if (recsRes.error || contasEx.error || cartaoEx.error) {
-    return NextResponse.json({ error: recsRes.error?.message ?? contasEx.error?.message ?? cartaoEx.error?.message }, { status: 500 });
+  if (recsRes.error || doMesRes.error) {
+    return NextResponse.json({ error: recsRes.error?.message ?? doMesRes.error?.message }, { status: 500 });
   }
 
-  const existentes = [...(contasEx.data ?? []), ...(cartaoEx.data ?? [])];
+  const existentes = [...(doMesRes.data ?? [])];
 
   const recs = (recsRes.data ?? []) as Recorrente[];
   let criadas = 0;

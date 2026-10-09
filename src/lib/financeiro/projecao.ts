@@ -56,9 +56,8 @@ export function aCairNoMes(ref: Mes, p: { txs: TxOrc[]; invoices: InvoiceOrc[]; 
   const ultimo = ultimoDiaDoMes(ref.ano, ref.mes);
   const ini = `${ref.ano}-${pad(ref.mes)}-01`;
   const fim = `${ref.ano}-${pad(ref.mes)}-${pad(ultimo)}`;
-  const invDoMes = new Set(p.invoices.filter((i) => i.competencia_ano === ref.ano && i.competencia_mes === ref.mes).map((i) => i.id));
-  // lançamentos do mês (mesma régua do "gerar fixos"): conta pela data, cartão pela fatura OU pela data
-  const doMes = p.txs.filter((t) => (t.data_compra >= ini && t.data_compra <= fim) || (t.invoice_id != null && invDoMes.has(t.invoice_id)));
+  // lançamentos do mês pela DATA da cobrança (mesma régua do "lançar fixos")
+  const doMes = p.txs.filter((t) => t.data_compra >= ini && t.data_compra <= fim);
 
   const itens: ACair[] = [];
   for (const r of p.fixos) {
