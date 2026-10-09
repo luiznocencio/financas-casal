@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { limiteDisponivel } from "@/lib/financeiro/derivados";
-import { agruparFaturas } from "@/lib/financeiro/faturas";
+import { agruparFaturas, faturaAtualDoCartao, faturasEmAbertoAteAtual } from "@/lib/financeiro/faturas";
 import { partesNoFuso } from "@/lib/financeiro/fechamento";
 import { corDaPessoa } from "@/lib/ui/pessoas";
 import { Money } from "@/components/ui/Money";
@@ -36,6 +36,7 @@ export default async function CartoesPage() {
   const txs = txsRes.data ?? [];
   const invoices = invoicesRes.data ?? [];
 
+  const hoje = partesNoFuso(new Date(), "America/Sao_Paulo");
   const linhas = cards.map((card) => {
     const txsCartao = txs.filter((t) => t.card_id === card.id);
     const emAberto = txsCartao.filter((t) => !t.paga);
@@ -46,13 +47,16 @@ export default async function CartoesPage() {
       invoices.filter((inv) => inv.card_id === card.id),
       txsCartao,
     ).filter((f) => f.totalCentavos > 0);
-    return { card, usado, pct, faturas };
+    // fatura atual (onde caem as compras de hoje) + anterior ainda não paga
+    const atual = faturaAtualDoCartao(card, hoje);
+    const abertas = new Set(faturasEmAbertoAteAtual(invoices.filter((inv) => inv.card_id === card.id), atual).map((i) => i.id));
+    const emAbertoAgora = faturas.filter((f) => abertas.has(f.id)).reduce((a, f) => a + f.totalCentavos, 0);
+    return { card, usado, pct, faturas, atual, emAbertoAgora };
   });
 
-  // totais: fatura deste mês (competência) e total em aberto nos cartões
-  const { ano: anoAtual, mes: mesAtual } = partesNoFuso(new Date(), "America/Sao_Paulo");
-  const totalFaturaMes = linhas.reduce((s, l) =>
-    s + l.faturas.filter((f) => f.ano === anoAtual && f.mes === mesAtual).reduce((a, f) => a + f.totalCentavos, 0), 0);
+  // totais: faturas em aberto agora (a atual de cada cartão — mesmo número do
+  // "Cartão de cada um" da tela inicial) e tudo em aberto (com parcelas futuras)
+  const totalFaturaMes = linhas.reduce((s, l) => s + l.emAbertoAgora, 0);
   const totalEmAberto = linhas.reduce((s, l) => s + l.usado, 0);
 
   return (
@@ -66,8 +70,8 @@ export default async function CartoesPage() {
         </div>
         {linhas.length > 0 && (
           <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
-            <span className="text-[var(--text)]">Fatura deste mês <strong><Money centavos={totalFaturaMes} tamanho="sm" /></strong></span>
-            <span className="text-[var(--muted)]">Em aberto (total) <strong><Money centavos={totalEmAberto} tamanho="sm" /></strong></span>
+            <span className="text-[var(--text)]">Faturas em aberto <strong><Money centavos={totalFaturaMes} tamanho="sm" /></strong></span>
+            <span className="text-[var(--muted)]">Com parcelas futuras <strong><Money centavos={totalEmAberto} tamanho="sm" /></strong></span>
           </div>
         )}
       </header>
@@ -84,7 +88,7 @@ export default async function CartoesPage() {
         </Card>
       ) : (
         <div className="flex flex-col gap-3">
-          {linhas.map(({ card, usado, pct, faturas }) => (
+          {linhas.map(({ card, usado, pct, faturas, atual }) => (
             <Card key={card.id}>
               <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
                 <div className="flex min-w-0 flex-col gap-0.5">
@@ -133,6 +137,10 @@ export default async function CartoesPage() {
                         {MESES[f.mes - 1]}/{f.ano}
                         {f.paga && (
                           <span className="ml-2 text-xs text-[var(--positivo)]">paga</span>
+                        )}
+                        {f.ano === atual.ano && f.mes === atual.mes && (
+                          <span className="ml-2 rounded-full px-1.5 py-0.5 text-[0.7rem] font-medium"
+                            style={{ background: "var(--accent-weak)", color: "var(--accent)" }}>atual</span>
                         )}
                       </Link>
                       <span className="flex items-center gap-3">

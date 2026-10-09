@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { agruparFaturas } from "./faturas";
+import { agruparFaturas, faturaAtualDoCartao, faturasEmAbertoAteAtual } from "./faturas";
 
 const invoices = [
   { id: "inv-abr", competencia_ano: 2026, competencia_mes: 4, status: "aberta" },
@@ -51,5 +51,25 @@ describe("estorno na fatura", () => {
       ],
     );
     expect(fs[0].totalCentavos).toBe(7500);
+  });
+});
+
+describe("fatura atual em aberto", () => {
+  it("compra de hoje cai na fatura do mês do vencimento", () => {
+    const nubank = { dia_fechamento: 30, dia_vencimento: 7 };
+    expect(faturaAtualDoCartao(nubank, { ano: 2026, mes: 10, dia: 9 })).toEqual({ ano: 2026, mes: 11 });
+    const itau = { dia_fechamento: 4, dia_vencimento: 10 };
+    expect(faturaAtualDoCartao(itau, { ano: 2026, mes: 10, dia: 9 })).toEqual({ ano: 2026, mes: 11 });
+    expect(faturaAtualDoCartao(itau, { ano: 2026, mes: 10, dia: 2 })).toEqual({ ano: 2026, mes: 10 });
+  });
+
+  it("conta as não pagas até a atual; paga e futuras (parcelas) ficam de fora", () => {
+    const invs = [
+      { id: "set", competencia_ano: 2026, competencia_mes: 9, status: "aberta" },
+      { id: "out", competencia_ano: 2026, competencia_mes: 10, status: "paga" },
+      { id: "nov", competencia_ano: 2026, competencia_mes: 11, status: "aberta" },
+      { id: "dez", competencia_ano: 2026, competencia_mes: 12, status: "aberta" },
+    ];
+    expect(faturasEmAbertoAteAtual(invs, { ano: 2026, mes: 11 }).map((i) => i.id)).toEqual(["set", "nov"]);
   });
 });

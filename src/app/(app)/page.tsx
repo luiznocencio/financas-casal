@@ -2,7 +2,7 @@ import Link from "next/link";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { saldoConta } from "@/lib/financeiro/derivados";
 import { resumoDoMes } from "@/lib/financeiro/agregacoes";
-import { ultimoDiaDoMes } from "@/lib/financeiro/fechamento";
+import { ultimoDiaDoMes, partesNoFuso } from "@/lib/financeiro/fechamento";
 import { contaOcorreNoMes, mesesEmAberto, quitadosPorConta, chaveMes as chaveMesConta } from "@/lib/financeiro/contas";
 import { centavosParaReais } from "@/lib/financeiro/dinheiro";
 import { Money } from "@/components/ui/Money";
@@ -12,7 +12,7 @@ import { CategoriaTag } from "@/components/ui/CategoriaTag";
 import { SairButton } from "@/components/shell/SairButton";
 import { CheckCircle, WarningCircle, Wallet, Receipt } from "@phosphor-icons/react/dist/ssr";
 import { orcamentoDoMes } from "@/lib/financeiro/projecao";
-import { valorNaFatura } from "@/lib/financeiro/faturas";
+import { valorNaFatura, faturaAtualDoCartao, faturasEmAbertoAteAtual } from "@/lib/financeiro/faturas";
 import type { FatosResumo } from "@/lib/financeiro/resumoFrase";
 import { ResumoFrase } from "@/components/dashboard/ResumoFrase";
 import { todas } from "@/lib/supabase/todas";
@@ -43,7 +43,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
     todas((de, ate) => supabase.from("transactions").select("*").order("id").range(de, ate)),
     supabase.from("categories").select("id, nome, cor, parent_id"),
     supabase.from("members").select("nome, renda_mensal_centavos, ajuda_custo_centavos"),
-    supabase.from("invoices").select("id, competencia_ano, competencia_mes"),
+    supabase.from("invoices").select("id, card_id, competencia_ano, competencia_mes, status"),
     supabase.from("contas_pagar").select("id, descricao, categoria_id, valor_estimado_centavos, dia_vencimento, recorrencia, data_fim, created_at").eq("ativo", true),
     // recebimentos agendados (A receber), INCLUINDO salário — base do "Recebo".
     // Reflete o valor REAL quando já recebido (abono/desconto do salário variável)
@@ -194,17 +194,28 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   }, 0);
   const totalPixContaMes = Math.max(0, resumo.totalDespesas - totalCartoesMes);
 
-  // FATURA de cada um no mês (as faturas deste mês, por titular do cartão) — o
-  // mesmo número da tela Cartões. Estorno/crédito abate a fatura.
+  // FATURA EM ABERTO de cada um: a fatura atual de cada cartão (onde estão caindo
+  // as compras de agora — ex.: em outubro, a de novembro) + alguma anterior ainda
+  // não paga. O mesmo número da tela Cartões. Estorno/crédito abate.
+  // Mês atual: hoje. Outro mês: o último dia dele (passado: a fatura que estava
+  // aberta no fim do mês, mesmo que já paga depois).
+  const hojeFuso = partesNoFuso(new Date(), "America/Sao_Paulo");
+  const diaRef = ehAtual ? hojeFuso : { ano: ref.ano, mes: ref.mes, dia: ultimoDiaDoMes(ref.ano, ref.mes) };
+  const faturasContadas = new Set<string>();
+  for (const card of cards ?? []) {
+    const atualCard = faturaAtualDoCartao(card, diaRef);
+    const doCartao = (invoicesRes.data ?? []).filter((i) => i.card_id === card.id);
+    const contam = idxRef < idxAtual
+      ? doCartao.filter((i) => i.competencia_ano === atualCard.ano && i.competencia_mes === atualCard.mes)
+      : faturasEmAbertoAteAtual(doCartao, atualCard);
+    for (const i of contam) faturasContadas.add(i.id);
+  }
   const titularPorCard = new Map((cards ?? []).map((c) => [c.id, c.titular]));
   const faturaPorPessoa: Record<string, number> = {};
   for (const t of txs ?? []) {
-    if (!t.card_id || !t.invoice_id) continue;
-    const comp = compPorInvoice.get(t.invoice_id);
-    if (!comp || comp.ano !== ref.ano || comp.mes !== ref.mes) continue;
-    const sinal = t.tipo === "receita" ? -1 : t.tipo === "despesa" ? 1 : 0;
+    if (!t.card_id || !t.invoice_id || !faturasContadas.has(t.invoice_id)) continue;
     const pessoa = titularPorCard.get(t.card_id) ?? "conjunto";
-    faturaPorPessoa[pessoa] = (faturaPorPessoa[pessoa] ?? 0) + sinal * t.valor_centavos;
+    faturaPorPessoa[pessoa] = (faturaPorPessoa[pessoa] ?? 0) + valorNaFatura(t);
   }
   const porPessoa = Object.entries(faturaPorPessoa).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
   const totalFaturasMes = porPessoa.reduce((s, [, v]) => s + v, 0);
@@ -376,7 +387,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
             <h3 className="font-medium text-[var(--text)]">Cartão de cada um</h3>
             <span className="text-sm text-[var(--text)]">Total <strong><Money centavos={totalFaturasMes} tamanho="sm" /></strong></span>
           </div>
-          <p className="mb-4 text-xs text-[var(--muted)]">Faturas de {MESES[ref.mes - 1]} nos cartões de cada pessoa — o mesmo valor da tela Cartões.</p>
+          <p className="mb-4 text-xs text-[var(--muted)]">Fatura em aberto dos cartões de cada pessoa — onde estão caindo as compras {ehAtual ? "de agora" : `do fim de ${MESES[ref.mes - 1]}`}. Mesmo valor da tela Cartões.</p>
           <SplitBar itens={porPessoa.map(([nome, centavos]) => ({ nome, centavos }))} membros={membros} />
         </Card>
 
