@@ -238,9 +238,6 @@ export function Importador({
                 <span className="text-xs text-[var(--muted)]">Marque <strong>fixo</strong> num lançamento pra virar gasto fixo e mapear nas próximas faturas.</span>
               )}
             </div>
-            <Button variant="primary" onClick={confirmar} disabled={carregando}>
-              Importar {linhas.filter((l) => l.incluir).length}
-            </Button>
           </div>
 
           {totalFatura != null && (() => {
@@ -320,6 +317,16 @@ export function Importador({
             className="mt-2 flex items-center gap-1.5 self-start rounded-[var(--radius-sm)] border border-dashed border-[var(--border)] px-3 py-1.5 text-sm text-[var(--muted)] hover:border-[var(--accent)] hover:text-[var(--accent)]">
             <Plus size={14} /> Adicionar lançamento
           </button>
+
+          {/* importar no FIM da lista: confere linha por linha e já confirma aqui */}
+          <div className="mt-4 flex flex-wrap items-center justify-end gap-3 border-t border-[var(--border)] pt-4">
+            <span className="text-sm text-[var(--muted)]">
+              {linhas.filter((l) => l.incluir).length} de {linhas.length} selecionados
+            </span>
+            <Button variant="primary" onClick={confirmar} disabled={carregando}>
+              Importar {linhas.filter((l) => l.incluir).length}
+            </Button>
+          </div>
         </Card>
       )}
     </div>
