@@ -12,6 +12,7 @@ import { CategoriaTag } from "@/components/ui/CategoriaTag";
 import { SairButton } from "@/components/shell/SairButton";
 import { CheckCircle, WarningCircle, Wallet, Receipt } from "@phosphor-icons/react/dist/ssr";
 import { orcamentoDoMes } from "@/lib/financeiro/projecao";
+import { valorNaFatura } from "@/lib/financeiro/faturas";
 import type { FatosResumo } from "@/lib/financeiro/resumoFrase";
 import { ResumoFrase } from "@/components/dashboard/ResumoFrase";
 import { todas } from "@/lib/supabase/todas";
@@ -125,7 +126,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
     if (!t.card_id || t.paga) continue;
     const comp = t.invoice_id ? compPorInvoice.get(t.invoice_id) : null;
     if (!comp) continue;
-    faturaAbertaPorComp[chaveMes(comp.ano, comp.mes)] = (faturaAbertaPorComp[chaveMes(comp.ano, comp.mes)] ?? 0) + t.valor_centavos;
+    faturaAbertaPorComp[chaveMes(comp.ano, comp.mes)] = (faturaAbertaPorComp[chaveMes(comp.ano, comp.mes)] ?? 0) + valorNaFatura(t);
   }
   // tudo que está em aberto até o mês atual (inclui atrasos), some no mês corrente
   const faturasAbertasAteAtual = Object.entries(faturaAbertaPorComp)
@@ -182,22 +183,31 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   const nomeCat = (id: string) => catById.get(id)?.nome ?? "Outros";
   const corCat = (id: string) => catById.get(id)?.cor ?? "#6b7280";
 
-  // fatura de cada um no mês: soma das compras dos cartões, por titular do cartão
-  // (na competência da fatura — mesma regra do resto do painel)
-  const titularPorCard = new Map((cards ?? []).map((c) => [c.id, c.titular]));
-  const faturaPorPessoa: Record<string, number> = {};
-  for (const t of txsRef) {
-    if (!t.card_id || t.tipo !== "despesa") continue;
+  // compras no cartão feitas NESTE mês (consumo: à vista pela data; parcela pela
+  // fatura) — só pra separar cartão de pix/conta no "gasto do mês"
+  const totalCartoesMes = txsRef.reduce((s, t) => {
+    if (!t.card_id || t.tipo !== "despesa") return s;
     const comp = t.competencia;
     const ano = comp ? comp.ano : Number(t.data_compra.slice(0, 4));
     const mes = comp ? comp.mes : Number(t.data_compra.slice(5, 7));
-    if (ano !== ref.ano || mes !== ref.mes) continue;
-    const pessoa = titularPorCard.get(t.card_id) ?? "conjunto";
-    faturaPorPessoa[pessoa] = (faturaPorPessoa[pessoa] ?? 0) + t.valor_centavos;
-  }
-  const porPessoa = Object.entries(faturaPorPessoa).sort((a, b) => b[1] - a[1]);
-  const totalCartoesMes = porPessoa.reduce((s, [, v]) => s + v, 0);
+    return ano === ref.ano && mes === ref.mes ? s + t.valor_centavos : s;
+  }, 0);
   const totalPixContaMes = Math.max(0, resumo.totalDespesas - totalCartoesMes);
+
+  // FATURA de cada um no mês (as faturas deste mês, por titular do cartão) — o
+  // mesmo número da tela Cartões. Estorno/crédito abate a fatura.
+  const titularPorCard = new Map((cards ?? []).map((c) => [c.id, c.titular]));
+  const faturaPorPessoa: Record<string, number> = {};
+  for (const t of txs ?? []) {
+    if (!t.card_id || !t.invoice_id) continue;
+    const comp = compPorInvoice.get(t.invoice_id);
+    if (!comp || comp.ano !== ref.ano || comp.mes !== ref.mes) continue;
+    const sinal = t.tipo === "receita" ? -1 : t.tipo === "despesa" ? 1 : 0;
+    const pessoa = titularPorCard.get(t.card_id) ?? "conjunto";
+    faturaPorPessoa[pessoa] = (faturaPorPessoa[pessoa] ?? 0) + sinal * t.valor_centavos;
+  }
+  const porPessoa = Object.entries(faturaPorPessoa).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
+  const totalFaturasMes = porPessoa.reduce((s, [, v]) => s + v, 0);
   const topCategorias = Object.entries(resumo.porCategoria).sort((a, b) => b[1] - a[1]);
   const maiorCategoria = topCategorias.length ? topCategorias[0][1] : 0;
 
@@ -352,7 +362,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
             <span>resultado <strong className="mono" style={{ color: corMargem }}>{dinheiro(margem)}</strong></span>
           </div>
           <div className="mt-2 grid grid-cols-3 gap-2">
-            <div><div className="text-xs text-[var(--muted)]">Cartões</div><Money centavos={totalCartoesMes} tamanho="sm" /></div>
+            <div><div className="text-xs text-[var(--muted)]">Compras no cartão</div><Money centavos={totalCartoesMes} tamanho="sm" /></div>
             <div><div className="text-xs text-[var(--muted)]">Pix/conta</div><Money centavos={totalPixContaMes} tamanho="sm" /></div>
             <div><div className="text-xs text-[var(--muted)]">Contas a pagar</div><Money centavos={contasPendentesRef} tamanho="sm" /></div>
           </div>
@@ -364,9 +374,9 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
         <Card>
           <div className="mb-1 flex flex-wrap items-baseline justify-between gap-2">
             <h3 className="font-medium text-[var(--text)]">Cartão de cada um</h3>
-            <span className="text-sm text-[var(--text)]">Total <strong><Money centavos={totalCartoesMes} tamanho="sm" /></strong></span>
+            <span className="text-sm text-[var(--text)]">Total <strong><Money centavos={totalFaturasMes} tamanho="sm" /></strong></span>
           </div>
-          <p className="mb-4 text-xs text-[var(--muted)]">Compras nos cartões de cada pessoa neste mês (pela data; parcela conta a parcela do mês).</p>
+          <p className="mb-4 text-xs text-[var(--muted)]">Faturas de {MESES[ref.mes - 1]} nos cartões de cada pessoa — o mesmo valor da tela Cartões.</p>
           <SplitBar itens={porPessoa.map(([nome, centavos]) => ({ nome, centavos }))} membros={membros} />
         </Card>
 

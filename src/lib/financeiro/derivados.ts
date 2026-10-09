@@ -1,8 +1,9 @@
 export function limiteDisponivel(
   limiteTotalCentavos: number,
-  parcelasEmAberto: { valor_centavos: number }[],
+  parcelasEmAberto: { valor_centavos: number; tipo?: string | null }[],
 ): number {
-  const usado = parcelasEmAberto.reduce((s, p) => s + p.valor_centavos, 0);
+  // estorno/crédito (receita) devolve limite
+  const usado = parcelasEmAberto.reduce((s, p) => s + (p.tipo === "receita" ? -p.valor_centavos : p.valor_centavos), 0);
   return limiteTotalCentavos - usado;
 }
 

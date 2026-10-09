@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase/server";
+import { valorNaFatura } from "@/lib/financeiro/faturas";
 import { getMembroAtual } from "@/lib/auth/household";
 
 // Marca (ou desmarca) uma fatura inteira como paga.
@@ -25,11 +26,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     if (errJa) return NextResponse.json({ error: errJa.message }, { status: 500 });
     if ((jaPago ?? []).length > 0) return NextResponse.json({ error: "fatura já paga" }, { status: 409 });
 
-    // total da fatura = soma das compras dela
+    // total da fatura = compras − estornos
     const { data: comprasFatura, error: errSum } = await supabase
-      .from("transactions").select("valor_centavos").eq("invoice_id", id);
+      .from("transactions").select("valor_centavos, tipo").eq("invoice_id", id);
     if (errSum) return NextResponse.json({ error: errSum.message }, { status: 500 });
-    const total = (comprasFatura ?? []).reduce((s, t) => s + t.valor_centavos, 0);
+    const total = (comprasFatura ?? []).reduce((s, t) => s + valorNaFatura(t), 0);
 
     // lançamento de pagamento na conta (transferência: reduz saldo, não é despesa nova)
     const { error: errPag } = await supabase.from("transactions").insert({

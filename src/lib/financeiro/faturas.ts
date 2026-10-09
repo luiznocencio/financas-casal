@@ -1,3 +1,8 @@
+// Quanto um lançamento pesa na fatura: compra soma, estorno/crédito (receita) abate.
+export function valorNaFatura(t: { valor_centavos: number; tipo?: string | null }): number {
+  return t.tipo === "receita" ? -t.valor_centavos : t.valor_centavos;
+}
+
 export type FaturaResumo = {
   id: string;
   ano: number;
@@ -12,12 +17,12 @@ export type FaturaResumo = {
  */
 export function agruparFaturas(
   invoices: { id: string; competencia_ano: number; competencia_mes: number; status: string }[],
-  txs: { invoice_id: string | null; valor_centavos: number }[],
+  txs: { invoice_id: string | null; valor_centavos: number; tipo?: string | null }[],
 ): FaturaResumo[] {
   const totalPorFatura = new Map<string, number>();
   for (const t of txs) {
     if (!t.invoice_id) continue;
-    totalPorFatura.set(t.invoice_id, (totalPorFatura.get(t.invoice_id) ?? 0) + t.valor_centavos);
+    totalPorFatura.set(t.invoice_id, (totalPorFatura.get(t.invoice_id) ?? 0) + valorNaFatura(t));
   }
 
   return invoices

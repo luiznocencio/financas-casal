@@ -40,3 +40,16 @@ describe("agruparFaturas", () => {
     expect(fs[0].totalCentavos).toBe(0);
   });
 });
+
+describe("estorno na fatura", () => {
+  it("receita (estorno/crédito) abate o total da fatura", () => {
+    const fs = agruparFaturas(
+      [{ id: "f", competencia_ano: 2026, competencia_mes: 10, status: "aberta" }],
+      [
+        { invoice_id: "f", valor_centavos: 10000, tipo: "despesa" },
+        { invoice_id: "f", valor_centavos: 2500, tipo: "receita" },
+      ],
+    );
+    expect(fs[0].totalCentavos).toBe(7500);
+  });
+});

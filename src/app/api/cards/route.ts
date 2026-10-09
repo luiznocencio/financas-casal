@@ -9,7 +9,7 @@ export async function GET() {
   const supabase = await createServerSupabase();
   const { data: cards } = await supabase.from("cards").select("*").order("nome");
   const { data: txs } = await todas((de, ate) => supabase
-    .from("transactions").select("card_id, valor_centavos, paga").not("card_id", "is", null).order("id").range(de, ate));
+    .from("transactions").select("card_id, valor_centavos, paga, tipo").not("card_id", "is", null).order("id").range(de, ate));
 
   const resultado = (cards ?? []).map((card) => {
     const emAberto = (txs ?? []).filter((t) => t.card_id === card.id && !t.paga);

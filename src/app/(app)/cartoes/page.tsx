@@ -23,7 +23,7 @@ export default async function CartoesPage() {
   const [cardsRes, txsRes, invoicesRes, membrosRes, contasRes] = await Promise.all([
     supabase.from("cards").select("*").order("nome"),
     todas((de, ate) => supabase.from("transactions")
-      .select("card_id, invoice_id, valor_centavos, paga").not("card_id", "is", null).order("id").range(de, ate)),
+      .select("card_id, invoice_id, valor_centavos, paga, tipo").not("card_id", "is", null).order("id").range(de, ate)),
     supabase.from("invoices").select("id, card_id, competencia_ano, competencia_mes, status"),
     supabase.from("members").select("nome"),
     supabase.from("accounts").select("id, nome, titular").order("nome"),
