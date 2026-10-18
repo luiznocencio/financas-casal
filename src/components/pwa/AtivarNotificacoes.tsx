@@ -107,10 +107,10 @@ export function AtivarNotificacoes() {
           ? <Bell size={18} weight="fill" color="var(--accent)" />
           : <BellSlash size={18} color="var(--muted)" />}
         <div className="min-w-0">
-          <div className="text-sm font-medium text-[var(--text)]">Avisos de fatura fechando</div>
+          <div className="text-sm font-medium text-[var(--text)]">Avisos do app</div>
           <div className="text-xs text-[var(--muted)]">
-            {estado === "ativo" && "Você recebe um aviso 1 dia antes de cada fatura fechar."}
-            {estado === "inativo" && "Receba um aviso 1 dia antes de cada fatura fechar."}
+            {estado === "ativo" && "Ativos: fatura fechando, conta vencendo e orçamento no limite."}
+            {estado === "inativo" && "Avisa 1 dia antes da fatura fechar e da conta vencer, e quando uma categoria chega no limite do orçamento."}
             {estado === "negado" && "As notificações estão bloqueadas nas configurações do navegador."}
           </div>
           {erro && <div className="mt-1 text-xs text-[var(--negativo)]">{erro}</div>}

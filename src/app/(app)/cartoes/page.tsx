@@ -9,7 +9,6 @@ import { Card } from "@/components/ui/Card";
 import { FaturaBotao } from "@/components/cartoes/FaturaBotao";
 import { AddCartaoForm } from "@/components/cartoes/AddCartaoForm";
 import { EditarCartao } from "@/components/cartoes/EditarCartao";
-import { AtivarNotificacoes } from "@/components/pwa/AtivarNotificacoes";
 import { CreditCard as CreditCardIcon, Receipt, Star } from "@phosphor-icons/react/dist/ssr";
 import { todas } from "@/lib/supabase/todas";
 
@@ -75,8 +74,6 @@ export default async function CartoesPage() {
           </div>
         )}
       </header>
-
-      <AtivarNotificacoes />
 
       <AddCartaoForm membros={membros} />
 

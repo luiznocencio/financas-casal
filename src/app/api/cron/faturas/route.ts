@@ -82,10 +82,11 @@ export async function GET(req: Request) {
     ? subs.map((s) => ({
         s,
         payload: {
-          title: "Teste de notificação ✅",
-          body: "Se você recebeu isso, os avisos de fatura estão funcionando.",
-          url: "/cartoes",
+          title: "🔔 Teste de notificação",
+          body: "Se você recebeu isso, os avisos estão funcionando: faturas, contas e orçamento.",
+          url: "/",
           tag: "teste",
+          tipo: "geral" as const,
         },
       }))
     : [
@@ -95,10 +96,11 @@ export async function GET(req: Request) {
             .map((s) => ({
               s,
               payload: {
-                title: "Fatura fechando amanhã",
+                title: "💳 Fatura fechando amanhã",
                 body: `A fatura do ${card.nome} fecha amanhã. Confira os gastos antes de fechar.`,
                 url: "/cartoes",
                 tag: `fatura-${card.id}`,
+                tipo: "fatura" as const,
               },
             })),
         ),
@@ -108,10 +110,11 @@ export async function GET(req: Request) {
             .map((s) => ({
               s,
               payload: {
-                title: "Conta vence amanhã",
+                title: "📅 Conta vence amanhã",
                 body: `${conta.descricao} vence amanhã. Já deixa pago pra não esquecer.`,
                 url: "/planejamento?aba=contas",
                 tag: `conta-${conta.id}`,
+                tipo: "conta" as const,
               },
             })),
         ),
@@ -136,10 +139,10 @@ export async function GET(req: Request) {
         if (i.estado === "ok" || RANK[i.estado] <= (enviado.get(`${hh}|${i.categoria_id}`) ?? 0)) continue;
         const cat = nome.get(i.categoria_id) ?? "Categoria";
         const payload = i.estado === "estourou"
-          ? { title: `${cat} estourou o orçamento`, body: `Gasto ${centavosParaReais(i.gasto)} de ${centavosParaReais(i.limite)} em ${MESES[hoje.mes - 1]} — ${centavosParaReais(i.excesso)} acima.` }
+          ? { tipo: "orcamento-estourou" as const, title: `🚨 ${cat} estourou o orçamento`, body: `Gasto ${centavosParaReais(i.gasto)} de ${centavosParaReais(i.limite)} em ${MESES[hoje.mes - 1]} — ${centavosParaReais(i.excesso)} acima.` }
           : i.estado === "vai_estourar"
-            ? { title: `${cat} vai passar do limite`, body: `Com o que ainda vai cair, fecha em ${centavosParaReais(i.projetado)} — ${centavosParaReais(i.excesso)} acima de ${centavosParaReais(i.limite)}.` }
-            : { title: `${cat} chegou a 90% do orçamento`, body: `Já foram ${centavosParaReais(i.gasto)} de ${centavosParaReais(i.limite)} em ${MESES[hoje.mes - 1]}.` };
+            ? { tipo: "orcamento-vai-passar" as const, title: `📈 ${cat} vai passar do limite`, body: `Com o que ainda vai cair, fecha em ${centavosParaReais(i.projetado)} — ${centavosParaReais(i.excesso)} acima de ${centavosParaReais(i.limite)}.` }
+            : { tipo: "orcamento-atencao" as const, title: `⚠️ ${cat} chegou a 90% do orçamento`, body: `Já foram ${centavosParaReais(i.gasto)} de ${centavosParaReais(i.limite)} em ${MESES[hoje.mes - 1]}.` };
         for (const s of subs.filter((x) => x.household_id === hh)) {
           tarefas.push({ s, payload: { ...payload, url: "/orcamento", tag: `orc-${i.categoria_id}` } });
         }

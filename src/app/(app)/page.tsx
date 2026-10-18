@@ -10,6 +10,7 @@ import { Card } from "@/components/ui/Card";
 import { SplitBar } from "@/components/ui/SplitBar";
 import { CategoriaTag } from "@/components/ui/CategoriaTag";
 import { SairButton } from "@/components/shell/SairButton";
+import { AtivarNotificacoes } from "@/components/pwa/AtivarNotificacoes";
 import { CheckCircle, WarningCircle, Wallet, Receipt } from "@phosphor-icons/react/dist/ssr";
 import { orcamentoDoMes } from "@/lib/financeiro/projecao";
 import { valorNaFatura, faturaAtualDoCartao, faturasEmAbertoAteAtual } from "@/lib/financeiro/faturas";
@@ -420,6 +421,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
         </Card>
       </div>
 
+      <AtivarNotificacoes />
     </main>
   );
 }

@@ -9,9 +9,9 @@ self.addEventListener("fetch", () => {
   // passthrough: sem respondWith, o browser faz o fetch normal pela rede.
 });
 
-// Web Push: mostra a notificação de fatura fechando.
+// Web Push: mostra o aviso (fatura, conta, orçamento) com o ícone do tipo.
 self.addEventListener("push", (event) => {
-  let dados = { title: "Finanças do Casal", body: "", url: "/cartoes", tag: "fatura" };
+  let dados = { title: "Finanças do Casal", body: "", url: "/", tag: "geral", icon: "/notif/geral.png", badge: "/notif/geral-badge.png" };
   try {
     if (event.data) dados = { ...dados, ...event.data.json() };
   } catch {
@@ -20,10 +20,10 @@ self.addEventListener("push", (event) => {
   event.waitUntil(
     self.registration.showNotification(dados.title, {
       body: dados.body,
-      icon: "/icon-192.png",
-      badge: "/icon-192.png",
+      icon: dados.icon,
+      badge: dados.badge,
       data: { url: dados.url },
-      // tag por cartão: notificações de cartões diferentes não se sobrepõem
+      // tag por item (cartão, conta, categoria): avisos diferentes não se sobrepõem
       tag: dados.tag,
     }),
   );

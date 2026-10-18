@@ -15,16 +15,20 @@ export type Assinatura = { endpoint: string; p256dh: string; auth: string };
 
 export type ResultadoEnvio = { ok: boolean; expirada: boolean };
 
+// cada tipo de aviso tem seu ícone em public/notif (gerados por scripts/gen-notif-icons.mjs)
+export type TipoAviso = "fatura" | "conta" | "orcamento-atencao" | "orcamento-vai-passar" | "orcamento-estourou" | "geral";
+
 /** Envia uma notificação. `expirada` = a assinatura sumiu (404/410) e deve ser apagada. */
 export async function enviarPush(
   assinatura: Assinatura,
-  payload: { title: string; body: string; url?: string; tag?: string },
+  payload: { title: string; body: string; url?: string; tag?: string; tipo: TipoAviso },
 ): Promise<ResultadoEnvio> {
   configurar();
+  const { tipo, ...resto } = payload;
   try {
     await webpush.sendNotification(
       { endpoint: assinatura.endpoint, keys: { p256dh: assinatura.p256dh, auth: assinatura.auth } },
-      JSON.stringify(payload),
+      JSON.stringify({ ...resto, icon: `/notif/${tipo}.png`, badge: `/notif/${tipo}-badge.png` }),
     );
     return { ok: true, expirada: false };
   } catch (e) {

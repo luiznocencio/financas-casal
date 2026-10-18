@@ -1,3 +1,5 @@
+import Link from "next/link";
+import { CaretRight } from "@phosphor-icons/react/dist/ssr";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { saldoConta } from "@/lib/financeiro/derivados";
 import { Money } from "@/components/ui/Money";
@@ -51,7 +53,7 @@ export default async function ContasPage() {
           {linhas.map(({ conta, saldo }) => (
             <Card key={conta.id} className="transition-colors hover:border-[var(--accent)]">
               <div className="flex flex-col gap-3">
-                <div className="flex items-start justify-between gap-3">
+                <Link href={`/contas/${conta.id}`} className="flex items-start justify-between gap-3" aria-label={`Ver movimentação de ${conta.nome}`}>
                   <div className="flex min-w-0 flex-col gap-1">
                     <span className="break-words font-medium text-[var(--text)]">{conta.nome}</span>
                     <span className="text-xs uppercase tracking-wide text-[var(--muted)]">
@@ -63,8 +65,13 @@ export default async function ContasPage() {
                       </span>
                     )}
                   </div>
-                  <Money centavos={saldo} sinal tamanho="lg" />
-                </div>
+                  <div className="flex flex-col items-end gap-1">
+                    <Money centavos={saldo} sinal tamanho="lg" />
+                    <span className="inline-flex items-center gap-0.5 text-xs text-[var(--accent)]">
+                      Movimentação <CaretRight size={12} />
+                    </span>
+                  </div>
+                </Link>
                 <EditarConta conta={conta} membros={membros} />
               </div>
             </Card>
