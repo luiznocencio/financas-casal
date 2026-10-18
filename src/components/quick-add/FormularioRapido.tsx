@@ -7,10 +7,10 @@ import { MoneyInput } from "@/components/ui/MoneyInput";
 import { ordenarComSubcategorias } from "@/lib/ui/categorias";
 
 export function FormularioRapido({
-  cartoes, contas, categorias, membros, usuarioAtual, valorInicialReais = "", inicial, onCriado,
+  cartoes, contas, categorias, membros, usuarioAtual, cartaoPrincipalId, valorInicialReais = "", inicial, onCriado,
 }: {
   cartoes: Card[]; contas: Account[]; categorias: Category[]; membros: string[];
-  usuarioAtual: string; valorInicialReais?: string; onCriado: () => void;
+  usuarioAtual: string; cartaoPrincipalId: string | null; valorInicialReais?: string; onCriado: () => void;
   // valores pré-preenchidos (ex.: vindo da sugestão da IA ao clicar "Ajustar")
   inicial?: {
     descricao?: string | null; tipo?: "despesa" | "receita"; categoria_id?: string | null;
@@ -25,10 +25,10 @@ export function FormularioRapido({
     const item = (tipo === "card" ? cartoes : contas).find((x) => x.id === id);
     return item?.titular && membrosSet.has(item.titular) ? item.titular : null;
   }
-  // 1º destino do tipo: cartão principal do lar tem prioridade; senão o do próprio usuário
+  // 1º destino do tipo: o cartão principal de quem está lançando; senão um do próprio usuário
   function primeiroDoTipo(tipo: TipoOrigem): string {
     const lista = tipo === "card" ? cartoes : contas;
-    if (tipo === "card") { const p = cartoes.find((c) => c.principal); if (p) return p.id; }
+    if (tipo === "card" && cartaoPrincipalId && cartoes.some((c) => c.id === cartaoPrincipalId)) return cartaoPrincipalId;
     return (lista.find((x) => x.titular === usuarioAtual) ?? lista[0])?.id ?? "";
   }
   // origem inicial: respeita a sugestão (card/conta) se ela existir; senão prefere cartão

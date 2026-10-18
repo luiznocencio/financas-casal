@@ -22,12 +22,13 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   if ("titular" in b) patch.titular = b.titular || null;
   if ("bandeira" in b) patch.bandeira = b.bandeira || null;
   const supabase = await createServerSupabase();
-  // cartão principal: só um por lar. Ao marcar este, zera os demais (RLS já limita
-  // ao household), senão o índice único estoura.
+  // cartão principal é de cada pessoa: marca/desmarca no membro logado
   if (typeof b.principal === "boolean") {
-    if (b.principal) await supabase.from("cards").update({ principal: false }).neq("id", id);
-    patch.principal = b.principal;
+    const { error } = await supabase.from("members")
+      .update({ cartao_principal_id: b.principal ? id : null }).eq("user_id", membro.user_id);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   }
+  if (Object.keys(patch).length === 0) return NextResponse.json({ ok: true });
   const { error } = await supabase.from("cards").update(patch).eq("id", id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ ok: true });

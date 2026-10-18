@@ -41,6 +41,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         cartoes={cartoes ?? []} contas={contas ?? []}
         categorias={categorias ?? []} membros={(membros ?? []).map((m) => m.nome)}
         usuarioAtual={membro.nome}
+        cartaoPrincipalId={membro.cartao_principal_id}
       />
     </div>
   );

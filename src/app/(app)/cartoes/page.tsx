@@ -11,6 +11,7 @@ import { AddCartaoForm } from "@/components/cartoes/AddCartaoForm";
 import { EditarCartao } from "@/components/cartoes/EditarCartao";
 import { CreditCard as CreditCardIcon, Receipt, Star } from "@phosphor-icons/react/dist/ssr";
 import { todas } from "@/lib/supabase/todas";
+import { getUsuarioId } from "@/lib/auth/household";
 
 const MESES = [
   "jan", "fev", "mar", "abr", "mai", "jun",
@@ -19,18 +20,22 @@ const MESES = [
 
 export default async function CartoesPage() {
   const supabase = await createServerSupabase();
-  const [cardsRes, txsRes, invoicesRes, membrosRes, contasRes] = await Promise.all([
+  const [userId, cardsRes, txsRes, invoicesRes, membrosRes, contasRes] = await Promise.all([
+    getUsuarioId(),
     supabase.from("cards").select("*").order("nome"),
     todas((de, ate) => supabase.from("transactions")
       .select("card_id, invoice_id, valor_centavos, paga, tipo").not("card_id", "is", null).order("id").range(de, ate)),
     supabase.from("invoices").select("id, card_id, competencia_ano, competencia_mes, status"),
-    supabase.from("members").select("nome"),
+    supabase.from("members").select("user_id, nome, cartao_principal_id"),
     supabase.from("accounts").select("id, nome, titular").order("nome"),
   ]);
   const erro = cardsRes.error ?? txsRes.error ?? invoicesRes.error ?? membrosRes.error ?? contasRes.error;
   if (erro) throw new Error(`Falha ao carregar os cartões: ${erro.message}`);
   const cards = cardsRes.data ?? [];
   const membros = (membrosRes.data ?? []).map((m) => m.nome);
+  // cartão principal é de cada pessoa: quem tem este cartão como principal
+  const principalDe = (cardId: string) => (membrosRes.data ?? []).filter((m) => m.cartao_principal_id === cardId);
+  const meuPrincipalId = (membrosRes.data ?? []).find((m) => m.user_id === userId)?.cartao_principal_id ?? null;
   const contas = contasRes.data ?? [];
   const txs = txsRes.data ?? [];
   const invoices = invoicesRes.data ?? [];
@@ -93,12 +98,12 @@ export default async function CartoesPage() {
                     className="flex items-center gap-1.5 break-words font-semibold text-[var(--text)] hover:text-[var(--accent)]">
                     <CreditCardIcon size={16} />
                     {card.nome}
-                    {card.principal && (
-                      <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[0.7rem] font-medium"
+                    {principalDe(card.id).map((m) => (
+                      <span key={m.user_id} className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[0.7rem] font-medium"
                         style={{ background: "var(--accent-weak)", color: "var(--accent)" }}>
-                        <Star size={11} weight="fill" /> Principal
+                        <Star size={11} weight="fill" /> {m.user_id === userId ? "Seu principal" : `Principal de ${m.nome}`}
                       </span>
-                    )}
+                    ))}
                   </Link>
                   {card.titular && (
                     <span className="mt-0.5 inline-flex w-fit items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium text-[var(--text)]"
@@ -150,7 +155,7 @@ export default async function CartoesPage() {
               )}
 
               <div className="mt-4">
-                <EditarCartao card={card} membros={membros} />
+                <EditarCartao card={card} membros={membros} ehMeuPrincipal={card.id === meuPrincipalId} />
               </div>
             </Card>
           ))}
