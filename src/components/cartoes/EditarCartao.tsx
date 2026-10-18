@@ -9,7 +9,7 @@ import { TitularSelect } from "@/components/ui/TitularSelect";
 import { FechamentoPreview } from "@/components/cartoes/FechamentoPreview";
 import type { Card } from "@/lib/db/tipos";
 
-export function EditarCartao({ card, membros }: { card: Card; membros: string[] }) {
+export function EditarCartao({ card, membros, ehMeuPrincipal }: { card: Card; membros: string[]; ehMeuPrincipal: boolean }) {
   const router = useRouter();
   const [editando, setEditando] = useState(false);
   const [confirmandoExclusao, setConfirmandoExclusao] = useState(false);
@@ -56,9 +56,9 @@ export function EditarCartao({ card, membros }: { card: Card; membros: string[] 
   async function alternarPrincipal() {
     setErro(null);
     setMarcando(true);
-    // desmarcar não faz sentido prático (fica sem principal); só permite marcar
+    // o principal é de quem está logado: cada um marca (ou desmarca) o seu
     const res = await fetch(`/api/cards/${card.id}`, {
-      method: "PATCH", body: JSON.stringify({ principal: !card.principal }),
+      method: "PATCH", body: JSON.stringify({ principal: !ehMeuPrincipal }),
     });
     setMarcando(false);
     if (!res.ok) { setErro("Não foi possível definir o cartão principal."); return; }
@@ -104,10 +104,10 @@ export function EditarCartao({ card, membros }: { card: Card; membros: string[] 
 
   return (
     <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-      <Button variant={card.principal ? "primary" : "ghost"} onClick={alternarPrincipal} disabled={marcando || card.principal}
-        title={card.principal ? "Este é o cartão principal" : "Usar como cartão principal no lançamento"}>
+      <Button variant={ehMeuPrincipal ? "primary" : "ghost"} onClick={alternarPrincipal} disabled={marcando}
+        title={ehMeuPrincipal ? "Seu cartão principal — toque pra desmarcar" : "Usar como seu cartão principal no lançamento"}>
         <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <Star size={14} weight={card.principal ? "fill" : "regular"} /> {card.principal ? "Principal" : "Tornar principal"}
+          <Star size={14} weight={ehMeuPrincipal ? "fill" : "regular"} /> {ehMeuPrincipal ? "Meu principal" : "Tornar meu principal"}
         </span>
       </Button>
       <Button variant="ghost" onClick={() => setEditando(true)}>
