@@ -115,14 +115,16 @@ export function LinhaEditavel({
     );
   }
   return (
-    <li className="flex flex-col gap-2 border-b border-[var(--border)] py-3 last:border-b-0">
+    // min-w-0/w-full em tudo: no celular o select de categoria (largura do maior
+    // rótulo) e os campos não podem empurrar a linha pra fora da tela
+    <li className="flex min-w-0 flex-col gap-2 border-b border-[var(--border)] py-3 last:border-b-0">
       <input value={descricao} onChange={(e) => setDescricao(e.target.value)} placeholder="Nome"
-        className="rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--surface)] px-2 py-1.5 text-[var(--text)]" />
+        className="w-full min-w-0 rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--surface)] px-2 py-1.5 text-[var(--text)]" />
       <input value={observacao} onChange={(e) => setObservacao(e.target.value)} placeholder="Observação (o que foi essa compra?)"
-        className="rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--surface)] px-2 py-1.5 text-sm text-[var(--text)]" />
-      <div className="flex items-center gap-2">
+        className="w-full min-w-0 rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--surface)] px-2 py-1.5 text-sm text-[var(--text)]" />
+      <div className="flex min-w-0 flex-wrap items-center gap-2">
         <select value={categoriaId} onChange={(e) => setCategoriaId(e.target.value)}
-          className="flex-1 rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--surface)] px-2 py-1.5 text-[var(--text)]">
+          className="w-full min-w-0 flex-1 basis-full rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--surface)] px-2 py-1.5 text-[var(--text)] sm:basis-0">
           <option value="">Sem categoria</option>
           {ordenarComSubcategorias(categorias.filter((c) => !c.tipo || c.tipo === tx.tipo)).map((c) => <option key={c.id} value={c.id}>{c.rotulo}</option>)}
         </select>

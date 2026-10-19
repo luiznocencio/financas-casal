@@ -3,6 +3,8 @@ import { createServerSupabase } from "@/lib/supabase/server";
 import { getMembroAtual } from "@/lib/auth/household";
 import { persistirLancamento } from "@/lib/financeiro/persistir";
 import type { NovoLancamento } from "@/lib/financeiro/tipos";
+import { corrigirDescricao } from "@/lib/ai/corrigirTexto";
+import { chamarModeloJson } from "@/lib/ai/openai";
 
 export async function POST(req: Request) {
   const membro = await getMembroAtual();
@@ -13,6 +15,11 @@ export async function POST(req: Request) {
   // limita parcelas no servidor (evita amplificação: N linhas + N upserts por request)
   l.total_parcelas = Math.min(72, Math.max(1, Math.floor(Number(l.total_parcelas) || 1)));
   if (!(l.valor_centavos > 0)) return NextResponse.json({ error: "valor inválido" }, { status: 400 });
+
+  // lançamento manual: ortografia corrigida e sempre com inicial maiúscula
+  if (typeof l.descricao === "string" && l.descricao.trim()) {
+    l.descricao = await corrigirDescricao(l.descricao, process.env.OPENAI_API_KEY ? chamarModeloJson : null);
+  }
 
   if (l.account_id) {
     const { data: conta } = await supabase.from("accounts").select("id").eq("id", l.account_id).maybeSingle();

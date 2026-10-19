@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { inicialMaiuscula } from "@/lib/ai/corrigirTexto";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { getMembroAtual } from "@/lib/auth/household";
 import { nomeBase, nomeComMarcador } from "@/lib/importacao/parcelas";
@@ -10,7 +11,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   if (!membro) return NextResponse.json({ error: "sem household" }, { status: 400 });
   const { id } = await params;
   const body = await req.json().catch(() => ({}));
-  const descricao: string | null = typeof body.descricao === "string" ? body.descricao : null;
+  // inicial maiúscula sempre; a ortografia fica como a pessoa escreveu ao editar
+  const descricao: string | null = typeof body.descricao === "string" && body.descricao.trim() ? inicialMaiuscula(body.descricao) : null;
   const categoria_id: string | null = body.categoria_id ?? null;
   const supabase = await createServerSupabase();
 
