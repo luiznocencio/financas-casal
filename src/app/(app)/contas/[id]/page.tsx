@@ -45,23 +45,21 @@ export default async function ContaDetalhe({
   const ini = `${ano}-${pad(mes)}-01`;
   const fim = `${ano}-${pad(mes)}-${pad(ultimoDiaDoMes(ano, mes))}`;
 
-  const [contaRes, txsRes, membrosRes, categoriasRes, cardsRes] = await Promise.all([
+  const [contaRes, txsRes, categoriasRes, cardsRes] = await Promise.all([
     supabase.from("accounts").select("*").eq("id", id).maybeSingle(),
     todas((de, ate) => supabase
       .from("transactions")
       .select("id, descricao, data_compra, pessoa, parcela_n, total_parcelas, tipo, valor_centavos, categoria_id, card_id, account_id, recorrente_id, observacao")
       .eq("account_id", id).order("id").range(de, ate)),
-    supabase.from("members").select("nome"),
     supabase.from("categories").select("id, nome, cor, parent_id, tipo"),
     supabase.from("cards").select("id, nome"),
   ]);
-  const erro = contaRes.error ?? txsRes.error ?? membrosRes.error ?? categoriasRes.error ?? cardsRes.error;
+  const erro = contaRes.error ?? txsRes.error ?? categoriasRes.error ?? cardsRes.error;
   if (erro) throw new Error(`Falha ao carregar a conta: ${erro.message}`);
   const conta = contaRes.data;
   if (!conta) notFound();
 
   const txs = txsRes.data ?? [];
-  const membros = (membrosRes.data ?? []).map((m) => m.nome);
   const categorias = categoriasRes.data ?? [];
   const cartoes = cardsRes.data ?? [];
 
@@ -125,7 +123,7 @@ export default async function ContaDetalhe({
           </div>
           <ul className="flex flex-col gap-0">
             {doMes.map((t) => (
-              <LinhaEditavel key={t.id} tx={t} categorias={categorias} membros={membros} cartoes={cartoes} />
+              <LinhaEditavel key={t.id} tx={t} categorias={categorias} cartoes={cartoes} />
             ))}
           </ul>
         </Card>

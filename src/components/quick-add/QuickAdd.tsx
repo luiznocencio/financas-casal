@@ -10,8 +10,8 @@ import { Money } from "@/components/ui/Money";
 import { Spinner } from "@/components/ui/Spinner";
 
 export function QuickAdd({
-  cartoes, contas, categorias, membros, usuarioAtual, cartaoPrincipalId,
-}: { cartoes: Card[]; contas: Account[]; categorias: Category[]; membros: string[]; usuarioAtual: string; cartaoPrincipalId: string | null }) {
+  cartoes, contas, categorias, usuarioAtual, cartaoPrincipalId,
+}: { cartoes: Card[]; contas: Account[]; categorias: Category[]; usuarioAtual: string; cartaoPrincipalId: string | null }) {
   const router = useRouter();
   const [aberto, setAberto] = useState(false);
   const [texto, setTexto] = useState("");
@@ -26,6 +26,12 @@ export function QuickAdd({
     setAberto(false); setTexto(""); setSugestao(null); setModoForm(false); setErro(null);
   }
   function recarregar() { fechar(); router.refresh(); }
+  // de onde saiu: nome do cartão/conta (com o titular, pra diferenciar os dois Nubank)
+  function origemSugestao(s: SugestaoLancamento): string {
+    const o = s.card_id ? cartoes.find((c) => c.id === s.card_id) : contas.find((c) => c.id === s.account_id);
+    if (!o) return s.card_id ? "Cartão" : "Conta";
+    return `${s.card_id ? "Cartão" : "Pix"} · ${o.nome}${o.titular ? ` (${o.titular})` : ""}`;
+  }
 
   async function interpretar() {
     setCarregando(true);
@@ -53,7 +59,7 @@ export function QuickAdd({
         body: JSON.stringify({
           tipo: sugestao.tipo, valor_centavos: sugestao.valor_centavos,
           data_compra: new Date().toISOString().slice(0, 10),
-          categoria_id: sugestao.categoria_id, pessoa: sugestao.pessoa,
+          categoria_id: sugestao.categoria_id,
           account_id: sugestao.account_id, card_id: sugestao.card_id,
           total_parcelas: sugestao.total_parcelas, descricao: sugestao.descricao,
           origem_ia: true,
@@ -86,7 +92,9 @@ export function QuickAdd({
           <div onClick={(e) => e.stopPropagation()}
             style={{
               background: "var(--surface)", borderRadius: "18px 18px 0 0", padding: "12px 20px 28px",
-              width: "100%", maxWidth: 720, display: "grid", gap: 4,
+              width: "100%", maxWidth: 720, minWidth: 0, boxSizing: "border-box", display: "grid", gap: 4,
+              // nunca maior que a tela: rola por dentro (ex.: teclado aberto)
+              maxHeight: "calc(100dvh - 24px)", overflowY: "auto", overscrollBehavior: "contain",
             }}>
             <div style={{ width: 40, height: 4, borderRadius: 2, background: "var(--border)", margin: "0 auto 12px" }} />
 
@@ -131,7 +139,7 @@ export function QuickAdd({
                   </span>
                 </div>
                 <div style={{ display: "flex", gap: 10, color: "var(--muted)", fontSize: "0.9rem" }}>
-                  <span>{sugestao.card_id ? "Cartão" : "Conta"} · {sugestao.pessoa}</span>
+                  <span>{origemSugestao(sugestao)}</span>
                   {sugestao.total_parcelas > 1 && <span>{sugestao.total_parcelas}x</span>}
                 </div>
                 {erro && <p style={{ color: "var(--negativo)", margin: 0, fontSize: "0.9rem" }}>{erro}</p>}
@@ -149,13 +157,13 @@ export function QuickAdd({
             {/* FALLBACK: formulário rápido */}
             {modoForm && (
               <FormularioRapido
-                cartoes={cartoes} contas={contas} categorias={categorias} membros={membros}
+                cartoes={cartoes} contas={contas} categorias={categorias}
                 usuarioAtual={usuarioAtual}
                 cartaoPrincipalId={cartaoPrincipalId}
                 valorInicialReais={sugestao ? (sugestao.valor_centavos / 100).toString() : ""}
                 inicial={sugestao ? {
                   descricao: sugestao.descricao, tipo: sugestao.tipo, categoria_id: sugestao.categoria_id,
-                  pessoa: sugestao.pessoa, total_parcelas: sugestao.total_parcelas,
+                  total_parcelas: sugestao.total_parcelas,
                   card_id: sugestao.card_id, account_id: sugestao.account_id,
                 } : undefined}
                 onCriado={recarregar}

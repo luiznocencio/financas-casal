@@ -199,7 +199,7 @@ export default async function Lancamentos({
           </div>
           <ul className="flex flex-col gap-0">
             {(txs ?? []).map((t) => (
-              <LinhaEditavel key={t.id} tx={t} categorias={categorias} membros={membros} cartoes={cartoes} />
+              <LinhaEditavel key={t.id} tx={t} categorias={categorias} cartoes={cartoes} />
             ))}
           </ul>
           {paginas > 1 && (

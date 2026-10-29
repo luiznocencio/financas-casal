@@ -6,10 +6,10 @@ import { Button } from "@/components/ui/Button";
 import { MoneyInput } from "@/components/ui/MoneyInput";
 
 export function AddContaPagar({
-  categorias, membros, categoriaPadrao,
+  categorias, categoriaPadrao,
 }: {
   categorias: { id: string; nome: string }[];
-  membros: string[]; categoriaPadrao: string;
+  categoriaPadrao: string;
 }) {
   const router = useRouter();
 
@@ -18,7 +18,6 @@ export function AddContaPagar({
   const [estimado, setEstimado] = useState(0);
   const [dia, setDia] = useState("");
   const [categoriaId, setCategoriaId] = useState(categoriaPadrao);
-  const [pessoa, setPessoa] = useState(membros[0] ?? "conjunto");
   const [recorrencia, setRecorrencia] = useState<"mensal" | "unica">("mensal");
   const [dataFim, setDataFim] = useState("");
   const [erro, setErro] = useState<string | null>(null);
@@ -33,7 +32,7 @@ export function AddContaPagar({
       method: "POST",
       body: JSON.stringify({
         descricao: descricao.trim(), valor_estimado_centavos: estimado || null, dia_vencimento: d,
-        categoria_id: categoriaId || null, pessoa,
+        categoria_id: categoriaId || null,
         recorrencia, data_fim: recorrencia === "mensal" ? (dataFim || null) : null,
       }),
     }).catch(() => null);
@@ -77,13 +76,6 @@ export function AddContaPagar({
         </label>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 10 }}>
-        <label style={{ display: "grid", gap: 6 }}>
-          <span style={{ fontSize: "0.8rem", color: "var(--muted)" }}>De quem</span>
-          <select value={pessoa} onChange={(e) => setPessoa(e.target.value)} style={selectStyle}>
-            {membros.map((m) => <option key={m} value={m}>{m}</option>)}
-            <option value="conjunto">Conjunto</option>
-          </select>
-        </label>
         {recorrencia === "mensal" && (
           <Field label="Até quando (opcional)" type="date" value={dataFim} onChange={(e) => setDataFim(e.target.value)} />
         )}

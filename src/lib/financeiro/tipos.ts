@@ -3,7 +3,7 @@ export type NovoLancamento = {
   valor_centavos: number;
   data_compra: string;            // ISO yyyy-mm-dd
   categoria_id: string | null;
-  pessoa: string;
+  pessoa: string;                 // o servidor troca pelo titular do cartão/conta, quando houver
   account_id: string | null;
   card_id: string | null;
   total_parcelas: number;         // 1 = à vista

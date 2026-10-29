@@ -27,7 +27,6 @@ export async function SecaoAReceber() {
 
   const receitas = (raRes.data ?? []) as ReceitaAgendada[];
   const contas = contasRes.data ?? [];
-  const membros = (membrosRes.data ?? []).map((m) => m.nome);
   const temRenda = (membrosRes.data ?? []).some((m) => (m.renda_mensal_centavos ?? 0) + (m.ajuda_custo_centavos ?? 0) > 0);
   const jaTemSalario = receitas.some((r) => r.origem_salario);
   const nomeConta = new Map(contas.map((c) => [c.id, c.nome]));
@@ -49,7 +48,7 @@ export async function SecaoAReceber() {
 
       {(temRenda || jaTemSalario) && <SalarioSync jaTem={jaTemSalario} />}
 
-      <AddReceitaAgendada contas={contas} membros={membros} />
+      <AddReceitaAgendada contas={contas} />
 
       {receitas.length === 0 ? (
         <Card><p className="text-sm text-[var(--muted)]">Nada agendado ainda. Agende o que você tem a receber (ex.: salário, um freela).</p></Card>
@@ -76,7 +75,6 @@ export async function SecaoAReceber() {
                         ? <span className="text-[var(--positivo)]">recebido este mês: <Money centavos={recebido!} tamanho="sm" /></span>
                         : <span style={atrasada ? { color: "var(--alerta)" } : undefined}>{atrasada ? "venceu " : "prev. "}{data}</span>}
                       <span>· {nomeConta.get(r.account_id) ?? "conta"}</span>
-                      <span>· {r.pessoa}</span>
                       {r.recorrencia === "mensal" && (
                         <span className="rounded-full px-2 py-0.5 text-[0.7rem] font-medium"
                           style={{ background: "var(--accent-weak)", color: "var(--accent)" }}>mensal</span>

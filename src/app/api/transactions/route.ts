@@ -16,6 +16,9 @@ export async function POST(req: Request) {
   l.total_parcelas = Math.min(72, Math.max(1, Math.floor(Number(l.total_parcelas) || 1)));
   if (!(l.valor_centavos > 0)) return NextResponse.json({ error: "valor inválido" }, { status: 400 });
 
+  // "de quem é" não vem mais do formulário: persistirLancamento usa o titular da origem
+  l.pessoa = typeof l.pessoa === "string" && l.pessoa ? l.pessoa : "conjunto";
+
   // lançamento manual: ortografia corrigida e sempre com inicial maiúscula
   if (typeof l.descricao === "string" && l.descricao.trim()) {
     l.descricao = await corrigirDescricao(l.descricao, process.env.OPENAI_API_KEY ? chamarModeloJson : null);

@@ -11,22 +11,20 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   // guardas: sem login -> /login; logado sem lar -> /onboarding. Os dados do
   // "+" (quick-add) já saem em paralelo com a checagem do membro.
-  const [userId, membro, cardsRes, contasRes, catsRes, membrosRes] = await Promise.all([
+  const [userId, membro, cardsRes, contasRes, catsRes] = await Promise.all([
     getUsuarioId(),
     getMembroAtual(),
     supabase.from("cards").select("*").order("nome"),
     supabase.from("accounts").select("*").order("nome"),
     supabase.from("categories").select("*").order("nome"),
-    supabase.from("members").select("nome"),
   ]);
   if (!userId) redirect("/login");
   if (!membro) redirect("/onboarding");
-  const erroShell = cardsRes.error ?? contasRes.error ?? catsRes.error ?? membrosRes.error;
+  const erroShell = cardsRes.error ?? contasRes.error ?? catsRes.error;
   if (erroShell) throw new Error(`Falha ao carregar dados do app: ${erroShell.message}`);
   const cartoes = cardsRes.data;
   const contas = contasRes.data;
   const categorias = catsRes.data;
-  const membros = membrosRes.data;
 
   return (
     <div className="lg:flex lg:items-start">
@@ -39,7 +37,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <InstalarApp />
       <QuickAdd
         cartoes={cartoes ?? []} contas={contas ?? []}
-        categorias={categorias ?? []} membros={(membros ?? []).map((m) => m.nome)}
+        categorias={categorias ?? []}
         usuarioAtual={membro.nome}
         cartaoPrincipalId={membro.cartao_principal_id}
       />

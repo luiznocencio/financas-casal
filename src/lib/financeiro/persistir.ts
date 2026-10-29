@@ -15,6 +15,10 @@ export async function persistirLancamento(
   // pra acompanhar quantas faltam entre faturas. Só usado com competenciaForcada.
   parcelaInfo?: { grupo_parcela: string | null; parcela_n: number; total_parcelas: number } | null,
 ): Promise<{ error: string | null }> {
+  // de quem é o gasto não se pergunta mais: é o titular do cartão/conta de onde
+  // saiu (se for alguém do lar); sem titular, fica o que veio ou "conjunto"
+  l = { ...l, pessoa: (await donoDaOrigem(supabase, l)) ?? (l.pessoa || "conjunto") };
+
   // fechamento + vencimento do cartão (só precisa ao calcular a competência). A
   // competência é o mês de PAGAMENTO (vencimento) — mesma régua das faturas
   // importadas, pra manual e importado ficarem consistentes.
@@ -78,4 +82,16 @@ export async function persistirLancamento(
   });
   const { error } = await supabase.from("transactions").insert(registros);
   return { error: error ? error.message : null };
+}
+
+async function donoDaOrigem(supabase: SupabaseClient, l: NovoLancamento): Promise<string | null> {
+  const origem = l.card_id
+    ? await supabase.from("cards").select("titular").eq("id", l.card_id).maybeSingle()
+    : l.account_id
+      ? await supabase.from("accounts").select("titular").eq("id", l.account_id).maybeSingle()
+      : null;
+  const titular = origem?.data?.titular as string | null | undefined;
+  if (!titular) return null;
+  const { data: membros } = await supabase.from("members").select("nome");
+  return (membros ?? []).some((m) => m.nome === titular) ? titular : null;
 }

@@ -3,7 +3,6 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { PencilSimple, Trash, NotePencil } from "@phosphor-icons/react";
 import { Money } from "@/components/ui/Money";
-import { PersonChip } from "@/components/ui/PersonChip";
 import { CategoriaTag } from "@/components/ui/CategoriaTag";
 import { Button } from "@/components/ui/Button";
 import { ordenarComSubcategorias } from "@/lib/ui/categorias";
@@ -16,8 +15,8 @@ type Tx = {
 };
 
 export function LinhaEditavel({
-  tx, categorias, membros, cartoes,
-}: { tx: Tx; categorias: { id: string; nome: string; cor: string; parent_id?: string | null; tipo?: string }[]; membros: string[]; cartoes: { id: string; nome: string }[] }) {
+  tx, categorias, cartoes,
+}: { tx: Tx; categorias: { id: string; nome: string; cor: string; parent_id?: string | null; tipo?: string }[]; cartoes: { id: string; nome: string }[] }) {
   const router = useRouter();
   const [editando, setEditando] = useState(false);
   const [descricao, setDescricao] = useState(tx.descricao ?? "");
@@ -63,7 +62,6 @@ export function LinhaEditavel({
           <span className="break-words text-[var(--text)]">{tx.descricao ?? "(sem descrição)"}</span>
           <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--muted)]">
             <span>{tx.data_compra}</span>
-            <PersonChip nome={tx.pessoa} membros={membros} />
             {cat && <CategoriaTag nome={cat.nome} cor={cat.cor} tamanho="sm" />}
             {origemLabel && (
               <span className="rounded-full bg-[var(--surface-2)] px-2 py-0.5 text-[0.7rem] font-medium text-[var(--text)]">

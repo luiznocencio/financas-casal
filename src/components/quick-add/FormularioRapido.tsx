@@ -7,24 +7,18 @@ import { MoneyInput } from "@/components/ui/MoneyInput";
 import { ordenarComSubcategorias } from "@/lib/ui/categorias";
 
 export function FormularioRapido({
-  cartoes, contas, categorias, membros, usuarioAtual, cartaoPrincipalId, valorInicialReais = "", inicial, onCriado,
+  cartoes, contas, categorias, usuarioAtual, cartaoPrincipalId, valorInicialReais = "", inicial, onCriado,
 }: {
-  cartoes: Card[]; contas: Account[]; categorias: Category[]; membros: string[];
+  cartoes: Card[]; contas: Account[]; categorias: Category[];
   usuarioAtual: string; cartaoPrincipalId: string | null; valorInicialReais?: string; onCriado: () => void;
   // valores pré-preenchidos (ex.: vindo da sugestão da IA ao clicar "Ajustar")
   inicial?: {
     descricao?: string | null; tipo?: "despesa" | "receita"; categoria_id?: string | null;
-    pessoa?: string | null; total_parcelas?: number; card_id?: string | null; account_id?: string | null;
+    total_parcelas?: number; card_id?: string | null; account_id?: string | null;
     data?: string | null;
   };
 }) {
-  const membrosSet = new Set(membros);
   type TipoOrigem = "card" | "acc";
-  // dono do destino (cartão/conta), se for membro do lar — pra já sugerir a pessoa
-  function titularDe(tipo: TipoOrigem, id: string): string | null {
-    const item = (tipo === "card" ? cartoes : contas).find((x) => x.id === id);
-    return item?.titular && membrosSet.has(item.titular) ? item.titular : null;
-  }
   // 1º destino do tipo: o cartão principal de quem está lançando; senão um do próprio usuário
   function primeiroDoTipo(tipo: TipoOrigem): string {
     const lista = tipo === "card" ? cartoes : contas;
@@ -46,9 +40,6 @@ export function FormularioRapido({
   const [tipoOrigem, setTipoOrigem] = useState<TipoOrigem>(origemInicial.tipo);
   const [origemId, setOrigemId] = useState<string>(origemInicial.id);
   const [categoriaId, setCategoriaId] = useState<string>(inicial?.categoria_id ?? "");
-  const [pessoa, setPessoa] = useState(
-    inicial?.pessoa ?? titularDe(origemInicial.tipo, origemInicial.id) ?? usuarioAtual ?? membros[0] ?? "conjunto",
-  );
   const [parcelas, setParcelas] = useState(inicial?.total_parcelas && inicial.total_parcelas > 0 ? inicial.total_parcelas : 1);
   const hojeISO = new Date().toISOString().slice(0, 10);
   const [data, setData] = useState(inicial?.data ?? hojeISO);
@@ -59,13 +50,7 @@ export function FormularioRapido({
 
   function trocarTipo(t: TipoOrigem) {
     setTipoOrigem(t);
-    const id = primeiroDoTipo(t);
-    setOrigemId(id);
-    const dono = titularDe(t, id); if (dono) setPessoa(dono);
-  }
-  function trocarDestino(id: string) {
-    setOrigemId(id);
-    const dono = titularDe(tipoOrigem, id); if (dono) setPessoa(dono);
+    setOrigemId(primeiroDoTipo(t));
   }
   // categorias do tipo do lançamento (não misturar receita/despesa)
   const catsDoTipo = categorias.filter((c) => c.tipo === tipo);
@@ -84,7 +69,7 @@ export function FormularioRapido({
     const body = {
       tipo, valor_centavos: centavos,
       data_compra: data,
-      categoria_id: categoriaId || null, pessoa,
+      categoria_id: categoriaId || null,
       account_id: tipoOrigem === "acc" ? origemId : null,
       card_id: tipoOrigem === "card" ? origemId : null,
       total_parcelas: tipoOrigem === "card" ? parcelas : 1,
@@ -104,7 +89,7 @@ export function FormularioRapido({
 
   const selectStyle: React.CSSProperties = {
     padding: "9px 10px", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)",
-    background: "var(--surface)", color: "var(--text)", fontSize: "0.9rem", minWidth: 0,
+    background: "var(--surface)", color: "var(--text)", fontSize: "0.9rem", minWidth: 0, width: "100%",
   };
 
   function chipStyle(ativo: boolean): React.CSSProperties {
@@ -117,7 +102,8 @@ export function FormularioRapido({
   }
 
   return (
-    <div style={{ display: "grid", gap: 10 }}>
+    // minmax(0, …) e minWidth 0 em tudo: no celular nenhum campo pode esticar a folha além da tela
+    <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: 10 }}>
       {/* valor + tipo na mesma linha */}
       <div style={{ display: "flex", gap: 8, alignItems: "stretch" }}>
         <MoneyInput centavos={centavos} onCentavos={setCentavos} autoFocus placeholder="Valor (R$)" className="mono"
@@ -126,16 +112,16 @@ export function FormularioRapido({
             fontVariantNumeric: "tabular-nums", borderRadius: "var(--radius-sm)",
             border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)",
           }} />
-        <div style={{ display: "flex", flexDirection: "column", gap: 6, width: 108 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6, width: 96, flexShrink: 0 }}>
           <button onClick={() => trocarTipoLancamento("despesa")} aria-pressed={tipo === "despesa"} style={{ ...chipStyle(tipo === "despesa"), padding: "6px 8px" }}>Despesa</button>
           <button onClick={() => trocarTipoLancamento("receita")} aria-pressed={tipo === "receita"} style={{ ...chipStyle(tipo === "receita"), padding: "6px 8px" }}>Receita</button>
         </div>
       </div>
 
       {/* nome/descrição + data da compra */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 148px", gap: 8 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 132px)", gap: 8 }}>
         <input value={descricao} onChange={(e) => setDescricao(e.target.value)}
-          placeholder="Nome (ex.: mercado do mês)"
+          placeholder="Nome (ex.: mercado)"
           style={{ ...selectStyle, fontSize: "1rem" }} />
         <input type="date" value={data} onChange={(e) => setData(e.target.value)} title="Data da compra"
           style={{ ...selectStyle, fontSize: "0.9rem" }} />
@@ -149,8 +135,8 @@ export function FormularioRapido({
           aria-pressed={tipoOrigem === "acc"} style={{ ...chipStyle(tipoOrigem === "acc"), opacity: contas.length === 0 ? 0.5 : 1 }}>Pix</button>
       </div>
       {/* 2º passo: qual destino (+ parcelas quando cartão) */}
-      <div style={{ display: "grid", gridTemplateColumns: tipoOrigem === "card" ? "1fr 84px" : "1fr", gap: 8 }}>
-        <select value={origemId} onChange={(e) => trocarDestino(e.target.value)} style={selectStyle}>
+      <div style={{ display: "grid", gridTemplateColumns: tipoOrigem === "card" ? "minmax(0, 1fr) 72px" : "minmax(0, 1fr)", gap: 8 }}>
+        <select value={origemId} onChange={(e) => setOrigemId(e.target.value)} style={selectStyle}>
           {(tipoOrigem === "card" ? cartoes : contas).map((c) => (
             <option key={c.id} value={c.id}>{c.nome}{c.titular ? ` (${c.titular})` : ""}</option>
           ))}
@@ -162,17 +148,11 @@ export function FormularioRapido({
         )}
       </div>
 
-      {/* categoria + pessoa lado a lado */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-        <select value={categoriaId} onChange={(e) => setCategoriaId(e.target.value)} style={selectStyle}>
-          <option value="">Sem categoria</option>
-          {ordenarComSubcategorias(catsDoTipo).map((c) => <option key={c.id} value={c.id}>{c.rotulo}</option>)}
-        </select>
-        <select value={pessoa} onChange={(e) => setPessoa(e.target.value)} style={selectStyle}>
-          {membros.map((m) => <option key={m} value={m}>{m}</option>)}
-          <option value="conjunto">Conjunto</option>
-        </select>
-      </div>
+      {/* categoria (de quem é o gasto sai do cartão/conta escolhido) */}
+      <select value={categoriaId} onChange={(e) => setCategoriaId(e.target.value)} style={selectStyle}>
+        <option value="">Sem categoria</option>
+        {ordenarComSubcategorias(catsDoTipo).map((c) => <option key={c.id} value={c.id}>{c.rotulo}</option>)}
+      </select>
 
       {erro && <p style={{ color: "var(--negativo)", margin: 0, fontSize: "0.85rem" }}>{erro}</p>}
       <Button variant="primary" onClick={salvar} disabled={salvando} aria-busy={salvando} style={{ width: "100%" }}>

@@ -18,21 +18,19 @@ export async function SecaoContasPagar() {
   const hoje = `${ano}-${pad(mes)}-${pad(hojeDia)}`;
   const atual: Mes = { ano, mes };
 
-  const [cpRes, catsRes, contasRes, membrosRes, pagasRes] = await Promise.all([
+  const [cpRes, catsRes, contasRes, pagasRes] = await Promise.all([
     supabase.from("contas_pagar").select("*").eq("ativo", true).order("dia_vencimento"),
     supabase.from("categories").select("id, nome, cor").eq("tipo", "despesa").order("nome"),
     supabase.from("accounts").select("id, nome, titular").order("nome"),
-    supabase.from("members").select("nome"),
     todas((de, ate) => supabase.from("transactions").select("conta_pagar_id, conta_pagar_ref, valor_centavos, data_compra")
       .not("conta_pagar_id", "is", null).order("id").range(de, ate)),
   ]);
-  const erro = cpRes.error ?? catsRes.error ?? contasRes.error ?? membrosRes.error ?? pagasRes.error;
+  const erro = cpRes.error ?? catsRes.error ?? contasRes.error ?? pagasRes.error;
   if (erro) throw new Error(`Falha ao carregar as contas a pagar: ${erro.message}`);
 
   const contasPagar = (cpRes.data ?? []) as ContaPagar[];
   const cats = catsRes.data ?? [];
   const contas = contasRes.data ?? [];
-  const membros = (membrosRes.data ?? []).map((m) => m.nome);
 
   const catById = new Map(cats.map((c) => [c.id, c]));
   const quitados = quitadosPorConta(pagasRes.data ?? []);
@@ -77,7 +75,7 @@ export async function SecaoContasPagar() {
         {atrasadas > 0 && <span style={{ color: "var(--alerta)" }}> {atrasadas} em atraso.</span>}
       </p>
 
-      <AddContaPagar categorias={cats} membros={membros} categoriaPadrao={categoriaPadrao} />
+      <AddContaPagar categorias={cats} categoriaPadrao={categoriaPadrao} />
 
       {linhas.length === 0 ? (
         <Card><p className="text-sm text-[var(--muted)]">Nenhuma conta para este mês. Adicione as fixas do mês (ex.: energia, água, internet).</p></Card>
@@ -101,7 +99,6 @@ export async function SecaoContasPagar() {
                       {jaPaga
                         ? <span className="text-[var(--positivo)]">pago: <Money centavos={pago} tamanho="sm" /></span>
                         : <span style={atrasada ? { color: "var(--alerta)" } : undefined}>{atrasada ? "venceu " : "vence "}{dataVenc}</span>}
-                      <span>· {c.pessoa}</span>
                       {cat && <CategoriaTag nome={cat.nome} cor={cat.cor} tamanho="sm" />}
                       {c.valor_estimado_centavos != null && !jaPaga && <span>· ~<Money centavos={c.valor_estimado_centavos} tamanho="sm" /></span>}
                     </div>

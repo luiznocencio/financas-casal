@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/Button";
 
 type Conta = { id: string; nome: string; titular?: string | null };
 
-export function AddReceitaAgendada({ contas, membros }: { contas: Conta[]; membros: string[] }) {
+export function AddReceitaAgendada({ contas }: { contas: Conta[] }) {
   const router = useRouter();
   const hoje = new Date().toISOString().slice(0, 10);
 
@@ -18,7 +18,6 @@ export function AddReceitaAgendada({ contas, membros }: { contas: Conta[]; membr
   const [data, setData] = useState(hoje);
   const [recorrencia, setRecorrencia] = useState<"unica" | "mensal">("unica");
   const [dataFim, setDataFim] = useState("");
-  const [pessoa, setPessoa] = useState(membros[0] ?? "conjunto");
   const [erro, setErro] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
 
@@ -30,7 +29,7 @@ export function AddReceitaAgendada({ contas, membros }: { contas: Conta[]; membr
       method: "POST",
       body: JSON.stringify({
         descricao: descricao.trim(), valor_centavos: valor,
-        account_id: accountId, data_prevista: data, recorrencia, pessoa,
+        account_id: accountId, data_prevista: data, recorrencia,
         data_fim: recorrencia === "mensal" ? (dataFim || null) : null,
       }),
     }).catch(() => null);
@@ -65,13 +64,6 @@ export function AddReceitaAgendada({ contas, membros }: { contas: Conta[]; membr
           <select value={recorrencia} onChange={(e) => setRecorrencia(e.target.value as "unica" | "mensal")} style={selectStyle}>
             <option value="unica">Única (uma vez)</option>
             <option value="mensal">Mensal (todo mês)</option>
-          </select>
-        </label>
-        <label style={{ display: "grid", gap: 6 }}>
-          <span style={{ fontSize: "0.8rem", color: "var(--muted)" }}>De quem</span>
-          <select value={pessoa} onChange={(e) => setPessoa(e.target.value)} style={selectStyle}>
-            {membros.map((m) => <option key={m} value={m}>{m}</option>)}
-            <option value="conjunto">Conjunto</option>
           </select>
         </label>
       </div>

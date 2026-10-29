@@ -8,10 +8,9 @@ import { Button } from "@/components/ui/Button";
 type Origem = { id: string; nome: string; titular?: string | null };
 
 export function AddRecorrente({
-  cartoes, contas, categorias, membros,
-}: { cartoes: Origem[]; contas: Origem[]; categorias: { id: string; nome: string }[]; membros: string[] }) {
+  cartoes, contas, categorias,
+}: { cartoes: Origem[]; contas: Origem[]; categorias: { id: string; nome: string }[] }) {
   const router = useRouter();
-  const membrosSet = new Set(membros);
   const origemInicial = cartoes[0] ? `card:${cartoes[0].id}` : contas[0] ? `acc:${contas[0].id}` : "";
 
   const [aberto, setAberto] = useState(false);
@@ -21,15 +20,8 @@ export function AddRecorrente({
   const [dataFim, setDataFim] = useState("");
   const [origem, setOrigem] = useState(origemInicial);
   const [categoriaId, setCategoriaId] = useState("");
-  const [pessoa, setPessoa] = useState<string>(() => titularDe(origemInicial) ?? membros[0] ?? "conjunto");
   const [erro, setErro] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
-
-  function titularDe(origemVal: string): string | null {
-    const [prefixo, id] = origemVal.split(":");
-    const item = (prefixo === "card" ? cartoes : contas).find((x) => x.id === id);
-    return item?.titular && membrosSet.has(item.titular) ? item.titular : null;
-  }
 
   async function salvar() {
     setErro(null);
@@ -41,7 +33,7 @@ export function AddRecorrente({
       method: "POST",
       body: JSON.stringify({
         descricao: descricao.trim(), valor_centavos: valor, dia: d,
-        categoria_id: categoriaId || null, pessoa,
+        categoria_id: categoriaId || null,
         account_id: prefixo === "acc" ? id : null, card_id: prefixo === "card" ? id : null,
         data_fim: dataFim || null,
       }),
@@ -68,7 +60,7 @@ export function AddRecorrente({
       <Field label="Até quando (opcional)" type="date" value={dataFim} onChange={(e) => setDataFim(e.target.value)} />
       <label style={{ display: "grid", gap: 6 }}>
         <span style={{ fontSize: "0.8rem", color: "var(--muted)" }}>De onde sai o dinheiro</span>
-        <select value={origem} onChange={(e) => { const v = e.target.value; setOrigem(v); const t = titularDe(v); if (t) setPessoa(t); }} style={selectStyle}>
+        <select value={origem} onChange={(e) => setOrigem(e.target.value)} style={selectStyle}>
           {cartoes.map((c) => <option key={c.id} value={`card:${c.id}`}>Cartão · {c.nome}{c.titular ? ` (${c.titular})` : ""}</option>)}
           {contas.map((c) => <option key={c.id} value={`acc:${c.id}`}>Conta · {c.nome}{c.titular ? ` (${c.titular})` : ""}</option>)}
         </select>
@@ -79,13 +71,6 @@ export function AddRecorrente({
           <select value={categoriaId} onChange={(e) => setCategoriaId(e.target.value)} style={selectStyle}>
             <option value="">Sem categoria</option>
             {categorias.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
-          </select>
-        </label>
-        <label style={{ display: "grid", gap: 6 }}>
-          <span style={{ fontSize: "0.8rem", color: "var(--muted)" }}>Pessoa</span>
-          <select value={pessoa} onChange={(e) => setPessoa(e.target.value)} style={selectStyle}>
-            {membros.map((m) => <option key={m} value={m}>{m}</option>)}
-            <option value="conjunto">Conjunto</option>
           </select>
         </label>
       </div>

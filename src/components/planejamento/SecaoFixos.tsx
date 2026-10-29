@@ -19,23 +19,21 @@ export async function SecaoFixos() {
   const fim = `${ano}-${pad(mes)}-${pad(ultimoDiaDoMes(ano, mes))}`;
 
   const cols = "recorrente_id, descricao, valor_centavos, card_id, account_id";
-  const [recRes, catsRes, cardsRes, contasRes, membrosRes, doMesRes] = await Promise.all([
+  const [recRes, catsRes, cardsRes, contasRes, doMesRes] = await Promise.all([
     supabase.from("recorrentes").select("*").order("dia"),
     supabase.from("categories").select("id, nome, cor"),
     supabase.from("cards").select("id, nome, titular").order("nome"),
     supabase.from("accounts").select("id, nome, titular").order("nome"),
-    supabase.from("members").select("nome"),
     // lançamentos do mês pela DATA da cobrança (conta e cartão) — mesma régua do "lançar fixos"
     todas((de, ate) => supabase.from("transactions").select(cols).gte("data_compra", ini).lte("data_compra", fim).order("id").range(de, ate)),
   ]);
-  const erro = recRes.error ?? catsRes.error ?? cardsRes.error ?? contasRes.error ?? membrosRes.error ?? doMesRes.error;
+  const erro = recRes.error ?? catsRes.error ?? cardsRes.error ?? contasRes.error ?? doMesRes.error;
   if (erro) throw new Error(`Falha ao carregar os gastos fixos: ${erro.message}`);
 
   const recorrentes = (recRes.data ?? []) as Recorrente[];
   const cats = catsRes.data ?? [];
   const cartoes = cardsRes.data ?? [];
   const contas = contasRes.data ?? [];
-  const membros = (membrosRes.data ?? []).map((m) => m.nome);
   const existentes = doMesRes.data ?? [];
   const jaLancado = (r: Recorrente) => recorrenteJaLancado(r, existentes);
 
@@ -54,7 +52,7 @@ export async function SecaoFixos() {
 
       <GerarFixos pendentes={pendentes} />
 
-      <AddRecorrente cartoes={cartoes} contas={contas} categorias={cats} membros={membros} />
+      <AddRecorrente cartoes={cartoes} contas={contas} categorias={cats} />
 
       {recorrentes.length === 0 ? (
         <Card><p className="text-sm text-[var(--muted)]">Nenhum gasto fixo ainda. Cadastre o primeiro (ex.: aluguel, streaming, academia).</p></Card>
