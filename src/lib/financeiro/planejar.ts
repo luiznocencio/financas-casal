@@ -19,7 +19,7 @@ export type LinhaPlanejada = {
 };
 
 /** Planeja as linhas a inserir. diaFechamento/diaVencimento só valem p/ cartão. */
-export function planejarLinhas(l: NovoLancamento, diaFechamento: number | null, diaVencimento?: number | null): LinhaPlanejada[] {
+export function planejarLinhas(l: NovoLancamento, diaFechamento: number | null, diaVencimento?: number | null, diasFechamentoAntes?: number | null): LinhaPlanejada[] {
   const comum = {
     tipo: l.tipo, categoria_id: l.categoria_id, pessoa: l.pessoa,
     account_id: l.account_id, card_id: l.card_id, descricao: l.descricao,
@@ -34,6 +34,7 @@ export function planejarLinhas(l: NovoLancamento, diaFechamento: number | null, 
       dataCompra: new Date(l.data_compra + "T12:00:00"),
       diaFechamento,
       diaVencimento: diaVencimento ?? null,
+      diasFechamentoAntes: diasFechamentoAntes ?? null,
     });
     return parcelas.map((p) => ({
       ...comum,

@@ -44,10 +44,10 @@ const idxComp = (c: Competencia) => c.ano * 12 + c.mes;
 // nesse dia (competência = mês em que ela vence). Ex.: Nubank fecha dia 30 e
 // vence dia 7 → compra em 09/10 cai na fatura de novembro.
 export function faturaAtualDoCartao(
-  card: { dia_fechamento: number; dia_vencimento: number },
+  card: { dia_fechamento: number; dia_vencimento: number; dias_fechamento_antes?: number | null },
   data: { ano: number; mes: number; dia: number },
 ): Competencia {
-  return competenciaDePagamento(new Date(data.ano, data.mes - 1, data.dia), card.dia_fechamento, card.dia_vencimento);
+  return competenciaDePagamento(new Date(data.ano, data.mes - 1, data.dia), card.dia_fechamento, card.dia_vencimento, card.dias_fechamento_antes);
 }
 
 // Faturas EM ABERTO de um cartão que contam agora: as não pagas até a fatura

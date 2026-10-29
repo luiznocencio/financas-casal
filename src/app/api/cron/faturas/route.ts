@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { timingSafeEqual } from "node:crypto";
 import { createServiceSupabase } from "@/lib/supabase/service";
 import { enviarPush } from "@/lib/push/webpush";
-import { faturaFechaNaData, partesNoFuso, diaSeguinte, ultimoDiaDoMes } from "@/lib/financeiro/fechamento";
+import { partesNoFuso, diaSeguinte, ultimoDiaDoMes } from "@/lib/financeiro/fechamento";
+import { faturaFechaNoDia } from "@/lib/financeiro/fatura";
 import { contaOcorreNoMes } from "@/lib/financeiro/contas";
 import { orcamentoDoMes, type EstadoOrc } from "@/lib/financeiro/projecao";
 import { centavosParaReais } from "@/lib/financeiro/dinheiro";
@@ -46,7 +47,7 @@ export async function GET(req: Request) {
 
   const supabase = createServiceSupabase();
   const [cardsRes, subsRes, contasRes, pagasRes, orcRes] = await Promise.all([
-    supabase.from("cards").select("id, nome, dia_fechamento, household_id"),
+    supabase.from("cards").select("id, nome, dia_fechamento, dia_vencimento, dias_fechamento_antes, household_id"),
     supabase.from("push_subscriptions").select("household_id, endpoint, p256dh, auth"),
     supabase.from("contas_pagar").select("id, descricao, dia_vencimento, household_id, recorrencia, data_fim, created_at").eq("ativo", true),
     // contas já quitadas no mês do vencimento de amanhã (pelo mês que o pagamento quita)
@@ -64,9 +65,8 @@ export async function GET(req: Request) {
 
   const cartoes = cardsRes.data ?? [];
   const subs = subsRes.data ?? [];
-  const fechandoAmanha = cartoes.filter((c) =>
-    faturaFechaNaData(c.dia_fechamento, amanha.ano, amanha.mes, amanha.dia),
-  );
+  // fechamento pelo calendário real (N dias antes do vencimento de cada fatura)
+  const fechandoAmanha = cartoes.filter((c) => faturaFechaNoDia(c, amanha));
 
   // contas a pagar que vencem AMANHÃ (um dia de antecedência) e ainda não foram pagas
   const pagasMes = new Set((pagasRes.data ?? []).map((t) => t.conta_pagar_id));

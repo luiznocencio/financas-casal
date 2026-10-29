@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { limiteDisponivel } from "@/lib/financeiro/derivados";
 import { agruparFaturas, faturaAtualDoCartao, faturasEmAbertoAteAtual } from "@/lib/financeiro/faturas";
+import { fechamentoDaFatura } from "@/lib/financeiro/fatura";
 import { partesNoFuso } from "@/lib/financeiro/fechamento";
 import { corDaPessoa } from "@/lib/ui/pessoas";
 import { Money } from "@/components/ui/Money";
@@ -114,8 +115,12 @@ export default async function CartoesPage() {
                   )}
                 </div>
                 <span className="shrink-0 text-xs text-[var(--muted)]">
-                  vence dia {card.dia_vencimento} · fecha dia {card.dia_fechamento}
-                  {card.dias_fechamento_antes != null ? ` (${card.dias_fechamento_antes}d antes)` : ""}
+                  {/* o dia do fechamento muda com o mês: mostra o desta fatura */}
+                  {(() => {
+                    const f = fechamentoDaFatura(card, atual);
+                    return <>vence dia {card.dia_vencimento} · fecha {String(f.dia).padStart(2, "0")}/{String(f.mes).padStart(2, "0")}
+                      {card.dias_fechamento_antes != null ? ` (${card.dias_fechamento_antes}d antes)` : ""}</>;
+                  })()}
                 </span>
               </div>
               <div className="flex flex-col gap-1">

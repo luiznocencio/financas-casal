@@ -15,13 +15,15 @@ export function gerarParcelas(p: {
   // com vencimento, a competência é o mês de PAGAMENTO (régua do casal); sem ele,
   // cai no mês de fechamento (compatibilidade / fallback).
   diaVencimento?: number | null;
+  // "fecha N dias antes do vencimento" (fechamento varia com o tamanho do mês)
+  diasFechamentoAntes?: number | null;
 }): Parcela[] {
   const n = Math.max(1, Math.floor(p.totalParcelas));
   const base = Math.floor(p.valorTotalCentavos / n);
   const resto = p.valorTotalCentavos - base * n;
 
   let comp = p.diaVencimento != null
-    ? competenciaDePagamento(p.dataCompra, p.diaFechamento, p.diaVencimento)
+    ? competenciaDePagamento(p.dataCompra, p.diaFechamento, p.diaVencimento, p.diasFechamentoAntes)
     : competenciaDaCompra(p.dataCompra, p.diaFechamento);
   const parcelas: Parcela[] = [];
   for (let i = 0; i < n; i++) {

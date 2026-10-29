@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { competenciaDaCompra, competenciaDePagamento, proximaCompetencia } from "./fatura";
+import { competenciaDaCompra, competenciaDePagamento, proximaCompetencia, fechamentoDaFatura, faturaDaCompra, faturaFechaNoDia } from "./fatura";
 
 describe("competenciaDaCompra", () => {
   const fechamento = 10;
@@ -44,5 +44,47 @@ describe("proximaCompetencia", () => {
   });
   it("vira o ano em dezembro", () => {
     expect(proximaCompetencia({ ano: 2026, mes: 12 })).toEqual({ ano: 2027, mes: 1 });
+  });
+});
+
+describe("fechamento pelo calendário (N dias antes do vencimento)", () => {
+  // Nubank do Luiz: vence 7, fecha 7 dias antes
+  const nubank = { dia_fechamento: 30, dia_vencimento: 7, dias_fechamento_antes: 7 };
+  // Itaú: vence 10, fecha 6 dias antes
+  const itau = { dia_fechamento: 4, dia_vencimento: 10, dias_fechamento_antes: 6 };
+
+  it("fecha em dias diferentes conforme o tamanho do mês", () => {
+    expect(fechamentoDaFatura(nubank, { ano: 2026, mes: 11 })).toEqual({ ano: 2026, mes: 10, dia: 31 });
+    expect(fechamentoDaFatura(nubank, { ano: 2026, mes: 12 })).toEqual({ ano: 2026, mes: 11, dia: 30 });
+    expect(fechamentoDaFatura(nubank, { ano: 2027, mes: 3 })).toEqual({ ano: 2027, mes: 2, dia: 28 });
+    expect(fechamentoDaFatura(nubank, { ano: 2028, mes: 3 })).toEqual({ ano: 2028, mes: 2, dia: 29 });
+    expect(fechamentoDaFatura(itau, { ano: 2026, mes: 3 })).toEqual({ ano: 2026, mes: 3, dia: 4 });
+  });
+
+  it("compra em 30/10 ainda entra na fatura que fecha 31/10 (vence em novembro)", () => {
+    expect(faturaDaCompra({ ano: 2026, mes: 10, dia: 30 }, nubank)).toEqual({ ano: 2026, mes: 11 });
+    expect(faturaDaCompra({ ano: 2026, mes: 10, dia: 31 }, nubank)).toEqual({ ano: 2026, mes: 12 });
+    expect(faturaDaCompra({ ano: 2026, mes: 11, dia: 29 }, nubank)).toEqual({ ano: 2026, mes: 12 });
+    expect(faturaDaCompra({ ano: 2026, mes: 11, dia: 30 }, nubank)).toEqual({ ano: 2027, mes: 1 });
+    expect(faturaDaCompra({ ano: 2027, mes: 2, dia: 27 }, nubank)).toEqual({ ano: 2027, mes: 3 });
+    expect(faturaDaCompra({ ano: 2027, mes: 2, dia: 28 }, nubank)).toEqual({ ano: 2027, mes: 4 });
+  });
+
+  it("competenciaDePagamento usa o calendário quando há dias antes", () => {
+    expect(competenciaDePagamento(new Date(2026, 9, 30), 30, 7, 7)).toEqual({ ano: 2026, mes: 11 });
+    expect(competenciaDePagamento(new Date(2026, 9, 3), 4, 10, 6)).toEqual({ ano: 2026, mes: 10 });
+    expect(competenciaDePagamento(new Date(2026, 9, 4), 4, 10, 6)).toEqual({ ano: 2026, mes: 11 });
+  });
+
+  it("sem dias antes, mantém a regra antiga (dia fixo)", () => {
+    const antigo = { dia_fechamento: 28, dia_vencimento: 6 };
+    expect(faturaDaCompra({ ano: 2026, mes: 9, dia: 15 }, antigo)).toEqual(competenciaDePagamento(new Date(2026, 8, 15), 28, 6));
+    expect(faturaDaCompra({ ano: 2026, mes: 9, dia: 30 }, antigo)).toEqual(competenciaDePagamento(new Date(2026, 8, 30), 28, 6));
+  });
+
+  it("aviso de 'fecha amanhã' bate com o calendário", () => {
+    expect(faturaFechaNoDia(nubank, { ano: 2026, mes: 10, dia: 31 })).toBe(true);
+    expect(faturaFechaNoDia(nubank, { ano: 2026, mes: 10, dia: 30 })).toBe(false);
+    expect(faturaFechaNoDia(nubank, { ano: 2026, mes: 11, dia: 30 })).toBe(true);
   });
 });

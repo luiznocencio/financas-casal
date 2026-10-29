@@ -1,25 +1,22 @@
 "use client";
+import { faturaDaCompra, fechamentoDaFatura, vencimentoDaFatura, type Dia } from "@/lib/financeiro/fatura";
 import { fechamentoDoVencimento } from "@/lib/financeiro/fechamento";
 
-// Próxima ocorrência (>= hoje) de um dia do mês, com clamp de mês curto.
-function proximaOcorrencia(dia: number): Date {
-  const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
-  const y = hoje.getFullYear(), m = hoje.getMonth();
-  const ultimo = (yy: number, mm: number) => new Date(yy, mm + 1, 0).getDate();
-  let data = new Date(y, m, Math.min(dia, ultimo(y, m)));
-  if (data < hoje) data = new Date(y, m + 1, Math.min(dia, ultimo(y, m + 1)));
-  return data;
-}
-const fmt = (d: Date) => d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+const fmt = (d: Dia) => `${String(d.dia).padStart(2, "0")}/${String(d.mes).padStart(2, "0")}`;
 
-// Mostra ao vivo qual será o próximo fechamento/vencimento, pra conferir o setup.
+// Mostra ao vivo os próximos fechamentos/vencimentos, pra conferir o setup. O dia
+// do fechamento muda com o tamanho do mês (é contado a partir do vencimento).
 export function FechamentoPreview({ vencimento, diasAntes }: { vencimento: number; diasAntes: number }) {
   if (!(vencimento >= 1 && vencimento <= 31) || !(diasAntes >= 0 && diasAntes <= 27)) return null;
-  const diaFech = fechamentoDoVencimento(vencimento, diasAntes);
+  const regra = { dia_fechamento: fechamentoDoVencimento(vencimento, diasAntes), dia_vencimento: vencimento, dias_fechamento_antes: diasAntes };
+  const agora = new Date();
+  const c = faturaDaCompra({ ano: agora.getFullYear(), mes: agora.getMonth() + 1, dia: agora.getDate() }, regra);
+  const prox = c.mes === 12 ? { ano: c.ano + 1, mes: 1 } : { ano: c.ano, mes: c.mes + 1 };
   return (
     <p style={{ margin: 0, fontSize: "0.8rem", color: "var(--muted)" }}>
-      Fecha todo dia <strong style={{ color: "var(--text)" }}>{diaFech}</strong>. Próximo fechamento:{" "}
-      <strong style={{ color: "var(--accent)" }}>{fmt(proximaOcorrencia(diaFech))}</strong> · vence {fmt(proximaOcorrencia(vencimento))}.
+      Fecha {diasAntes} dia{diasAntes === 1 ? "" : "s"} antes de cada vencimento. Próximo fechamento:{" "}
+      <strong style={{ color: "var(--accent)" }}>{fmt(fechamentoDaFatura(regra, c))}</strong> (vence {fmt(vencimentoDaFatura(regra, c))}),
+      depois {fmt(fechamentoDaFatura(regra, prox))} (vence {fmt(vencimentoDaFatura(regra, prox))}).
     </p>
   );
 }
