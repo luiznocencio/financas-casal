@@ -78,20 +78,6 @@ export function AtivarNotificacoes() {
     }
   }
 
-  const [testeMsg, setTesteMsg] = useState<string | null>(null);
-  async function testar() {
-    setErro(null); setTesteMsg(null); setOcupado(true);
-    try {
-      const r = await fetch("/api/push/teste", { method: "POST" }).then((x) => x.json());
-      if (r.enviadas > 0) setTesteMsg("Teste enviado — deve chegar em instantes.");
-      else setErro("Não encontrei este aparelho. Desative e ative os avisos de novo.");
-    } catch {
-      setErro("Não consegui enviar o teste.");
-    } finally {
-      setOcupado(false);
-    }
-  }
-
   async function desativar() {
     setErro(null); setOcupado(true);
     try {
@@ -128,14 +114,10 @@ export function AtivarNotificacoes() {
             {estado === "negado" && "As notificações estão bloqueadas nas configurações do navegador."}
           </div>
           {erro && <div className="mt-1 text-xs text-[var(--negativo)]">{erro}</div>}
-          {testeMsg && <div className="mt-1 text-xs text-[var(--positivo)]">{testeMsg}</div>}
         </div>
       </div>
       {estado === "ativo" && (
-        <div className="flex gap-2">
-          <Button variant="primary" onClick={testar} disabled={ocupado}>Enviar teste</Button>
-          <Button variant="ghost" onClick={desativar} disabled={ocupado}>Desativar</Button>
-        </div>
+        <Button variant="ghost" onClick={desativar} disabled={ocupado}>Desativar</Button>
       )}
       {estado === "inativo" && (
         <Button variant="primary" onClick={ativar} disabled={ocupado}>
