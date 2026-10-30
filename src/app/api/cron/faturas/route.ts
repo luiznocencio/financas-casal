@@ -3,7 +3,8 @@ import { timingSafeEqual } from "node:crypto";
 import { createServiceSupabase } from "@/lib/supabase/service";
 import { enviarPush } from "@/lib/push/webpush";
 import { partesNoFuso, diaSeguinte, ultimoDiaDoMes } from "@/lib/financeiro/fechamento";
-import { faturaFechaNoDia } from "@/lib/financeiro/fatura";
+import { faturaFechaNoDia, vencimentoDaFatura } from "@/lib/financeiro/fatura";
+import { valorNaFatura } from "@/lib/financeiro/faturas";
 import { contaOcorreNoMes } from "@/lib/financeiro/contas";
 import { orcamentoDoMes, type EstadoOrc } from "@/lib/financeiro/projecao";
 import { centavosParaReais } from "@/lib/financeiro/dinheiro";
@@ -29,8 +30,8 @@ const MESES = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julh
 // atenção (90%) < vai passar (projeção) < estourou — só avisa quando o estado SOBE
 const RANK: Record<EstadoOrc, number> = { ok: 0, atencao: 1, vai_estourar: 2, estourou: 3 };
 
-// Roda 1x/dia (Vercel Cron). Avisa quando a fatura de um cartão fecha AMANHÃ,
-// quando uma conta vence amanhã e quando uma categoria do orçamento chega a 90%,
+// Roda 1x/dia (Vercel Cron). Avisa quando a fatura de um cartão fecha ou vence
+// AMANHÃ (só pro dono do cartão, pelo nome), quando uma conta vence amanhã e quando uma categoria do orçamento chega a 90%,
 // vai passar do limite (com o que ainda vai cair) ou estourou.
 export async function GET(req: Request) {
   // só a Vercel Cron (ou quem tiver o segredo) pode disparar
@@ -46,19 +47,24 @@ export async function GET(req: Request) {
   const amanha = diaSeguinte(hoje.ano, hoje.mes, hoje.dia);
 
   const supabase = createServiceSupabase();
-  const [cardsRes, subsRes, contasRes, pagasRes, orcRes] = await Promise.all([
-    supabase.from("cards").select("id, nome, dia_fechamento, dia_vencimento, dias_fechamento_antes, household_id"),
-    supabase.from("push_subscriptions").select("household_id, endpoint, p256dh, auth"),
+  const [cardsRes, subsRes, contasRes, pagasRes, orcRes, membrosRes, faturasRes] = await Promise.all([
+    supabase.from("cards").select("id, nome, titular, dia_fechamento, dia_vencimento, dias_fechamento_antes, household_id"),
+    supabase.from("push_subscriptions").select("household_id, endpoint, p256dh, auth, criado_por"),
     supabase.from("contas_pagar").select("id, descricao, dia_vencimento, household_id, recorrencia, data_fim, created_at").eq("ativo", true),
     // contas já quitadas no mês do vencimento de amanhã (pelo mês que o pagamento quita)
     supabase.from("transactions").select("conta_pagar_id").not("conta_pagar_id", "is", null)
       .eq("conta_pagar_ref", `${amanha.ano}-${pad(amanha.mes)}`),
     // falha no orçamento não pode derrubar os avisos de fatura/conta
     forcar ? Promise.resolve(null) : carregarOrcamentos(supabase).catch(() => null),
+    supabase.from("members").select("user_id, nome, household_id"),
+    // faturas em aberto que vencem no mês de amanhã (aviso de vencimento)
+    supabase.from("invoices").select("id, card_id, competencia_ano, competencia_mes, status")
+      .eq("competencia_ano", amanha.ano).eq("competencia_mes", amanha.mes).neq("status", "paga"),
   ]);
-  if (cardsRes.error || subsRes.error || contasRes.error || pagasRes.error) {
+  const erroBase = cardsRes.error ?? subsRes.error ?? contasRes.error ?? pagasRes.error ?? membrosRes.error ?? faturasRes.error;
+  if (erroBase) {
     return NextResponse.json(
-      { error: cardsRes.error?.message ?? subsRes.error?.message ?? contasRes.error?.message ?? pagasRes.error?.message },
+      { error: erroBase.message },
       { status: 500 },
     );
   }
@@ -67,6 +73,36 @@ export async function GET(req: Request) {
   const subs = subsRes.data ?? [];
   // fechamento pelo calendário real (N dias antes do vencimento de cada fatura)
   const fechandoAmanha = cartoes.filter((c) => faturaFechaNoDia(c, amanha));
+
+  // fatura (não paga, com valor) que vence amanhã
+  const faturasMes = faturasRes.data ?? [];
+  const { data: itensFatura, error: errItens } = faturasMes.length
+    ? await supabase.from("transactions").select("invoice_id, valor_centavos, tipo").in("invoice_id", faturasMes.map((f) => f.id))
+    : { data: [], error: null };
+  if (errItens) return NextResponse.json({ error: errItens.message }, { status: 500 });
+  const totalFatura = new Map<string, number>();
+  for (const t of itensFatura ?? []) totalFatura.set(t.invoice_id!, (totalFatura.get(t.invoice_id!) ?? 0) + valorNaFatura(t));
+  const vencendoCartao = cartoes.flatMap((card) => {
+    const v = vencimentoDaFatura(card, { ano: amanha.ano, mes: amanha.mes });
+    if (v.dia !== amanha.dia) return [];
+    const fat = faturasMes.find((f) => f.card_id === card.id);
+    const total = fat ? totalFatura.get(fat.id) ?? 0 : 0;
+    return total > 0 ? [{ card, total }] : [];
+  });
+
+  // aviso de cartão vai só pro dono (titular), com o nome dele; cartão sem
+  // titular do lar avisa a casa toda
+  const membros = membrosRes.data ?? [];
+  const destinoDoCartao = (card: (typeof cartoes)[number]) => {
+    const dono = membros.find((m) => m.household_id === card.household_id && m.nome === card.titular);
+    return {
+      nome: dono?.nome ?? null,
+      subs: subs.filter((s) => s.household_id === card.household_id && (!dono || s.criado_por === dono.user_id)),
+    };
+  };
+  // "Luiz, seu Itaú" (o titular desambigua os dois Nubank)
+  const seuCartao = (nome: string | null, card: (typeof cartoes)[number]) =>
+    nome ? `${nome}, seu ${card.nome}` : `O ${card.nome}`;
 
   // contas a pagar que vencem AMANHÃ (um dia de antecedência) e ainda não foram pagas
   const pagasMes = new Set((pagasRes.data ?? []).map((t) => t.conta_pagar_id));
@@ -90,20 +126,32 @@ export async function GET(req: Request) {
         },
       }))
     : [
-        ...fechandoAmanha.flatMap((card) =>
-          subs
-            .filter((s) => s.household_id === card.household_id)
-            .map((s) => ({
-              s,
-              payload: {
-                title: "💳 Fatura fechando amanhã",
-                body: `A fatura do ${card.nome} fecha amanhã. Confira os gastos antes de fechar.`,
-                url: "/cartoes",
-                tag: `fatura-${card.id}`,
-                tipo: "fatura" as const,
-              },
-            })),
-        ),
+        ...fechandoAmanha.flatMap((card) => {
+          const { nome, subs: alvo } = destinoDoCartao(card);
+          return alvo.map((s) => ({
+            s,
+            payload: {
+              title: `💳 ${seuCartao(nome, card)} fecha amanhã`,
+              body: "Confira os gastos da fatura antes de fechar.",
+              url: "/cartoes",
+              tag: `fatura-${card.id}`,
+              tipo: "fatura" as const,
+            },
+          }));
+        }),
+        ...vencendoCartao.flatMap(({ card, total }) => {
+          const { nome, subs: alvo } = destinoDoCartao(card);
+          return alvo.map((s) => ({
+            s,
+            payload: {
+              title: `💳 ${nome ? `${nome}, a fatura do seu ${card.nome}` : `A fatura do ${card.nome}`} vence amanhã`,
+              body: `${centavosParaReais(total)} pra pagar. Já deixa pago pra não esquecer.`,
+              url: "/cartoes",
+              tag: `vencimento-${card.id}`,
+              tipo: "fatura" as const,
+            },
+          }));
+        }),
         ...vencendoAmanha.flatMap((conta) =>
           subs
             .filter((s) => s.household_id === conta.household_id)
@@ -179,6 +227,7 @@ export async function GET(req: Request) {
     amanha,
     dispositivos: subs.length,
     cartoesFechando: fechandoAmanha.length,
+    faturasVencendo: vencendoCartao.length,
     contasVencendo: vencendoAmanha.length,
     alertasOrcamento: novosAlertas.length,
     enviadas,
