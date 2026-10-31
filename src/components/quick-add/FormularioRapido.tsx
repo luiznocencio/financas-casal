@@ -36,6 +36,7 @@ export function FormularioRapido({
 
   const [centavos, setCentavos] = useState(valorInicialReais ? reaisParaCentavos(valorInicialReais) : 0);
   const [descricao, setDescricao] = useState(inicial?.descricao ?? "");
+  const [observacao, setObservacao] = useState("");
   const [tipo, setTipo] = useState<"despesa" | "receita">(inicial?.tipo ?? "despesa");
   const [tipoOrigem, setTipoOrigem] = useState<TipoOrigem>(origemInicial.tipo);
   const [origemId, setOrigemId] = useState<string>(origemInicial.id);
@@ -74,6 +75,7 @@ export function FormularioRapido({
       card_id: tipoOrigem === "card" ? origemId : null,
       total_parcelas: tipoOrigem === "card" ? parcelas : 1,
       descricao: descricao.trim() || null,
+      observacao: observacao.trim() || null,
     };
     try {
       const res = await fetch("/api/transactions", { method: "POST", body: JSON.stringify(body) });
@@ -153,6 +155,11 @@ export function FormularioRapido({
         <option value="">Sem categoria</option>
         {ordenarComSubcategorias(catsDoTipo).map((c) => <option key={c.id} value={c.id}>{c.rotulo}</option>)}
       </select>
+
+      {/* observação opcional — a mesma que aparece no extrato */}
+      <input value={observacao} onChange={(e) => setObservacao(e.target.value)}
+        placeholder="Observação (opcional): o que foi essa compra?"
+        style={{ ...selectStyle, fontSize: "0.9rem" }} />
 
       {erro && <p style={{ color: "var(--negativo)", margin: 0, fontSize: "0.85rem" }}>{erro}</p>}
       <Button variant="primary" onClick={salvar} disabled={salvando} aria-busy={salvando} style={{ width: "100%" }}>

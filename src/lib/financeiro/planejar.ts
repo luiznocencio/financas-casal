@@ -15,6 +15,7 @@ export type LinhaPlanejada = {
   parcela_n: number;
   total_parcelas: number;
   descricao: string | null;
+  observacao?: string | null;
   invoiceCompetencia: Competencia | null; // null = lançamento em conta
 };
 
@@ -22,7 +23,7 @@ export type LinhaPlanejada = {
 export function planejarLinhas(l: NovoLancamento, diaFechamento: number | null, diaVencimento?: number | null, diasFechamentoAntes?: number | null): LinhaPlanejada[] {
   const comum = {
     tipo: l.tipo, categoria_id: l.categoria_id, pessoa: l.pessoa,
-    account_id: l.account_id, card_id: l.card_id, descricao: l.descricao,
+    account_id: l.account_id, card_id: l.card_id, descricao: l.descricao, observacao: l.observacao ?? null,
     data_compra: l.data_compra,
   };
 

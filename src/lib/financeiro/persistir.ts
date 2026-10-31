@@ -54,6 +54,7 @@ export async function persistirLancamento(
         parcela_n: parcelaInfo?.parcela_n ?? 1,
         total_parcelas: parcelaInfo?.total_parcelas ?? 1,
         descricao: l.descricao ?? null,
+        observacao: l.observacao ?? null,
         invoiceCompetencia: { ano: competenciaForcada.ano, mes: competenciaForcada.mes },
       }]
     : planejarLinhas(l, diaFechamento, diaVencimento, diasAntes);

@@ -19,6 +19,8 @@ export async function POST(req: Request) {
   // "de quem é" não vem mais do formulário: persistirLancamento usa o titular da origem
   l.pessoa = typeof l.pessoa === "string" && l.pessoa ? l.pessoa : "conjunto";
 
+  l.observacao = typeof l.observacao === "string" && l.observacao.trim() ? l.observacao.trim().slice(0, 500) : null;
+
   // lançamento manual: ortografia corrigida e sempre com inicial maiúscula
   if (typeof l.descricao === "string" && l.descricao.trim()) {
     l.descricao = await corrigirDescricao(l.descricao, process.env.OPENAI_API_KEY ? chamarModeloJson : null);

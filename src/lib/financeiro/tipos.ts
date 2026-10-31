@@ -8,5 +8,6 @@ export type NovoLancamento = {
   card_id: string | null;
   total_parcelas: number;         // 1 = à vista
   descricao: string | null;
+  observacao?: string | null;     // nota livre ("o que foi essa compra?")
   origem_ia?: boolean;
 };

@@ -32,6 +32,7 @@ export function mapearRegistros(
       invoice_id: chave ? invoiceIdPorComp.get(chave) ?? null : null,
       grupo_parcela: linha.grupo_parcela, parcela_n: linha.parcela_n,
       total_parcelas: linha.total_parcelas, descricao: linha.descricao,
+      ...(linha.observacao ? { observacao: linha.observacao } : {}),
       criado_por: ctx.criadoPor, origem_ia: ctx.origemIa,
       grupo_importacao: ctx.grupoImportacao ?? null,
       recorrente_id: ctx.recorrenteId ?? null,
