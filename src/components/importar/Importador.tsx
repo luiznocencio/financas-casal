@@ -15,6 +15,7 @@ type Linha = {
   tipo: "despesa" | "receita"; total_parcelas: number;
   categoria_id: string | null; pessoa: string; incluir: boolean; duplicada?: boolean; fixo?: boolean;
   descricao_original?: string; // texto cru do banco, pra aprender ajustes no confirmar
+  observacao?: string;          // nota livre ("o que foi essa compra?")
 };
 
 export function Importador({
@@ -145,6 +146,7 @@ export function Importador({
       data: l.data, descricao: l.descricao, valor_centavos: l.valor_centavos,
       tipo: l.tipo, total_parcelas: l.total_parcelas, categoria_id: l.categoria_id, pessoa: l.pessoa,
       fixo: l.fixo ?? false, descricao_original: l.descricao_original ?? null,
+      observacao: l.observacao?.trim() || null,
     }));
     const [ano, mes] = comp.split("-").map(Number);
     setCarregando(true);
@@ -265,8 +267,8 @@ export function Importador({
 
           <div className="flex flex-col divide-y divide-[var(--border)]">
             {linhas.map((l, i) => (
-              <div key={i} className="flex flex-col gap-1 py-2 text-sm sm:flex-row sm:items-center sm:gap-2">
-                <div className="flex min-w-0 items-center gap-2">
+              <div key={i} className="flex flex-col gap-1 py-2 text-sm sm:flex-row sm:flex-wrap sm:items-center sm:gap-2">
+                <div className="flex min-w-0 items-center gap-2 sm:flex-1">
                   <input type="checkbox" checked={l.incluir} onChange={(e) => atualizar(i, { incluir: e.target.checked })} />
                   <input value={l.descricao} onChange={(e) => atualizar(i, { descricao: e.target.value })}
                     className="min-w-0 flex-1 rounded border border-[var(--border)] bg-[var(--surface)] px-2 py-1 text-[var(--text)]" />
@@ -312,6 +314,10 @@ export function Importador({
                   <button type="button" onClick={() => removerLinha(i)} aria-label="Remover linha"
                     className="rounded p-1 text-[var(--muted)] hover:text-[var(--negativo)]"><X size={14} /></button>
                 </div>
+                {/* observação já na importação (vai pro extrato junto do lançamento) */}
+                <input value={l.observacao ?? ""} onChange={(e) => atualizar(i, { observacao: e.target.value })}
+                  placeholder="Observação (opcional): o que foi essa compra?"
+                  className="ml-6 min-w-0 rounded border border-[var(--border)] bg-[var(--surface)] px-2 py-1 text-xs text-[var(--text)] sm:ml-0 sm:basis-full" />
               </div>
             ))}
           </div>

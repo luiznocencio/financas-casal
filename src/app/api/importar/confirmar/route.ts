@@ -21,6 +21,7 @@ type ItemImport = {
   fixo?: boolean; // marcar como gasto fixo (acha-ou-cria recorrente e liga)
   categoria_id: string | null; pessoa: string;
   descricao_original?: string | null; // texto cru do banco, pra aprender ajustes
+  observacao?: string | null;
 };
 
 const DATA_ISO = /^\d{4}-\d{2}-\d{2}$/;
@@ -212,6 +213,7 @@ export async function POST(req: Request) {
       account_id: origem.account_id ?? null, card_id: origem.card_id ?? null,
       total_parcelas: totalParcelas,
       descricao: it.descricao, origem_ia: true,
+      observacao: typeof it.observacao === "string" && it.observacao.trim() ? it.observacao.trim().slice(0, 500) : null,
     };
     const { error } = await persistirLancamento(
       supabase, { householdId: membro.household_id, criadoPor: membro.user_id, grupoImportacao, recorrenteId }, novo, diaFechamento, competencia, parcelaInfo,
