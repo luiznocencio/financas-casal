@@ -8,6 +8,7 @@ import { Spinner } from "@/components/ui/Spinner";
 import { MoneyInput } from "@/components/ui/MoneyInput";
 import { Repeat, UploadSimple, Plus, X } from "@phosphor-icons/react";
 import { ordenarComSubcategorias } from "@/lib/ui/categorias";
+import { hojeISO } from "@/lib/financeiro/fechamento";
 
 type Linha = {
   data: string; descricao: string; valor_centavos: number;
@@ -132,7 +133,7 @@ export function Importador({
   }
   function adicionarLinha() {
     const [ano, mes] = comp.split("-").map(Number);
-    const dataPadrao = origem.startsWith("card:") && ano && mes ? `${ano}-${String(mes).padStart(2, "0")}-01` : new Date().toISOString().slice(0, 10);
+    const dataPadrao = origem.startsWith("card:") && ano && mes ? `${ano}-${String(mes).padStart(2, "0")}-01` : hojeISO();
     const nova: Linha = { data: dataPadrao, descricao: "", valor_centavos: 0, tipo: "despesa", total_parcelas: 1, categoria_id: null, pessoa: donoDaOrigem(), incluir: true };
     setLinhas((ls) => [...(ls ?? []), nova]);
   }

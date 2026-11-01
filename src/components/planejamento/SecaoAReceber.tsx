@@ -1,5 +1,5 @@
 import { createServerSupabase } from "@/lib/supabase/server";
-import { partesNoFuso, ultimoDiaDoMes } from "@/lib/financeiro/fechamento";
+import { partesNoFuso, ultimoDiaDoMes, hojeISO } from "@/lib/financeiro/fechamento";
 import { Money } from "@/components/ui/Money";
 import { Card } from "@/components/ui/Card";
 import { AddReceitaAgendada } from "@/components/receitas/AddReceitaAgendada";
@@ -35,7 +35,7 @@ export async function SecaoAReceber() {
   for (const t of recebidasRes.data ?? []) if (t.receita_agendada_id) recebidoNoMes.set(t.receita_agendada_id, t.valor_centavos);
   // pendente do mês = só o que ainda não recebi
   const totalPendente = receitas.filter((r) => !recebidoNoMes.has(r.id)).reduce((s, r) => s + r.valor_centavos, 0);
-  const hoje = new Date().toISOString().slice(0, 10);
+  const hoje = hojeISO();
 
   return (
     <div className="flex flex-col gap-6">

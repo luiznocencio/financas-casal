@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { ArrowsLeftRight } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/Button";
 import { MoneyInput } from "@/components/ui/MoneyInput";
+import { hojeISO } from "@/lib/financeiro/fechamento";
 
 type Conta = { id: string; nome: string; titular?: string | null };
 const rotulo = (c: Conta) => (c.titular ? `${c.nome} · ${c.titular}` : c.nome);
@@ -14,7 +15,7 @@ export function TransferirEntreContas({ contas }: { contas: Conta[] }) {
   const [origem, setOrigem] = useState(contas[0]?.id ?? "");
   const [destino, setDestino] = useState(contas[1]?.id ?? "");
   const [valor, setValor] = useState(0);
-  const [data, setData] = useState(new Date().toISOString().slice(0, 10));
+  const [data, setData] = useState(hojeISO());
   const [descricao, setDescricao] = useState("");
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);

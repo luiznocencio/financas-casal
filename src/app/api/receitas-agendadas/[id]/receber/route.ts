@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { getMembroAtual } from "@/lib/auth/household";
 import { persistirLancamento } from "@/lib/financeiro/persistir";
-import { ultimoDiaDoMes } from "@/lib/financeiro/fechamento";
+import { ultimoDiaDoMes, hojeISO } from "@/lib/financeiro/fechamento";
 import type { ReceitaAgendada } from "@/lib/db/tipos";
 
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -31,7 +31,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
   // valor real recebido (salário oscila); sem valor válido, usa o valor base
   const valor = Number(body?.valor_centavos) > 0 ? Math.round(Number(body.valor_centavos)) : r.valor_centavos;
-  const hoje = new Date().toISOString().slice(0, 10);
+  const hoje = hojeISO();
   const { error: errTx } = await persistirLancamento(
     supabase,
     { householdId: membro.household_id, criadoPor: membro.user_id, receitaAgendadaId: id },

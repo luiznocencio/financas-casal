@@ -47,3 +47,9 @@ export function diaSeguinte(ano: number, mes: number, dia: number): { ano: numbe
   const d = new Date(Date.UTC(ano, mes - 1, dia + 1));
   return { ano: d.getUTCFullYear(), mes: d.getUTCMonth() + 1, dia: d.getUTCDate() };
 }
+
+/** "Hoje" (YYYY-MM-DD) no fuso do casal. `toISOString` usa UTC e, depois das 21h, já dava amanhã. */
+export function hojeISO(fuso = "America/Sao_Paulo"): string {
+  const { ano, mes, dia } = partesNoFuso(new Date(), fuso);
+  return `${ano}-${String(mes).padStart(2, "0")}-${String(dia).padStart(2, "0")}`;
+}

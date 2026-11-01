@@ -5,6 +5,7 @@ import { reaisParaCentavos } from "@/lib/financeiro/dinheiro";
 import { Button } from "@/components/ui/Button";
 import { MoneyInput } from "@/components/ui/MoneyInput";
 import { ordenarComSubcategorias } from "@/lib/ui/categorias";
+import { hojeISO } from "@/lib/financeiro/fechamento";
 
 export function FormularioRapido({
   cartoes, contas, categorias, usuarioAtual, cartaoPrincipalId, valorInicialReais = "", inicial, onCriado,
@@ -42,8 +43,8 @@ export function FormularioRapido({
   const [origemId, setOrigemId] = useState<string>(origemInicial.id);
   const [categoriaId, setCategoriaId] = useState<string>(inicial?.categoria_id ?? "");
   const [parcelas, setParcelas] = useState(inicial?.total_parcelas && inicial.total_parcelas > 0 ? inicial.total_parcelas : 1);
-  const hojeISO = new Date().toISOString().slice(0, 10);
-  const [data, setData] = useState(inicial?.data ?? hojeISO);
+  const hoje = hojeISO();
+  const [data, setData] = useState(inicial?.data ?? hoje);
   const [erro, setErro] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
   // trava síncrona: cliques rápidos não passam antes do estado re-renderizar

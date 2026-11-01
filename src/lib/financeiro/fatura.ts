@@ -92,3 +92,15 @@ export function faturaFechaNoDia(r: RegraFatura, d: Dia): boolean {
   }
   return false;
 }
+
+/**
+ * Mês de CONSUMO de uma fatura: o mês que o ciclo dela mais cobre (dia do
+ * fechamento − 15). Ex.: Nubank que fecha 30/11 (vence 07/12) é "a fatura de
+ * novembro" — uma compra no cartão em 31/10, já depois do fechamento de outubro,
+ * conta em novembro. Itaú que fecha 04/11 (vence 10/11) é a "de outubro".
+ */
+export function mesDaFatura(r: RegraFatura, c: Competencia): Competencia {
+  const f = fechamentoDaFatura(r, c);
+  const d = new Date(Date.UTC(f.ano, f.mes - 1, f.dia - 15));
+  return { ano: d.getUTCFullYear(), mes: d.getUTCMonth() + 1 };
+}

@@ -12,7 +12,7 @@ import { CategoriaTag } from "@/components/ui/CategoriaTag";
 import { SairButton } from "@/components/shell/SairButton";
 import { AtivarNotificacoes } from "@/components/pwa/AtivarNotificacoes";
 import { CheckCircle, WarningCircle, Wallet, Receipt } from "@phosphor-icons/react/dist/ssr";
-import { orcamentoDoMes } from "@/lib/financeiro/projecao";
+import { orcamentoDoMes, comCompetenciaDeParcela } from "@/lib/financeiro/projecao";
 import { valorNaFatura, faturaAtualDoCartao, faturasEmAbertoAteAtual } from "@/lib/financeiro/faturas";
 import type { FatosResumo } from "@/lib/financeiro/resumoFrase";
 import { ResumoFrase } from "@/components/dashboard/ResumoFrase";
@@ -65,14 +65,11 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   const { data: membrosData } = membrosRes;
   const membros = (membrosData ?? []).map((m) => m.nome);
 
-  // CONSUMO = mês da compra: à vista (pix e cartão) conta pela data; parcela conta
-  // a parcela no mês em que ela entra na fatura (competência), pra não somar as 10
-  // parcelas num mês só. A camada de caixa (projeção) usa outra régua, mais abaixo.
+  // CONSUMO: pix pela data; cartão à vista pelo mês do ciclo da fatura em que
+  // caiu (compra depois do fechamento conta no mês seguinte); parcela no mês em
+  // que entra na fatura. A camada de caixa (projeção) usa outra régua, mais abaixo.
   const compPorInvoice = new Map((invoicesRes.data ?? []).map((i) => [i.id, { ano: i.competencia_ano, mes: i.competencia_mes }]));
-  const txsRef = (txs ?? []).map((t) =>
-    t.card_id && t.total_parcelas > 1 && t.invoice_id && compPorInvoice.has(t.invoice_id)
-      ? { ...t, competencia: compPorInvoice.get(t.invoice_id) }
-      : t);
+  const txsRef = comCompetenciaDeParcela(txs ?? [], invoicesRes.data ?? [], cards ?? []);
 
   const saldoTotal = (contas ?? []).reduce((s, c) => {
     const mov = (txs ?? []).filter((t) => t.account_id === c.id);
@@ -237,12 +234,13 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   // compras no cartão JÁ feitas (consumo até o mês visto) que vencem DEPOIS dele:
   // ainda não estão no "a pagar", mas já comprometem o próximo salário. Parcela
   // futura é consumo futuro (fica de fora); à vista conta pela data da compra.
-  const cartaoVenceDepois = ehPassado ? 0 : (txs ?? []).reduce((s, t) => {
+  const cartaoVenceDepois = ehPassado ? 0 : txsRef.reduce((s, t) => {
     if (!t.card_id || t.paga || t.tipo !== "despesa" || !t.invoice_id) return s;
     const comp = compPorInvoice.get(t.invoice_id);
     if (!comp || idxMes(comp.ano, comp.mes) <= idxRef) return s;
-    const idxConsumo = t.total_parcelas > 1
-      ? idxMes(comp.ano, comp.mes)
+    const c = "competencia" in t && t.competencia ? t.competencia : null;
+    const idxConsumo = c
+      ? idxMes(c.ano, c.mes)
       : idxMes(Number(t.data_compra.slice(0, 4)), Number(t.data_compra.slice(5, 7)));
     return idxConsumo <= idxRef ? s + t.valor_centavos : s;
   }, 0);
@@ -269,6 +267,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
     cats: cats ?? [], budgets: budgetsRes.data ?? [], txs: txs ?? [], invoices: invoicesRes.data ?? [],
     // projeção do que ainda vai cair só faz sentido do mês atual em diante
     fixos: ehPassado ? [] : fixosRes.data ?? [], contas: ehPassado ? [] : contasAtivas, hoje: atual,
+    cards: cards ?? [],
   });
   const gastoAnterior = resumoDoMes(txsRef, mesPrev).totalDespesas;
   const fatos: FatosResumo = {

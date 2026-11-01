@@ -238,21 +238,23 @@ export async function GET(req: Request) {
 // Dados do orçamento de todas as casas (o cron roda sem sessão, com service role),
 // agrupados por household pra calcular o orçamento projetado de cada uma.
 async function carregarOrcamentos(supabase: ReturnType<typeof createServiceSupabase>) {
-  const [cats, budgets, txs, invoices, fixos, contas] = await Promise.all([
+  const [cats, budgets, txs, invoices, fixos, contas, cards] = await Promise.all([
     supabase.from("categories").select("id, nome, parent_id, household_id").eq("tipo", "despesa"),
     supabase.from("budgets").select("categoria_id, valor_centavos, household_id"),
     todas((de, ate) => supabase.from("transactions").select("household_id, tipo, valor_centavos, pessoa, categoria_id, data_compra, card_id, account_id, invoice_id, total_parcelas, recorrente_id, conta_pagar_id, conta_pagar_ref, descricao").order("id").range(de, ate)),
-    supabase.from("invoices").select("id, competencia_ano, competencia_mes, household_id"),
+    supabase.from("invoices").select("id, card_id, competencia_ano, competencia_mes, household_id"),
     supabase.from("recorrentes").select("id, descricao, valor_centavos, categoria_id, dia, card_id, account_id, data_fim, ativo, household_id").eq("ativo", true),
     supabase.from("contas_pagar").select("id, descricao, categoria_id, valor_estimado_centavos, dia_vencimento, recorrencia, data_fim, created_at, household_id").eq("ativo", true),
+    supabase.from("cards").select("id, dia_fechamento, dia_vencimento, dias_fechamento_antes, household_id"),
   ]);
-  const erro = cats.error ?? budgets.error ?? txs.error ?? invoices.error ?? fixos.error ?? contas.error;
+  const erro = cats.error ?? budgets.error ?? txs.error ?? invoices.error ?? fixos.error ?? contas.error ?? cards.error;
   if (erro) throw new Error(erro.message);
   const de = <T extends { household_id: string }>(rows: T[] | null, hh: string) => (rows ?? []).filter((r) => r.household_id === hh);
   return {
     porCasa: (hh: string) => ({
       cats: de(cats.data, hh), budgets: de(budgets.data, hh), txs: de(txs.data, hh),
       invoices: de(invoices.data, hh), fixos: de(fixos.data, hh), contas: de(contas.data, hh),
+      cards: de(cards.data, hh),
     }),
   };
 }

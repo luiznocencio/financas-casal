@@ -8,6 +8,7 @@ import { FormularioRapido } from "./FormularioRapido";
 import { Button } from "@/components/ui/Button";
 import { Money } from "@/components/ui/Money";
 import { Spinner } from "@/components/ui/Spinner";
+import { hojeISO } from "@/lib/financeiro/fechamento";
 
 export function QuickAdd({
   cartoes, contas, categorias, usuarioAtual, cartaoPrincipalId,
@@ -58,7 +59,7 @@ export function QuickAdd({
         method: "POST",
         body: JSON.stringify({
           tipo: sugestao.tipo, valor_centavos: sugestao.valor_centavos,
-          data_compra: new Date().toISOString().slice(0, 10),
+          data_compra: hojeISO(),
           categoria_id: sugestao.categoria_id,
           account_id: sugestao.account_id, card_id: sugestao.card_id,
           total_parcelas: sugestao.total_parcelas, descricao: sugestao.descricao,

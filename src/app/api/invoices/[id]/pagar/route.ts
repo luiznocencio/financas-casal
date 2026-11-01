@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { valorNaFatura } from "@/lib/financeiro/faturas";
 import { getMembroAtual } from "@/lib/auth/household";
+import { hojeISO } from "@/lib/financeiro/fechamento";
 
 // Marca (ou desmarca) uma fatura inteira como paga.
 // Ao pagar: o total sai de uma CONTA escolhida (transferência que reduz o saldo,
@@ -35,7 +36,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     // lançamento de pagamento na conta (transferência: reduz saldo, não é despesa nova)
     const { error: errPag } = await supabase.from("transactions").insert({
       household_id: membro.household_id, tipo: "transferencia", valor_centavos: total,
-      data_compra: new Date().toISOString().slice(0, 10), categoria_id: null, pessoa: "conjunto",
+      data_compra: hojeISO(), categoria_id: null, pessoa: "conjunto",
       account_id: accountId, card_id: null, invoice_id: null, total_parcelas: 1, parcela_n: 1,
       descricao: "Pagamento de fatura", criado_por: membro.user_id, paga: false, origem_ia: false,
       pagamento_invoice_id: id,

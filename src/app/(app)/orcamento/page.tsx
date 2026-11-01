@@ -35,17 +35,18 @@ export default async function OrcamentoPage({ searchParams }: { searchParams: Pr
   const mesProx = mes === 12 ? { ano: ano + 1, mes: 1 } : { ano, mes: mes + 1 };
   const hrefMes = (c: { ano: number; mes: number }) => `/orcamento?mes=${c.ano}-${String(c.mes).padStart(2, "0")}`;
 
-  const [membrosRes, catsRes, budgetsRes, txsRes, contasRes, invoicesRes, fixosRes, contasPagarRes] = await Promise.all([
+  const [membrosRes, catsRes, budgetsRes, txsRes, contasRes, invoicesRes, fixosRes, contasPagarRes, cardsRes] = await Promise.all([
     supabase.from("members").select("user_id, nome, renda_mensal_centavos, ajuda_custo_centavos, salario_account_id, ajuda_custo_account_id").order("papel"),
     supabase.from("categories").select("id, nome, cor, parent_id").eq("tipo", "despesa").order("nome"),
     supabase.from("budgets").select("categoria_id, valor_centavos"),
     todas((de, ate) => supabase.from("transactions").select("categoria_id, tipo, pessoa, valor_centavos, data_compra, card_id, account_id, invoice_id, total_parcelas, recorrente_id, conta_pagar_id, conta_pagar_ref, descricao").order("id").range(de, ate)),
     supabase.from("accounts").select("id, nome, titular").order("nome"),
-    supabase.from("invoices").select("id, competencia_ano, competencia_mes"),
+    supabase.from("invoices").select("id, card_id, competencia_ano, competencia_mes"),
     supabase.from("recorrentes").select("id, descricao, valor_centavos, categoria_id, dia, card_id, account_id, data_fim, ativo").eq("ativo", true),
     supabase.from("contas_pagar").select("id, descricao, categoria_id, valor_estimado_centavos, dia_vencimento, recorrencia, data_fim, created_at").eq("ativo", true),
+    supabase.from("cards").select("id, dia_fechamento, dia_vencimento, dias_fechamento_antes"),
   ]);
-  const erro = membrosRes.error ?? catsRes.error ?? budgetsRes.error ?? txsRes.error ?? contasRes.error ?? invoicesRes.error ?? fixosRes.error ?? contasPagarRes.error;
+  const erro = membrosRes.error ?? catsRes.error ?? budgetsRes.error ?? txsRes.error ?? contasRes.error ?? invoicesRes.error ?? fixosRes.error ?? contasPagarRes.error ?? cardsRes.error;
   if (erro) throw new Error(`Falha ao carregar o orçamento: ${erro.message}`);
 
   const membros = membrosRes.data ?? [];
@@ -62,7 +63,7 @@ export default async function OrcamentoPage({ searchParams }: { searchParams: Pr
   // CONSUMO = mês da compra (parcela pela competência) + PROJEÇÃO do que ainda vai
   // cair no mês (fixos não lançados, contas pendentes). Mesma regra da Home e dos avisos.
   const orc = orcamentoDoMes({ ano, mes }, {
-    cats, budgets, txs: txsRes.data ?? [], invoices: invoicesRes.data ?? [],
+    cats, budgets, txs: txsRes.data ?? [], invoices: invoicesRes.data ?? [], cards: cardsRes.data ?? [],
     // mês que já passou: só o que aconteceu (sem projeção do que "ainda vai cair")
     fixos: ehPassado ? [] : fixosRes.data ?? [], contas: ehPassado ? [] : contasPagarRes.data ?? [],
     hoje: atual,

@@ -9,6 +9,8 @@ import { Money } from "@/components/ui/Money";
 import { resumoDoMes } from "@/lib/financeiro/agregacoes";
 import { ultimoDiaDoMes } from "@/lib/financeiro/fechamento";
 import { todas } from "@/lib/supabase/todas";
+import { mesDaFatura } from "@/lib/financeiro/fatura";
+import { comCompetenciaDeParcela } from "@/lib/financeiro/projecao";
 
 const MESES = [
   "janeiro", "fevereiro", "março", "abril", "maio", "junho",
@@ -41,10 +43,10 @@ export default async function Lancamentos({
   const [membrosRes, categoriasRes, cardsRes, contasRes, budgetsRes, invoicesRes] = await Promise.all([
     supabase.from("members").select("nome"),
     supabase.from("categories").select("id, nome, cor, parent_id, tipo"),
-    supabase.from("cards").select("id, nome, titular"),
+    supabase.from("cards").select("id, nome, titular, dia_fechamento, dia_vencimento, dias_fechamento_antes"),
     supabase.from("accounts").select("id, nome, titular"),
     supabase.from("budgets").select("categoria_id, valor_centavos"),
-    supabase.from("invoices").select("id, competencia_ano, competencia_mes"),
+    supabase.from("invoices").select("id, card_id, competencia_ano, competencia_mes"),
   ]);
   const refErro = membrosRes.error ?? categoriasRes.error ?? cardsRes.error ?? contasRes.error ?? budgetsRes.error ?? invoicesRes.error;
   if (refErro) throw new Error(`Falha ao carregar o extrato: ${refErro.message}`);
@@ -65,6 +67,16 @@ export default async function Lancamentos({
   const invIdsMes = mesValido
     ? invoices.filter((i) => i.competencia_ano === mesValido.ano && i.competencia_mes === mesValido.mes).map((i) => i.id)
     : [];
+  // faturas cujo CICLO é deste mês (compra à vista no cartão conta por aqui)
+  const cartaoPorId = new Map(cartoes.map((c) => [c.id, c]));
+  const invIdsConsumo = mesValido
+    ? invoices.filter((i) => {
+        const c = i.card_id ? cartaoPorId.get(i.card_id) : undefined;
+        if (!c) return false;
+        const m = mesDaFatura(c, { ano: i.competencia_ano, mes: i.competencia_mes });
+        return m.ano === mesValido.ano && m.mes === mesValido.mes;
+      }).map((i) => i.id)
+    : [];
   const filtrar = <Q,>(builder: Q): Q => {
     let q = builder as unknown as Filtro;
     if (sp.card) q = q.eq("card_id", sp.card);
@@ -74,11 +86,15 @@ export default async function Lancamentos({
     if (sp.origem === "pix") q = q.not("account_id", "is", null);
     if (sp.de) q = q.gte("data_compra", sp.de);
     if (sp.ate) q = q.lte("data_compra", sp.ate);
-    // mês do CONSUMO: à vista (pix e cartão) pela data; parcela pela fatura do mês
+    // mês do CONSUMO: pix pela data; cartão à vista pelo ciclo da fatura (compra
+    // depois do fechamento conta no mês seguinte); parcela pela fatura do mês
     if (mesValido) {
       const ini = `${mesValido.ano}-${pad(mesValido.mes)}-01`;
       const fim = `${mesValido.ano}-${pad(mesValido.mes)}-${pad(ultimoDiaDoMes(mesValido.ano, mesValido.mes))}`;
-      const partes = [`and(total_parcelas.lte.1,data_compra.gte.${ini},data_compra.lte.${fim})`];
+      const partes = [
+        `and(total_parcelas.lte.1,invoice_id.is.null,data_compra.gte.${ini},data_compra.lte.${fim})`,
+      ];
+      if (invIdsConsumo.length) partes.push(`and(total_parcelas.lte.1,invoice_id.in.(${invIdsConsumo.join(",")}))`);
       if (invIdsMes.length) partes.push(`and(total_parcelas.gt.1,invoice_id.in.(${invIdsMes.join(",")}))`);
       q = q.or(partes.join(","));
     }
@@ -141,10 +157,8 @@ export default async function Lancamentos({
       .from("transactions")
       .select("categoria_id, tipo, pessoa, valor_centavos, data_compra, card_id, invoice_id, total_parcelas")
       .in("categoria_id", rollupIds).order("id").range(de, ate));
-    const compPorInvoice = new Map(invoices.map((i) => [i.id, { ano: i.competencia_ano, mes: i.competencia_mes }]));
-    // consumo: à vista pela data; parcela pela competência
-    const txsRef = (txsCat ?? []).map((t) =>
-      t.card_id && t.total_parcelas > 1 && t.invoice_id && compPorInvoice.has(t.invoice_id) ? { ...t, competencia: compPorInvoice.get(t.invoice_id) } : t);
+    // consumo: pix pela data; cartão pelo ciclo da fatura; parcela pela competência
+    const txsRef = comCompetenciaDeParcela(txsCat ?? [], invoices, cartoes);
     const rd = resumoDoMes(txsRef, bm);
     const gasto = rollupIds.reduce((s, id) => s + (rd.porCategoria[id] ?? 0), 0);
     const limite = budgets.find((b) => b.categoria_id === mae.id)?.valor_centavos ?? 0;

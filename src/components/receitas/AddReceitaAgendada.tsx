@@ -4,12 +4,13 @@ import { useRouter } from "next/navigation";
 import { MoneyField } from "@/components/ui/MoneyField";
 import { Field } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
+import { hojeISO } from "@/lib/financeiro/fechamento";
 
 type Conta = { id: string; nome: string; titular?: string | null };
 
 export function AddReceitaAgendada({ contas }: { contas: Conta[] }) {
   const router = useRouter();
-  const hoje = new Date().toISOString().slice(0, 10);
+  const hoje = hojeISO();
 
   const [aberto, setAberto] = useState(false);
   const [descricao, setDescricao] = useState("");

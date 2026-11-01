@@ -2,6 +2,7 @@ import { resumoDoMes } from "./agregacoes";
 import { contaOcorreNoMes, mesesEmAberto, quitadosPorConta, chaveMes, type ContaOcorrencia } from "./contas";
 import { ultimoDiaDoMes } from "./fechamento";
 import { recorrenteJaLancado } from "./recorrentes";
+import { mesDaFatura, type RegraFatura } from "./fatura";
 
 // Orçamento PROJETADO: além do que já foi gasto no mês (consumo), soma o que é
 // CERTO de cair até o fim dele — gastos fixos ainda não lançados e contas a pagar
@@ -34,19 +35,32 @@ export type FixoOrc = {
 export type ContaOrc = ContaOcorrencia & {
   id: string; descricao: string; categoria_id: string | null; valor_estimado_centavos: number | null; ativo?: boolean;
 };
-export type InvoiceOrc = { id: string; competencia_ano: number; competencia_mes: number };
+export type InvoiceOrc = { id: string; competencia_ano: number; competencia_mes: number; card_id?: string | null };
+export type CardOrc = RegraFatura & { id: string };
 export type CatOrc = { id: string; parent_id: string | null };
 export type BudgetOrc = { categoria_id: string; valor_centavos: number };
 
 export type ACair = { descricao: string; categoria_id: string | null; valor_centavos: number; origem: "fixo" | "conta" };
 
-// Consumo = mês da compra; só a PARCELA conta pela competência da fatura.
-export function comCompetenciaDeParcela<T extends TxOrc>(txs: T[], invoices: InvoiceOrc[]) {
-  const comp = new Map(invoices.map((i) => [i.id, { ano: i.competencia_ano, mes: i.competencia_mes }]));
-  return txs.map((t) =>
-    t.card_id && t.total_parcelas > 1 && t.invoice_id && comp.has(t.invoice_id)
-      ? { ...t, competencia: comp.get(t.invoice_id) }
-      : t);
+// Mês de CONSUMO das compras no cartão:
+// - parcela: o mês em que ela entra na fatura (competência), pra não somar as
+//   10 parcelas num mês só;
+// - à vista: o mês do ciclo da fatura em que caiu (mesDaFatura) — compra feita
+//   depois do fechamento conta no mês seguinte, junto da fatura dela.
+// Sem o cartão (regra) à mão, a à vista fica pela data. Pix: sempre pela data.
+export function comCompetenciaDeParcela<T extends Pick<TxOrc, "card_id" | "invoice_id" | "total_parcelas">>(txs: T[], invoices: InvoiceOrc[], cards: CardOrc[] = []) {
+  const regra = new Map(cards.map((c) => [c.id, c]));
+  const info = new Map(invoices.map((i) => {
+    const pag = { ano: i.competencia_ano, mes: i.competencia_mes };
+    const r = i.card_id ? regra.get(i.card_id) : undefined;
+    return [i.id, { pag, consumo: r ? mesDaFatura(r, pag) : null }];
+  }));
+  return txs.map((t) => {
+    const i = t.card_id && t.invoice_id ? info.get(t.invoice_id) : undefined;
+    if (!i) return t;
+    if (t.total_parcelas > 1) return { ...t, competencia: i.pag };
+    return i.consumo ? { ...t, competencia: i.consumo } : t;
+  });
 }
 
 // O que ainda vai cair no mês: fixos não lançados + contas a pagar pendentes.
@@ -120,11 +134,12 @@ export type OrcamentoDoMes = {
 
 export function orcamentoDoMes(ref: Mes, p: {
   cats: CatOrc[]; budgets: BudgetOrc[]; txs: TxOrc[]; invoices: InvoiceOrc[]; fixos: FixoOrc[]; contas: ContaOrc[]; hoje?: Mes;
+  cards?: CardOrc[];
 }): OrcamentoDoMes {
   const paiDe = new Map(p.cats.filter((c) => c.parent_id).map((c) => [c.id, c.parent_id as string]));
   const mae = (id: string) => paiDe.get(id) ?? id;
 
-  const rd = resumoDoMes(comCompetenciaDeParcela(p.txs, p.invoices), ref);
+  const rd = resumoDoMes(comCompetenciaDeParcela(p.txs, p.invoices, p.cards), ref);
   const gastoRollup: Record<string, number> = {};
   for (const [id, v] of Object.entries(rd.porCategoria)) gastoRollup[mae(id)] = (gastoRollup[mae(id)] ?? 0) + v;
   const semCategoria = rd.totalDespesas - Object.values(rd.porCategoria).reduce((s, v) => s + v, 0);

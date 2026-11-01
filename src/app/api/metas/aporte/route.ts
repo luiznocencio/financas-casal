@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { getMembroAtual } from "@/lib/auth/household";
+import { hojeISO } from "@/lib/financeiro/fechamento";
 
 export async function POST(req: Request) {
   const membro = await getMembroAtual();
@@ -13,7 +14,7 @@ export async function POST(req: Request) {
   // valida que a meta é do household (RLS já limita; confirma existência)
   const { data: meta } = await supabase.from("goals").select("id, nome").eq("id", goal_id).maybeSingle();
   if (!meta) return NextResponse.json({ error: "meta inexistente" }, { status: 400 });
-  const data = b.data || new Date().toISOString().slice(0, 10);
+  const data = b.data || hojeISO();
 
   // se escolheu uma conta, o dinheiro guardado SAI dela (transferência: reduz o
   // saldo sem contar como despesa do mês), ligada à meta por goal_id.

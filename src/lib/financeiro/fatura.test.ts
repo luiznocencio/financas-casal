@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { competenciaDaCompra, competenciaDePagamento, proximaCompetencia, fechamentoDaFatura, faturaDaCompra, faturaFechaNoDia } from "./fatura";
+import { competenciaDaCompra, competenciaDePagamento, proximaCompetencia, fechamentoDaFatura, faturaDaCompra, faturaFechaNoDia, mesDaFatura } from "./fatura";
 
 describe("competenciaDaCompra", () => {
   const fechamento = 10;
@@ -86,5 +86,25 @@ describe("fechamento pelo calendário (N dias antes do vencimento)", () => {
     expect(faturaFechaNoDia(nubank, { ano: 2026, mes: 10, dia: 31 })).toBe(true);
     expect(faturaFechaNoDia(nubank, { ano: 2026, mes: 10, dia: 30 })).toBe(false);
     expect(faturaFechaNoDia(nubank, { ano: 2026, mes: 11, dia: 30 })).toBe(true);
+  });
+});
+
+describe("mesDaFatura (mês de consumo da fatura)", () => {
+  const nubankLuiz = { dia_fechamento: 30, dia_vencimento: 7, dias_fechamento_antes: 7 };
+  const nubankAna = { dia_fechamento: 29, dia_vencimento: 6, dias_fechamento_antes: 7 };
+  const itau = { dia_fechamento: 4, dia_vencimento: 10, dias_fechamento_antes: 6 };
+  it("fatura que fecha no fim do mês é daquele mês", () => {
+    expect(mesDaFatura(nubankLuiz, { ano: 2026, mes: 11 })).toEqual({ ano: 2026, mes: 10 }); // fecha 31/10
+    expect(mesDaFatura(nubankLuiz, { ano: 2026, mes: 12 })).toEqual({ ano: 2026, mes: 11 }); // fecha 30/11
+    expect(mesDaFatura(nubankAna, { ano: 2026, mes: 11 })).toEqual({ ano: 2026, mes: 10 });
+  });
+  it("fatura que fecha no começo do mês é do mês anterior", () => {
+    expect(mesDaFatura(itau, { ano: 2026, mes: 11 })).toEqual({ ano: 2026, mes: 10 }); // fecha 04/11
+  });
+  it("compra de 31/10 no Nubank (já fechado) conta em novembro", () => {
+    const fat = faturaDaCompra({ ano: 2026, mes: 10, dia: 31 }, nubankLuiz);
+    expect(mesDaFatura(nubankLuiz, fat)).toEqual({ ano: 2026, mes: 11 });
+    const antes = faturaDaCompra({ ano: 2026, mes: 10, dia: 30 }, nubankLuiz);
+    expect(mesDaFatura(nubankLuiz, antes)).toEqual({ ano: 2026, mes: 10 });
   });
 });
