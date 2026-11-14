@@ -83,3 +83,18 @@ describe("interpretarImportacao", () => {
     await expect(interpretarImportacao("x", async () => "nao é json")).rejects.toThrow();
   });
 });
+
+describe("pagamento da fatura anterior", () => {
+  it("cartão: ignora 'Pagamento recebido' (Nubank) e 'PAGAMENTO' (Itaú), mantém estorno de verdade", async () => {
+    const modelo = async () => JSON.stringify({ lancamentos: [
+      { data: "2026-10-07", descricao: "Pagamento recebido", valor_reais: -2067.89, tipo: "receita", total_parcelas: 1 },
+      { data: "2026-10-08", descricao: "PAGAMENTO", valor_reais: -5357.70, tipo: "receita", total_parcelas: 1 },
+      { data: "2026-10-09", descricao: "Estorno Loja X", valor_reais: -20, tipo: "receita", total_parcelas: 1 },
+      { data: "2026-10-10", descricao: "Pagamento boleto no crédito", valor_reais: 100, tipo: "despesa", total_parcelas: 1 },
+      { data: "2026-10-11", descricao: "Mercado", valor_reais: 50, tipo: "despesa", total_parcelas: 1 },
+    ] });
+    const linhas = await interpretarImportacao("x", modelo, null, true);
+    expect(linhas.map((l) => l.descricao)).toEqual(["Estorno Loja X", "Pagamento boleto no crédito", "Mercado"]);
+    expect(linhas[0].tipo).toBe("receita");
+  });
+});

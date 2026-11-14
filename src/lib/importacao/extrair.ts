@@ -14,6 +14,11 @@ const DATA_ISO = /^\d{4}-\d{2}-\d{2}$/;
 // "crédito" fica de fora de propósito: "Pix no crédito" é uma DESPESA no cartão.
 const ESTORNO = /estorno|devolu|reembols|cashback|cancelamento|ressarc/i;
 
+// Pagamento da fatura ANTERIOR ("Pagamento recebido" no Nubank, "PAGAMENTO" no
+// Itaú): vem com sinal negativo, mas não é estorno — já saiu da conta quando a
+// fatura passada foi paga. Se entrar, abate a fatura nova à toa.
+const PAGAMENTO_FATURA = /^\s*pagamento(s)?(\s+(recebido|efetuado|da fatura|fatura))?\b/i;
+
 function montarPrompt(texto: string, totalEsperadoReais?: string, cartao = false): string {
   return [
     "Extraia os lançamentos financeiros deste extrato/fatura de cartão (texto colado; cada transação começa com a data DD/MM).",
@@ -22,6 +27,8 @@ function montarPrompt(texto: string, totalEsperadoReais?: string, cartao = false
     "Extraia TODAS as linhas de transação, uma por uma, sem pular nenhuma e sem resumir.",
     "IGNORE linhas de categoria (ex.: 'ALIMENTAÇÃO .MACEIO'), total/subtotal/saldo/pagamento/limite/encargos de resumo.",
     "NÃO inclua parcelas de MESES FUTUROS ('Compras parceladas - próximas faturas', 'próxima fatura', 'demais faturas').",
+    "NÃO inclua o PAGAMENTO da fatura anterior ('Pagamento recebido', 'PAGAMENTO', 'Pagamento efetuado').",
+    "INCLUA IOF e 'Repasse de IOF' (de compra internacional) como despesa, mesmo sem data própria: use a data da compra internacional a que se refere.",
     totalEsperadoReais
       ? `O total DESTA fatura é R$ ${totalEsperadoReais}. A soma das despesas menos as receitas/estornos DEVE bater com esse total.`
       : "",
@@ -91,6 +98,8 @@ export async function interpretarImportacao(
     const valorReais = Math.abs(comSinal);
     if (!DATA_ISO.test(data) || valorReais <= 0) continue;
     const descricao = typeof item.descricao === "string" ? item.descricao : "";
+    // fatura de cartão: o pagamento da fatura anterior nunca é lançamento desta
+    if (cartao && PAGAMENTO_FATURA.test(descricao) && (comSinal < 0 || item.tipo === "receita")) continue;
     // cartão: o tipo vem do SINAL na fatura, não do nome (Pix no crédito,
     // transferência etc. são gasto). Fallback: o modelo marcou receita E o texto
     // é claramente estorno/devolução. Conta: segue o que o modelo leu.
