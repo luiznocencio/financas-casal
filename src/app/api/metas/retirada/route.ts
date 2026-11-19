@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { getMembroAtual } from "@/lib/auth/household";
+import { hojeISO } from "@/lib/financeiro/fechamento";
 
 // Resgate de uma meta: tira parte do guardado e manda para uma conta.
 // - goal_contributions recebe um valor NEGATIVO (o guardado diminui);
@@ -15,7 +16,7 @@ export async function POST(req: Request) {
   const accountId: string | null = b.account_id || null;
   if (!goal_id || !(valor > 0)) return NextResponse.json({ error: "Informe um valor maior que zero." }, { status: 400 });
 
-  const hoje = new Date().toISOString().slice(0, 10);
+  const hoje = hojeISO();
   const data: string = b.data || hoje;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(data) || data > hoje) {
     return NextResponse.json({ error: "Data inválida." }, { status: 400 });
