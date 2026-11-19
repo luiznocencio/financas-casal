@@ -6,6 +6,7 @@ import { Money } from "@/components/ui/Money";
 import { Card } from "@/components/ui/Card";
 import { NovaMetaForm } from "@/components/metas/NovaMetaForm";
 import { AporteForm } from "@/components/metas/AporteForm";
+import { RetiradaForm } from "@/components/metas/RetiradaForm";
 import { RemoverMeta } from "@/components/metas/RemoverMeta";
 import { EditarMeta } from "@/components/metas/EditarMeta";
 import { Confetti } from "@phosphor-icons/react/dist/ssr";
@@ -65,6 +66,7 @@ export async function SecaoMetas() {
                   </div>
                   <div className="mt-auto flex flex-wrap items-center gap-3 pt-1">
                     <AporteForm goalId={g.id} contas={contas} />
+                    <RetiradaForm goalId={g.id} contas={contas} guardadoCentavos={m.guardadoCentavos} />
                     <EditarMeta goalId={g.id} nome={g.nome} />
                     <RemoverMeta goalId={g.id} />
                   </div>
